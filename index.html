@@ -215,6 +215,9 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 .stp i{background:var(--rc,var(--brand))!important}
 .stp .pn{display:inline-block;font-size:11.5px;font-weight:700;color:var(--rc);margin-right:4px}
 .dif-ok{color:var(--green);font-weight:700} .dif-w{color:var(--amber);font-weight:700} .dif-b{color:var(--red);font-weight:700}
+.rf-head{background:linear-gradient(135deg,#1877F2,#0B5AD6);color:#fff;border-radius:12px;padding:10px 14px;margin-bottom:10px}
+.rf-head .rf-nm{font-family:Poppins,Inter,sans-serif;font-weight:700;font-size:17px;line-height:1.2}
+.rf-head .rf-sub{font-size:12.5px;opacity:.92;margin-top:2px}
 .dict{border-radius:12px;padding:10px 12px;font-weight:700;margin-top:10px;text-align:center;font-family:Poppins,Inter,sans-serif}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .toast.err{background:var(--red);color:#fff}
@@ -1189,9 +1192,23 @@ function autorizadoPor(s, accion){
   const id = aj ? aj.usuario_id : s.analista_id;
   return id ? `Autorizado por ${esc(nombre(id))}${aj ? ' · ' + fDT(aj.creado_en) : ''}` : '';
 }
+const fFechaHora = d => d ? new Date(d).toLocaleString('es-HN', { timeZone: TZ, weekday:'short', day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' }) : '—';
+function resumenWhatsApp(s, r){
+  const pct = x => (x * 100).toFixed(1).replace('.0','') + '%';
+  return [`*${s.nombre_cliente}*`, `${s.codigo} · ${TIPO[s.tipo]}`, `Solicitud: ${fFechaHora(s.creado_en)}`, `Asesor: ${nombre(s.asesor_id)}`, '',
+    `Antigüedad: ${r.antig == null ? '—' : r.antig + ' días'}`, `Límite sugerido: ${L(r.sugerido)}`,
+    `*Límite aprobado: ${L(r.limAprob)}*${r.autorizado && r.limCalc !== r.limAprob ? ` (calculado ${L(r.limCalc)})` : ''}`,
+    `Disponible: ${L(r.disponible)}`, `Pagos tardíos >3/≥7: ${r.tard3}/${r.tard7} de ${r.total}`,
+    `Tasa: ${pct(r.tasaNueva)} ${r.pref ? 'preferencial' : 'normal'}`, `Dictamen: ${s.dictamen_en ? (s.estado === 'denegada' ? 'DENEGADA' : 'APROBADA') + ' por ' + nombre(s.analista_id) : r.dictamen}`].join('\n');
+}
 function refiResHTML(s, r){
   const antTxt = r.antig == null ? '—' : `${r.antig} días (${(r.antig / 30.4).toFixed(1)} meses)`;
-  return `${r.sinFecha ? '<div class="alert warn small">Ingrese la fecha de ingreso del cliente para calcular la antigüedad.</div>' : ''}
+  return `<div class="rf-head">
+      <div class="rf-nm">${esc(s.nombre_cliente)}</div>
+      <div class="rf-sub">${esc(s.codigo)} · ${TIPO[s.tipo]} · Solicitud: ${fFechaHora(s.creado_en)}</div>
+      <div class="rf-sub">Asesor: ${esc(nombre(s.asesor_id))}${s.analista_id ? ' · Analista: ' + esc(nombre(s.analista_id)) : ''}</div>
+    </div>
+    ${r.sinFecha ? '<div class="alert warn small">Ingrese la fecha de ingreso del cliente para calcular la antigüedad.</div>' : ''}
     <div class="res">
       <div class="box"><div class="l">Antigüedad</div><div class="v" style="font-size:16px">${antTxt}</div></div>
       <div class="box"><div class="l">Peldaño aplicado</div><div class="v" style="font-size:15px">${r.peldano}</div></div>
@@ -1235,7 +1252,8 @@ function refiHTML(s, c, edit){
     </tbody></table></div>` : '<div class="small muted">Sin historial de pagos.</div>'}
     ${edit ? `<textarea id="rfPegar" rows="3" placeholder="Pegue aquí la tabla de pagos copiada del sistema o del Excel (Documento, Fecha, Valor, Acción, Fecha de cuota)" style="margin-top:8px"></textarea>
       <div class="btns" style="margin-top:6px"><button class="btn sm pri" id="rfProc">Agregar pagos pegados</button>${r.pagos.length ? '<button class="btn sm ghost" id="rfLimpiar">Borrar historial</button>' : ''}</div>` : ''}
-    <div id="rfRes" style="margin-top:12px">${refiResHTML(s, r)}</div>
+    <div class="btns" style="margin-top:12px"><button class="btn sm ghost" id="rfCopiar">📋 Copiar resumen para WhatsApp</button></div>
+    <div id="rfRes" style="margin-top:8px">${refiResHTML(s, r)}</div>
   </div>`;
 }
 function enlazarRefi(s){
@@ -1247,6 +1265,12 @@ function enlazarRefi(s){
     if ($('#dSug')) $('#dSug').innerHTML = dictamenRefiHTML(r);
     if ($('#dMonto') && !S.montoTocado) $('#dMonto').value = r.limAprob || '';
     S.actLibre && S.actLibre();
+  };
+  const cop = $('#rfCopiar');
+  if (cop) cop.onclick = async () => {
+    const cs = cur(), txt = resumenWhatsApp(cs, calcRefi(cs, calcular(S.detData.ing, cs.tipo_pago, cs.rubro_especial)));
+    try { await navigator.clipboard.writeText(txt); toast('Resumen copiado. Péguelo en el grupo.'); }
+    catch(e){ const w = dialogo(`<h3>Resumen</h3><textarea rows="12" readonly>${esc(txt)}</textarea><div class="btns"><button class="btn pri" data-close>Cerrar</button></div>`); w.querySelector('textarea').select(); }
   };
   const guardar = (datos) => run(null, async () => { await rpc('actualizar_datos_refi', { p_id: s.id, p_datos: datos }); Object.assign(cur(), datos); recalcular(); });
   card.querySelectorAll('[data-rf]').forEach(el => el.onchange = () => {

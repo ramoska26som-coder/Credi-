@@ -1,0 +1,1205 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f5c4d">
+<title>VerifiCrédito</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#f3f4f1; --card:#ffffff; --ink:#1b1d1c; --ink2:#55605b; --muted:#8a938f; --line:#e2e5e0;
+  --brand:#0f5c4d; --brand2:#e7f1ee; --accent:#eb6834;
+  --gray:#6b7280; --gray-bg:#eef0f2; --blue:#1d5fb8; --blue-bg:#e3eefc; --green:#17803d; --green-bg:#e2f5e8;
+  --red:#b42318; --red-bg:#fde8e6; --amber:#9a6200; --amber-bg:#fdf2d8; --violet:#6a3fb5; --violet-bg:#efe8fb;
+  --teal:#0e7c6b; --teal-bg:#ddf3ee; --s1:#2a78d6; --s2:#eb6834;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){ :root{
+  --bg:#121413; --card:#1c1f1e; --ink:#eef1ef; --ink2:#b9c2be; --muted:#87918c; --line:#2d3230;
+  --brand:#3fb39a; --brand2:#1d2e2a; --gray-bg:#2a2d2f; --blue-bg:#1b2a40; --green-bg:#17301f; --red-bg:#3a1d1a;
+  --amber-bg:#3a2e12; --violet-bg:#2a2140; --teal-bg:#15312c; --gray:#a4abb3; --blue:#7fb0f0; --green:#6fd08f;
+  --red:#f28b82; --amber:#f0c060; --violet:#b9a0f0; --teal:#5fd0bb; --s1:#3987e5; --s2:#d95926;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+header.top{position:sticky;top:0;z-index:20;background:var(--brand);color:#fff;padding:10px 16px calc(0px);}
+header.top .row{display:flex;align-items:center;gap:10px}
+header.top h1{font-size:17px;margin:0;flex:1;font-weight:650;letter-spacing:.2px}
+header.top .who{font-size:12px;opacity:.9;text-align:right}
+.iconbtn{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:10px;padding:7px 10px;font-size:14px}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:10px -16px 0;padding:0 12px}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{flex:none;background:none;border:0;color:rgba(255,255,255,.78);padding:9px 10px 11px;border-bottom:3px solid transparent;font-weight:600;font-size:14px;white-space:nowrap}
+nav.tabs button.on{color:#fff;border-color:#fff}
+nav.tabs .n{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:rgba(255,255,255,.22);font-size:11px;line-height:18px;text-align:center}
+main{padding:12px 16px 110px;max-width:900px;margin:0 auto}
+.search{display:flex;gap:8px;margin-bottom:10px}
+.search input{flex:1}
+input,select,textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+label.f{display:block;font-size:12px;color:var(--ink2);margin:10px 0 4px;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+@media (max-width:420px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;margin-bottom:10px;border:1px solid var(--line)}
+.sol{display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+.sol:active{transform:scale(.995)}
+.sol .main{flex:1;min-width:0}
+.sol .name{font-weight:650;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sol .sub{font-size:12.5px;color:var(--ink2);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 10px}
+.sol .right{text-align:right;flex:none}
+.sol .amt{font-weight:700;font-variant-numeric:tabular-nums}
+.chip{display:inline-block;font-size:11.5px;font-weight:650;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.c-gray{color:var(--gray);background:var(--gray-bg)} .c-blue{color:var(--blue);background:var(--blue-bg)}
+.c-green{color:var(--green);background:var(--green-bg)} .c-red{color:var(--red);background:var(--red-bg)}
+.c-amber{color:var(--amber);background:var(--amber-bg)} .c-violet{color:var(--violet);background:var(--violet-bg)}
+.c-teal{color:var(--teal);background:var(--teal-bg)}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:650;background:var(--gray-bg);color:var(--ink)}
+.btn.pri{background:var(--brand);color:#fff}
+.btn.ok{background:var(--green);color:#fff} .btn.bad{background:var(--red);color:#fff}
+.btn.ghost{background:none;border:1px solid var(--line)}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.5}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btns .btn{flex:1;min-width:120px}
+.fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:15;background:var(--accent);color:#fff;border:0;border-radius:28px;padding:14px 20px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.seg{display:flex;background:var(--gray-bg);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:none;border-radius:8px;padding:8px 6px;font-weight:600;font-size:13.5px;color:var(--ink2)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.filters{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;scrollbar-width:none}
+.filters button{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px}
+.filters button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* Modal / hoja */
+.sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.sheet .bar{position:sticky;top:0;z-index:2;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:10px 12px}
+.sheet .bar h2{flex:1;font-size:16px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sheet .body{padding:12px 16px 60px;max-width:760px;margin:0 auto}
+.back{background:none;border:0;font-size:22px;padding:2px 8px;color:var(--ink)}
+.dlg-wrap{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.dlg{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+@media (min-width:600px){.dlg-wrap{align-items:center}.dlg{border-radius:18px}}
+.dlg h3{margin:0 0 6px}
+h4.sec{margin:18px 0 8px;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--ink2)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:14px}
+.kv dt{color:var(--ink2)} .kv dd{margin:0;font-weight:550;word-break:break-word}
+.alert{border-radius:10px;padding:9px 12px;font-size:13.5px;margin:8px 0}
+.alert.warn{background:var(--amber-bg);color:var(--amber)} .alert.err{background:var(--red-bg);color:var(--red)}
+.alert.info{background:var(--blue-bg);color:var(--blue)} .alert.ok{background:var(--green-bg);color:var(--green)}
+
+/* Ingresos */
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--ink2);text-align:left;padding:6px 6px;border-bottom:1px solid var(--line)}
+table.t td{padding:7px 6px;white-space:nowrap;border-bottom:1px solid var(--line)}
+table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums}
+.addrow{display:grid;grid-template-columns:1.2fr 1fr auto auto;gap:6px;margin-top:8px}
+@media (max-width:420px){.addrow{grid-template-columns:1fr 1fr}.addrow .seg{grid-column:1/-1}}
+.res{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.res .box{background:var(--brand2);border-radius:12px;padding:10px 12px}
+.res .box .l{font-size:11.5px;color:var(--ink2);font-weight:600}
+.res .box .v{font-size:19px;font-weight:750;font-variant-numeric:tabular-nums}
+.res .box.full{grid-column:1/-1}
+.x{background:none;border:0;color:var(--muted);font-size:18px;padding:0 6px}
+
+/* Comentarios estilo Facebook */
+.cm{display:flex;gap:8px;margin:10px 0}
+.av{flex:none;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff}
+.av.sm{width:26px;height:26px;font-size:11px}
+.cm-b{min-width:0;flex:1}
+.bubble{display:inline-block;background:var(--gray-bg);border-radius:16px;padding:7px 12px;max-width:100%}
+.bubble .au{font-weight:700;font-size:13.5px}
+.bubble .rl{font-size:11px;color:var(--muted);font-weight:600;margin-left:4px}
+.bubble .tx{white-space:pre-wrap;word-break:break-word;font-size:14.5px}
+.cm-meta{font-size:12px;color:var(--ink2);padding:3px 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.cm-meta button{background:none;border:0;padding:0;font-weight:700;color:var(--ink2);font-size:12px}
+.cm-meta button.liked{color:var(--s1)}
+.likes{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 6px;font-size:11.5px}
+.replies{margin-left:6px}
+.composer{display:flex;gap:8px;align-items:flex-end;margin-top:8px}
+.composer textarea{border-radius:18px;padding:9px 14px;resize:none;min-height:40px;max-height:140px;background:var(--gray-bg);border-color:transparent}
+.send{flex:none;width:40px;height:40px;border-radius:50%;border:0;background:var(--brand);color:#fff;font-size:17px}
+
+/* Timeline */
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:14px}
+.tl .ev{position:relative;margin-bottom:10px;font-size:13.5px}
+.tl .ev:before{content:"";position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--brand)}
+.tl .ev small{color:var(--muted)}
+
+/* Verificación */
+.item{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--card)}
+.item.done{border-color:var(--green)}
+.item .hd{display:flex;align-items:center;gap:10px;font-weight:650}
+.item .hd input{width:22px;height:22px;flex:none}
+.thumbs{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.chk{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--card);font-weight:550}
+.chk input{width:20px;height:20px;flex:none}
+
+/* Stats */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:640px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.kpi .l{font-size:12px;color:var(--ink2);font-weight:600}
+.kpi .v{font-size:24px;font-weight:750;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--muted)}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--ink2);margin-bottom:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-100%);z-index:3}
+.hbar{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+.hbar .tr{background:var(--gray-bg);border-radius:4px;height:14px;overflow:hidden}
+.hbar .fl{height:100%;background:var(--s1);border-radius:0 4px 4px 0}
+.pipe{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.pipe .st{flex:1;min-width:92px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;text-align:center}
+.pipe .st b{display:block;font-size:20px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.toast.err{background:var(--red);color:#fff}
+.login{max-width:380px;margin:9vh auto;padding:0 16px}
+.login .logo{font-size:26px;font-weight:800;color:var(--brand);text-align:center;margin-bottom:4px}
+.login p.s{text-align:center;color:var(--ink2);margin-top:0}
+.banner{position:sticky;top:52px;z-index:3;margin:0 0 10px}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+.row{display:flex;gap:8px;align-items:center}
+.spacer{flex:1}
+</style>
+</head>
+<body>
+
+<!-- ===== Login ===== -->
+<div id="vLogin" class="login hidden">
+  <div class="logo">VerifiCrédito</div>
+  <p class="s">Gestión de solicitudes de crédito</p>
+  <div class="card" id="loginCard">
+    <form id="fLogin">
+      <label class="f">Correo</label><input id="lEmail" type="email" autocomplete="username" required>
+      <label class="f">Contraseña</label><input id="lPass" type="password" autocomplete="current-password" required>
+      <div class="btns"><button class="btn pri" type="submit">Entrar</button></div>
+    </form>
+  </div>
+  <div class="card hidden" id="bootCard">
+    <div class="alert info">Primera vez: cree la cuenta del administrador.</div>
+    <form id="fBoot">
+      <label class="f">Nombre</label><input id="bNombre" required>
+      <label class="f">Correo</label><input id="bEmail" type="email" required>
+      <label class="f">Contraseña (mín. 6)</label><input id="bPass" type="password" minlength="6" required>
+      <div class="btns"><button class="btn pri" type="submit">Crear administrador</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== App ===== -->
+<div id="vApp" class="hidden">
+  <header class="top">
+    <div class="row">
+      <h1>VerifiCrédito</h1>
+      <div class="who"><div id="whoName"></div><div id="whoRol"></div></div>
+      <button class="iconbtn" id="btnBell" title="Notificaciones">🔔</button>
+      <button class="iconbtn" id="btnOut" title="Salir">⎋</button>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </header>
+  <main id="main"></main>
+  <button class="fab hidden" id="fab">＋ Nueva solicitud</button>
+</div>
+
+<div id="sheet" class="sheet hidden">
+  <div class="bar"><button class="back" id="sheetBack">←</button><h2 id="sheetTitle"></h2><span id="sheetChip"></span></div>
+  <div class="body" id="sheetBody"></div>
+</div>
+
+<script>
+// ================== Configuración ==================
+const SB_URL = 'https://edmvfqelxsxevpmxgbav.supabase.co';
+const SB_KEY = 'sb_publishable_lgTmmLtUESDDyX2sff6ArQ_z65Ti9d6';
+const TZ = 'America/Tegucigalpa';
+const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+
+// ================== Catálogos ==================
+const EST = {
+  borrador:{t:'Borrador',c:'gray'}, en_analisis:{t:'En análisis',c:'blue'}, aprobada:{t:'Aprobada',c:'green'},
+  denegada:{t:'Denegada',c:'red'}, por_verificar:{t:'Por verificar',c:'amber'},
+  desembolso_pendiente:{t:'Desembolso pendiente',c:'violet'}, desembolsada:{t:'Desembolsada',c:'teal'},
+  rechazada_verificacion:{t:'Rechazada en verificación',c:'red'}, desistida:{t:'Desistida',c:'gray'}
+};
+const TIPO = { nuevo:'Nuevo', reingreso:'Reingreso', refinanciamiento:'Refinanciamiento' };
+const ROL = { asesor:'Asesor', analista:'Analista', verificador:'Verificador', admin:'Administrador' };
+const ITEM = { domicilio:'Visita a domicilio', trabajo:'Visita a trabajo', foto_perfil:'Foto de perfil del cliente',
+  referencias:'Referencias familiares', entrega_efectivo:'Entrega de efectivo' };
+const ACC = { creada:'Creó la solicitud', enviada_analisis:'Envió a análisis', devuelta_asesor:'Devolvió al asesor',
+  dictamen_aprobada:'Aprobó', dictamen_denegada:'Denegó', enviada_verificacion:'Envió a verificación',
+  enviada_desembolso:'Envió a desembolso por transferencia', verificacion_ok:'Verificación exitosa',
+  verificacion_rechazada:'Rechazó en verificación', desembolsada:'Marcó como desembolsada', desistida:'Cliente desistió',
+  regresada_revisadas:'Regresó a revisadas' };
+const CERRADAS = ['desembolsada','denegada','rechazada_verificacion','desistida'];
+
+const S = { user:null, me:null, perfiles:{}, params:{}, sols:[], com:{}, tab:null, q:'', filtroTodas:'abiertas',
+  det:null, detData:null, replyTo:null, statsRange:'mes', dirty:false };
+
+// ================== Utilidades ==================
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const L = n => n == null || n === '' || isNaN(n) ? '—' : 'L ' + Number(n).toLocaleString('es-HN', {minimumFractionDigits:0, maximumFractionDigits:2});
+const num = v => { const n = parseFloat(String(v ?? '').replace(/[, L]/g,'')); return isNaN(n) ? null : n; };
+const fDate = d => d ? new Date(d).toLocaleDateString('es-HN', {timeZone:TZ, day:'2-digit', month:'short', year:'numeric'}) : '—';
+const fDT = d => d ? new Date(d).toLocaleString('es-HN', {timeZone:TZ, day:'2-digit', month:'short', hour:'numeric', minute:'2-digit'}) : '—';
+const hoyHN = () => new Date().toLocaleDateString('en-CA', {timeZone:TZ});
+function hace(d){
+  const s = (Date.now() - new Date(d)) / 1000;
+  if (s < 60) return 'ahora'; if (s < 3600) return `hace ${Math.floor(s/60)} min`;
+  if (s < 86400) return `hace ${Math.floor(s/3600)} h`; if (s < 604800) return `hace ${Math.floor(s/86400)} d`;
+  return fDate(d);
+}
+const chip = e => `<span class="chip c-${EST[e]?.c||'gray'}">${esc(EST[e]?.t||e)}</span>`;
+const tipoChip = t => `<span class="chip ${t==='nuevo'?'c-blue':t==='reingreso'?'c-teal':'c-violet'}">${TIPO[t]}</span>`;
+const nombre = id => S.perfiles[id]?.nombre || '—';
+const iniciales = n => (n||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
+const AVC = ['#2a78d6','#eb6834','#1baf7a','#c98500','#d55181','#6a3fb5','#0e7c6b','#b42318'];
+const avColor = id => AVC[[...String(id)].reduce((a,c) => a + c.charCodeAt(0), 0) % AVC.length];
+const av = (id, sm) => `<div class="av ${sm?'sm':''}" style="background:${avColor(id)}">${esc(iniciales(nombre(id)))}</div>`;
+const rol = () => S.me?.rol;
+const es = (...r) => r.includes(rol()) || rol() === 'admin';
+function edad(fn){ if(!fn) return null; const b = new Date(fn), h = new Date(); let a = h.getFullYear()-b.getFullYear();
+  if (h.getMonth()<b.getMonth() || (h.getMonth()===b.getMonth() && h.getDate()<b.getDate())) a--; return a; }
+function toast(msg, err){ const t = document.createElement('div'); t.className = 'toast' + (err?' err':''); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), err ? 5000 : 2800); }
+function errMsg(e){ return (e?.message || e?.error_description || String(e)).replace(/^.*?ERROR:\s*/,''); }
+async function fnUsuarios(body){
+  const { data, error } = await sb.functions.invoke('usuarios', { body });
+  if (error){ let m = error.message; try { const j = await error.context.json(); if (j?.error) m = j.error; } catch(e){} throw new Error(m); }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+async function rpc(fn, args){ const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
+async function run(btn, fn){
+  if (btn) btn.disabled = true;
+  try { return await fn(); } catch(e){ console.error(e); toast(errMsg(e), true); } finally { if (btn) btn.disabled = false; }
+}
+
+// ================== Cálculo (réplica exacta del Excel "Análisis de ingresos") ==================
+function calcular(ingresos, tipoPago, rubro){
+  const P = S.params;
+  const sal = ingresos.filter(i => i.categoria === 'salario').map(i => +i.monto);
+  const com = ingresos.filter(i => i.categoria === 'comision').map(i => +i.monto);
+  const avg = a => a.length ? a.reduce((x,y) => x+y, 0) / a.length : 0;
+  const factor = tipoPago === 'Quincenal' ? P.factor_quincenal : tipoPago === 'Semanal' ? P.factor_semanal : 1;
+  const r = P.redondeo || 1000;
+  const bruto = avg(sal) * factor + avg(com);
+  const promedio = Math.sign(bruto) * Math.round(Math.abs(bruto) / r) * r;  // MROUND
+  const techo = rubro ? P.techo_rubro_especial : P.techo_regular;
+  let limite, motivo;
+  if (promedio === 0){ limite = 0; motivo = 'Sin ingresos registrados.'; }
+  else if (promedio < P.ingreso_minimo){ limite = null; motivo = 'Ingresos insuficientes.'; }
+  else {
+    limite = Math.min(techo, Math.floor(promedio * P.porcentaje_limite / 1000) * 1000);  // ROUNDDOWN(-3)
+    motivo = promedio * P.porcentaje_limite > techo
+      ? (rubro ? 'Política de límite máximo por rubro aplicada.' : 'Política de límite máximo aplicada.')
+      : `Aplica límite regular de ${Math.round(P.porcentaje_limite*100)}%.`;
+  }
+  let aumento = null;
+  if (promedio >= P.ingreso_minimo){
+    if (rubro) aumento = 'NO ELEGIBLE';
+    else { const d = new Date(hoyHN()+'T12:00'); d.setMonth(d.getMonth()+3); aumento = fDate(d); }
+  }
+  return { promedio, limite, motivo, tasaPref: promedio > P.umbral_tasa_preferencial, aumento,
+    insuficiente: promedio > 0 && promedio < P.ingreso_minimo, nSal: sal.length, nCom: com.length, promPago: avg(sal), factor };
+}
+
+// ================== Sesión ==================
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) return mostrarLogin();
+  S.user = session.user;
+  const { data: me } = await sb.from('perfiles').select('*').eq('id', S.user.id).maybeSingle();
+  if (!me || !me.activo){ toast('Su usuario no tiene rol asignado o está inactivo', true); await sb.auth.signOut(); return mostrarLogin(); }
+  S.me = me;
+  $('#vLogin').classList.add('hidden'); $('#vApp').classList.remove('hidden');
+  $('#whoName').textContent = me.nombre; $('#whoRol').textContent = ROL[me.rol];
+  await Promise.all([cargarPerfiles(), cargarParams()]);
+  await cargarSolicitudes();
+  S.tab = tabsRol()[0][0];
+  pintarTabs(); pintar(); suscribir();
+}
+async function mostrarLogin(){
+  $('#vApp').classList.add('hidden'); $('#vLogin').classList.remove('hidden');
+  try {
+    const { data } = await sb.functions.invoke('usuarios', { body: { accion:'estado' } });
+    if (data?.necesita_bootstrap){ $('#bootCard').classList.remove('hidden'); $('#loginCard').classList.add('hidden'); }
+  } catch(e){}
+}
+$('#fLogin').onsubmit = async e => {
+  e.preventDefault(); const b = e.submitter;
+  await run(b, async () => {
+    const { error } = await sb.auth.signInWithPassword({ email: $('#lEmail').value.trim(), password: $('#lPass').value });
+    if (error) throw new Error(error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos' : error.message);
+    init();
+  });
+};
+$('#fBoot').onsubmit = async e => {
+  e.preventDefault(); const b = e.submitter;
+  await run(b, async () => {
+    await fnUsuarios({ accion:'bootstrap', nombre: $('#bNombre').value, email: $('#bEmail').value, password: $('#bPass').value });
+    const { error: e2 } = await sb.auth.signInWithPassword({ email: $('#bEmail').value.trim(), password: $('#bPass').value });
+    if (e2) throw e2;
+    $('#bootCard').classList.add('hidden'); $('#loginCard').classList.remove('hidden');
+    toast('Administrador creado'); init();
+  });
+};
+$('#btnOut').onclick = async () => { if (!confirm('¿Cerrar sesión?')) return; await sb.auth.signOut(); location.reload(); };
+$('#btnBell').onclick = async () => {
+  if (!('Notification' in window)) return toast('Este navegador no soporta notificaciones');
+  const p = await Notification.requestPermission();
+  toast(p === 'granted' ? 'Notificaciones activadas' : 'Notificaciones bloqueadas');
+};
+
+// ================== Datos ==================
+async function cargarPerfiles(){
+  const { data } = await sb.from('perfiles').select('*').order('nombre');
+  S.perfiles = Object.fromEntries((data||[]).map(p => [p.id, p]));
+}
+async function cargarParams(){
+  const { data } = await sb.from('parametros').select('*');
+  S.params = Object.fromEntries((data||[]).map(p => [p.clave, +p.valor]));
+  S.paramsRows = data || [];
+}
+async function cargarSolicitudes(){
+  const { data, error } = await sb.from('solicitudes').select('*').order('actualizado_en', { ascending:false }).limit(1000);
+  if (error) return toast(errMsg(error), true);
+  S.sols = data || [];
+  const { data: cs } = await sb.from('comentarios').select('solicitud_id');
+  S.com = {}; (cs||[]).forEach(c => S.com[c.solicitud_id] = (S.com[c.solicitud_id]||0) + 1);
+}
+
+// ================== Pestañas por rol ==================
+const dias = (d, n) => d && (Date.now() - new Date(d)) < n*86400000;
+const mio = s => s.asesor_id === S.me.id || rol() === 'admin';
+function tabsRol(){
+  const T = {
+    solicitudes:['solicitudes','Solicitudes', s => mio(s) && ['borrador','en_analisis'].includes(s.estado)],
+    revisadas:['revisadas','Revisadas', s => mio(s) && (s.estado === 'aprobada' || (s.estado === 'denegada' && dias(s.dictamen_en, 15)))],
+    proceso:['proceso','En proceso', s => mio(s) && (['por_verificar','desembolso_pendiente'].includes(s.estado) || (s.estado==='desembolsada' && dias(s.desembolsado_en, 7)))],
+    analisis:['analisis','Análisis', s => s.estado === 'en_analisis'],
+    verificar:['verificar','Por verificar', s => s.estado === 'por_verificar' && (!s.verificador_id || s.verificador_id === S.me.id || rol()==='admin')],
+    verificadas:['verificadas','Mis verificaciones', s => s.verificado_en && s.verificador_id === S.me.id],
+    desembolsos:['desembolsos','Desembolsos', s => s.estado === 'desembolso_pendiente' || (s.estado === 'desembolsada' && dias(s.desembolsado_en, 7))],
+    todas:['todas','Todas', s => true],
+    stats:['stats','Estadísticas'], usuarios:['usuarios','Usuarios'], params:['params','Parámetros']
+  };
+  const m = { asesor:['solicitudes','revisadas','proceso','todas','stats'],
+    analista:['analisis','desembolsos','todas','stats'],
+    verificador:['verificar','verificadas','stats'],
+    admin:['solicitudes','revisadas','analisis','verificar','desembolsos','todas','stats','usuarios','params'] };
+  return m[rol()].map(k => T[k]);
+}
+function pintarTabs(){
+  $('#tabs').innerHTML = tabsRol().map(([k, t, f]) => {
+    let n = '';
+    if (f && k !== 'todas' && k !== 'verificadas'){
+      const c = S.sols.filter(f).filter(s => k !== 'desembolsos' || s.estado === 'desembolso_pendiente').filter(s => k !== 'proceso' || s.estado !== 'desembolsada').length;
+      if (c) n = `<span class="n">${c}</span>`;
+    }
+    return `<button data-k="${k}" class="${S.tab===k?'on':''}">${t}${n}</button>`;
+  }).join('');
+  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.tab = b.dataset.k; S.q=''; pintarTabs(); pintar(); window.scrollTo(0,0); });
+  $('#fab').classList.toggle('hidden', !(es('asesor') && ['solicitudes','revisadas','proceso'].includes(S.tab)));
+}
+
+// ================== Listas ==================
+function pintar(){
+  const tab = tabsRol().find(t => t[0] === S.tab);
+  if (S.tab === 'stats') return pintarStats();
+  if (S.tab === 'usuarios') return pintarUsuarios();
+  if (S.tab === 'params') return pintarParams();
+  let lista = S.sols.filter(tab[2]);
+  let extra = '';
+  if (S.tab === 'todas'){
+    const fs = [['abiertas','Abiertas'],['todas','Todas'],...Object.entries(EST).map(([k,v]) => [k, v.t])];
+    extra = `<div class="filters">${fs.map(([k,t]) => `<button data-f="${k}" class="${S.filtroTodas===k?'on':''}">${t}</button>`).join('')}</div>`;
+    if (S.filtroTodas === 'abiertas') lista = lista.filter(s => !CERRADAS.includes(s.estado));
+    else if (S.filtroTodas !== 'todas') lista = lista.filter(s => s.estado === S.filtroTodas);
+  }
+  if (S.tab === 'revisadas'){
+    const ap = lista.filter(s => s.estado === 'aprobada').length, dn = lista.length - ap;
+    extra = `<div class="alert info small">${ap} aprobada(s) por completar con el cliente · ${dn} denegada(s) en los últimos 15 días</div>`;
+  }
+  const q = S.q.trim().toLowerCase();
+  if (q) lista = lista.filter(s => [s.nombre_cliente, s.codigo, s.dni, s.telefono].some(v => (v||'').toLowerCase().includes(q)));
+  // Orden: lo más antiguo esperando primero en colas de trabajo
+  if (['analisis','verificar'].includes(S.tab)) lista.sort((a,b) => new Date(a.actualizado_en) - new Date(b.actualizado_en));
+  $('#main').innerHTML = `
+    <div class="search"><input id="q" placeholder="Buscar por nombre, código, DNI o teléfono" value="${esc(S.q)}"></div>
+    ${extra}
+    ${lista.length ? lista.map(cardSol).join('') : `<div class="empty">No hay solicitudes aquí.</div>`}`;
+  const qi = $('#q'); qi.oninput = () => { S.q = qi.value; const p = qi.selectionStart; pintar(); const n = $('#q'); n.focus(); n.setSelectionRange(p,p); };
+  $('#main').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { S.filtroTodas = b.dataset.f; pintar(); });
+  $('#main').querySelectorAll('.sol').forEach(c => c.onclick = () => abrirDetalle(+c.dataset.id));
+}
+function cardSol(s){
+  const monto = s.monto_aprobado ? L(s.monto_solicitado || s.monto_aprobado) : '';
+  const c = S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : '';
+  const fecha = s.estado === 'en_analisis' ? `En cola ${hace(s.enviado_analisis_en)}` : hace(s.actualizado_en);
+  let extra = '';
+  if (s.estado === 'desembolso_pendiente' || s.forma_desembolso) extra = `<span>${s.forma_desembolso === 'transferencia' ? '🏦 Transferencia' : s.forma_desembolso === 'efectivo' ? '💵 Efectivo' : ''}</span>`;
+  return `<div class="card sol" data-id="${s.id}">
+    <div class="main">
+      <div class="name">${esc(s.nombre_cliente)}</div>
+      <div class="sub"><span>${esc(s.codigo)}</span>${tipoChip(s.tipo)}<span>👤 ${esc(nombre(s.asesor_id))}</span>${extra}${c}</div>
+    </div>
+    <div class="right">${chip(s.estado)}<div class="amt" style="margin-top:6px">${monto}</div><div class="small muted">${fecha}</div></div>
+  </div>`;
+}
+
+// ================== Nueva solicitud ==================
+$('#fab').onclick = () => {
+  const w = dialogo(`
+    <h3>Nueva solicitud</h3>
+    <label class="f">Tipo</label>
+    <div class="seg" id="nTipo">${Object.entries(TIPO).map(([k,t],i) => `<button type="button" data-v="${k}" class="${i?'':'on'}">${t}</button>`).join('')}</div>
+    <label class="f">Nombre completo del cliente</label><input id="nNombre" autocomplete="off">
+    <label class="f">Teléfono (opcional)</label><input id="nTel" inputmode="tel" autocomplete="off">
+    <div id="nHelp" class="alert info small">Se crea con el nombre; luego agrega los ingresos y la envía a análisis.</div>
+    <div id="nCoin"></div>
+    <div class="btns"><button class="btn ghost" data-close>Cancelar</button><button class="btn pri" id="nOk">Crear</button></div>`);
+  let tipo = 'nuevo';
+  w.querySelectorAll('#nTipo button').forEach(b => b.onclick = () => {
+    tipo = b.dataset.v; w.querySelectorAll('#nTipo button').forEach(x => x.classList.toggle('on', x === b));
+    const nuevo = tipo === 'nuevo';
+    $('#nOk').textContent = nuevo ? 'Crear' : 'Crear y enviar a análisis';
+    $('#nHelp').textContent = nuevo ? 'Se crea con el nombre; luego agrega los ingresos y la envía a análisis.'
+      : 'Para reingreso/refinanciamiento solo se necesita el nombre: se envía directo a análisis.';
+  });
+  $('#nNombre').oninput = () => { $('#nCoin').innerHTML = coincidencias({ id:0, nombre_cliente: $('#nNombre').value, telefono: $('#nTel').value }); };
+  $('#nNombre').focus();
+  $('#nOk').onclick = e => run(e.target, async () => {
+    const id = await rpc('crear_solicitud', { p_nombre: $('#nNombre').value, p_tipo: tipo, p_telefono: $('#nTel').value || null, p_enviar: tipo !== 'nuevo' });
+    await cerrarDialogo(w); await cargarSolicitudes(); pintarTabs(); pintar();
+    toast(tipo === 'nuevo' ? 'Solicitud creada. Agregue los ingresos.' : 'Enviada a análisis');
+    if (tipo === 'nuevo') abrirDetalle(id);
+  });
+};
+function dialogo(html){
+  const w = document.createElement('div'); w.className = 'dlg-wrap';
+  w.innerHTML = `<div class="dlg">${html}</div>`;
+  w.onclick = e => { if (e.target === w || e.target.hasAttribute('data-close')) cerrarDialogo(w); };
+  document.body.appendChild(w); history.pushState({ dlg:1 }, ''); w._hist = true; S.dlgs = (S.dlgs||[]).concat(w);
+  return w;
+}
+let popIgnore = 0;
+function histBack(){ return new Promise(r => { popIgnore++; const h = () => { window.removeEventListener('popstate', h); r(); }; window.addEventListener('popstate', h); history.back(); setTimeout(r, 400); }); }
+function cerrarDialogo(w, fromPop){ if (!w.isConnected) return Promise.resolve(); w.remove(); S.dlgs = (S.dlgs||[]).filter(x => x !== w); return fromPop ? Promise.resolve() : histBack(); }
+function pedirTexto(titulo, placeholder, okTxt, cls='pri'){
+  return new Promise(res => {
+    const w = dialogo(`<h3>${esc(titulo)}</h3><textarea id="ptT" rows="3" placeholder="${esc(placeholder)}"></textarea>
+      <div class="btns"><button class="btn ghost" data-close>Cancelar</button><button class="btn ${cls}" id="ptOk">${esc(okTxt)}</button></div>`);
+    w.querySelector('#ptT').focus();
+    w.querySelector('#ptOk').onclick = () => { const v = w.querySelector('#ptT').value.trim(); if (!v) return toast('Escriba el motivo', true); cerrarDialogo(w); res(v); };
+    const obs = new MutationObserver(() => { if (!w.isConnected){ obs.disconnect(); res(null); } }); obs.observe(document.body, { childList:true });
+  });
+}
+
+// ================== Coincidencias ==================
+const norm = s => (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+function coincidencias(s){
+  const n = norm(s.nombre_cliente), tel = (s.telefono||'').replace(/\D/g,''), dni = (s.dni||'').replace(/\D/g,'');
+  if (n.length < 5 && !tel && !dni) return '';
+  const hits = S.sols.filter(o => o.id !== s.id).map(o => {
+    const r = [];
+    if (n.length >= 5 && norm(o.nombre_cliente) === n) r.push('mismo nombre');
+    if (tel.length >= 8 && (o.telefono||'').replace(/\D/g,'') === tel) r.push('mismo teléfono');
+    if (dni.length >= 8 && (o.dni||'').replace(/\D/g,'') === dni) r.push('mismo DNI');
+    return r.length ? { o, r } : null;
+  }).filter(Boolean);
+  if (!hits.length) return '';
+  return `<div class="alert warn small"><b>Coincidencias:</b><br>${hits.slice(0,6).map(h =>
+    `${esc(h.o.codigo)} · ${esc(h.o.nombre_cliente)} · ${EST[h.o.estado].t} (${h.r.join(', ')})`).join('<br>')}</div>`;
+}
+
+// ================== Detalle ==================
+async function abrirDetalle(id, keepScroll){
+  const s = S.sols.find(x => x.id === id); if (!s) return;
+  S.det = id; S.replyTo = null; S.dirty = false;
+  if ($('#sheet').classList.contains('hidden')){ $('#sheet').classList.remove('hidden'); history.pushState({ sheet:1 }, ''); document.body.style.overflow = 'hidden'; }
+  $('#sheetTitle').textContent = s.nombre_cliente; $('#sheetChip').innerHTML = chip(s.estado);
+  if (!keepScroll){ $('#sheetBody').innerHTML = '<div class="empty">Cargando…</div>'; $('#sheet').scrollTop = 0; }
+  const [ing, items, evs] = await Promise.all([
+    sb.from('ingresos').select('*').eq('solicitud_id', id).order('fecha'),
+    sb.from('verificacion_items').select('*').eq('solicitud_id', id).order('id'),
+    sb.from('eventos').select('*').eq('solicitud_id', id).order('creado_en')
+  ]);
+  S.detData = { s, ing: ing.data||[], items: items.data||[], evs: evs.data||[] };
+  const y = $('#sheet').scrollTop;
+  renderDetalle();
+  if (keepScroll) $('#sheet').scrollTop = y;
+  cargarComentarios();
+}
+function cerrarDetalle(fromPop){
+  if ($('#sheet').classList.contains('hidden')) return;
+  if (S.dirty && !confirm('Hay datos sin enviar. ¿Salir de todos modos?')){ if (fromPop) history.pushState({ sheet:1 }, ''); return; }
+  $('#sheet').classList.add('hidden'); document.body.style.overflow = ''; S.det = null; S.dirty = false;
+  pintarTabs(); pintar();
+  if (!fromPop) return histBack();
+}
+$('#sheetBack').onclick = () => cerrarDetalle();
+window.addEventListener('popstate', () => {
+  if (popIgnore > 0){ popIgnore--; return; }
+  if (S.dlgs?.length) return cerrarDialogo(S.dlgs[S.dlgs.length-1], true);
+  if (!$('#sheet').classList.contains('hidden')) cerrarDetalle(true);
+});
+
+function renderDetalle(){
+  const { s, ing, items, evs } = S.detData;
+  const editIng = (s.estado === 'borrador' && es('asesor')) || (s.estado === 'en_analisis' && es('analista'));
+  const c = calcular(ing, s.tipo_pago, s.rubro_especial);
+  const d = s.datos_cliente || {};
+  const ed = edad(d.fecha_nacimiento);
+  let h = '';
+
+  // Encabezado
+  h += `<div class="card">
+    <div class="row" style="flex-wrap:wrap;gap:6px">${tipoChip(s.tipo)} ${chip(s.estado)} <span class="spacer"></span><span class="small muted">${esc(s.codigo)}</span></div>
+    <dl class="kv" style="margin-top:10px">
+      <dt>Asesor</dt><dd>${esc(nombre(s.asesor_id))}</dd>
+      ${s.telefono ? `<dt>Teléfono</dt><dd><a href="tel:${esc(s.telefono)}">${esc(s.telefono)}</a> · <a href="https://wa.me/504${esc(s.telefono.replace(/\D/g,'').slice(-8))}" target="_blank">WhatsApp</a></dd>` : ''}
+      ${s.dni ? `<dt>DNI</dt><dd>${esc(s.dni)}</dd>` : ''}
+      <dt>Creada</dt><dd>${fDT(s.creado_en)}</dd>
+      ${s.analista_id ? `<dt>Analista</dt><dd>${esc(nombre(s.analista_id))}</dd>` : ''}
+      ${s.verificador_id ? `<dt>Verificador</dt><dd>${esc(nombre(s.verificador_id))}</dd>` : ''}
+    </dl>
+    ${coincidencias(s)}
+    ${ed != null && ed < S.params.edad_minima ? `<div class="alert err small">⚠ Cliente de ${ed} años (mínimo ${S.params.edad_minima}).</div>` : ''}
+  </div>`;
+
+  // Devuelta
+  const ultDev = [...evs].reverse().find(e => e.accion === 'devuelta_asesor');
+  if (s.estado === 'borrador' && ultDev) h += `<div class="alert warn"><b>Devuelta por ${esc(nombre(ultDev.usuario_id))}:</b> ${esc(ultDev.nota)}</div>`;
+
+  // Dictamen mostrado
+  if (s.dictamen_en){
+    const libre = montoLibre(s);
+    h += `<div class="card"><h4 class="sec" style="margin-top:0">Dictamen del analista</h4>
+      <div class="alert ${s.estado==='denegada'?'err':'ok'}"><b>${s.estado==='denegada'?'DENEGADA':'APROBADA'}</b> por ${esc(nombre(s.analista_id))} · ${fDT(s.dictamen_en)}</div>
+      <dl class="kv">
+        ${s.monto_aprobado ? `<dt>Monto aprobado</dt><dd>${L(s.monto_aprobado)}</dd>` : ''}
+        ${s.saldo_capital != null ? `<dt>Saldo capital</dt><dd>${L(s.saldo_capital)}</dd>` : ''}
+        ${s.saldo_intereses != null ? `<dt>Saldo intereses</dt><dd>${L(s.saldo_intereses)}</dd>` : ''}
+        ${libre != null && s.tipo !== 'nuevo' ? `<dt>Monto libre</dt><dd>${L(libre)}</dd>` : ''}
+        ${s.tasa_preferencial ? `<dt>Tasa</dt><dd>Preferencial</dd>` : ''}
+        ${s.dictamen_nota ? `<dt>Nota</dt><dd>${esc(s.dictamen_nota)}</dd>` : ''}
+      </dl></div>`;
+  }
+
+  // Análisis de ingresos
+  const mostrarIng = s.tipo === 'nuevo' || ing.length || editIng;
+  if (mostrarIng){
+    h += `<div class="card"><h4 class="sec" style="margin-top:0">Análisis de ingresos</h4>
+      ${s.tipo !== 'nuevo' && !ing.length ? `<div class="small muted">Opcional en ${TIPO[s.tipo].toLowerCase()}.</div>` : ''}
+      <div class="grid2">
+        <div><label class="f">Tipo de pago</label>
+          <select id="dPago" ${editIng?'':'disabled'}>${['Semanal','Quincenal','Mensual'].map(t => `<option ${s.tipo_pago===t?'selected':''}>${t}</option>`).join('')}</select></div>
+        <div><label class="f">Rubro especial</label>
+          <select id="dRubro" ${editIng?'':'disabled'}><option value="0">NO</option><option value="1" ${s.rubro_especial?'selected':''}>SÍ</option></select></div>
+      </div>
+      ${tablaIng('salario', 'Pagos de planilla', ing, editIng)}
+      ${tablaIng('comision', 'Comisiones / bonos en otra fecha', ing, editIng)}
+      ${editIng ? `<div class="addrow">
+          <input type="date" id="iFecha" value="${hoyHN()}">
+          <input id="iMonto" inputmode="decimal" placeholder="Monto L">
+          <div class="seg" id="iCat"><button type="button" data-v="salario" class="on">Salario</button><button type="button" data-v="comision">Comisión</button></div>
+          <button class="btn pri" id="iAdd">Agregar</button></div>` : ''}
+      <div class="res">
+        <div class="box"><div class="l">Promedio mensual</div><div class="v">${L(c.promedio)}</div></div>
+        <div class="box" style="${c.insuficiente?'background:var(--red-bg)':''}"><div class="l">Límite aprobado</div><div class="v">${c.limite == null ? 'Insuficiente' : L(c.limite)}</div></div>
+        <div class="box"><div class="l">Tasa preferencial</div><div class="v">${c.tasaPref?'SÍ':'NO'}</div></div>
+        <div class="box"><div class="l">Próximo aumento</div><div class="v" style="font-size:15px">${c.aumento || 'N/A'}</div></div>
+        <div class="box full"><div class="l">Techo aplicado</div><div style="font-weight:600">${c.motivo}</div>
+          <div class="small muted">Promedio por pago ${L(c.promPago.toFixed(2))} × ${c.factor} ${c.nCom ? '+ promedio comisiones' : ''} → redondeado a ${S.params.redondeo}</div></div>
+      </div></div>`;
+  }
+
+  // Datos del cliente (completados)
+  if (Object.keys(d).length || s.forma_desembolso) h += datosClienteHTML(s);
+
+  // Acciones según estado y rol
+  h += accionesHTML(s, c);
+
+  // Verificación
+  if (items.length) h += verificacionHTML(s, items);
+
+  // Comentarios
+  h += `<div class="card"><h4 class="sec" style="margin-top:0">Comentarios</h4><div id="cmList"><div class="muted small">Cargando…</div></div>
+    <div class="composer">${av(S.me.id)}<textarea id="cmTxt" rows="1" placeholder="Escribe un comentario…"></textarea><button class="send" id="cmSend">➤</button></div></div>`;
+
+  // Historial
+  h += `<div class="card"><h4 class="sec" style="margin-top:0">Historial</h4><div class="tl">${evs.map(e =>
+    `<div class="ev"><b>${esc(nombre(e.usuario_id))}</b> ${esc(ACC[e.accion]||e.accion)}${e.nota ? `: <i>${esc(e.nota)}</i>` : ''}<br><small>${fDT(e.creado_en)}</small></div>`).join('')}</div></div>`;
+
+  $('#sheetTitle').textContent = s.nombre_cliente; $('#sheetChip').innerHTML = chip(s.estado);
+  $('#sheetBody').innerHTML = h;
+  enlazarDetalle(s, c);
+}
+function montoLibre(s){
+  const base = s.monto_solicitado || s.monto_aprobado;
+  if (base == null) return null;
+  return +base - (+s.saldo_capital||0) - (+s.saldo_intereses||0);
+}
+function tablaIng(cat, titulo, ing, edit){
+  const rows = ing.filter(i => i.categoria === cat);
+  if (!rows.length && !edit) return '';
+  return `<label class="f" style="margin-top:14px">${titulo}</label>
+    ${rows.length ? `<table class="t"><thead><tr><th>Fecha</th><th class="num">Monto</th><th></th></tr></thead><tbody>
+    ${rows.map(i => `<tr><td>${fDate(i.fecha+'T12:00')}</td><td class="num">${L(i.monto)}</td><td style="width:30px">${edit?`<button class="x" data-del="${i.id}" title="Quitar">×</button>`:''}</td></tr>`).join('')}
+    </tbody></table>` : `<div class="small muted">Sin registros.</div>`}`;
+}
+function datosClienteHTML(s){
+  const d = s.datos_cliente || {};
+  const f = (k, t) => d[k] ? `<dt>${t}</dt><dd>${esc(d[k])}</dd>` : '';
+  const refs = (d.referencias||[]).filter(r => r.nombre);
+  const ed = edad(d.fecha_nacimiento);
+  return `<div class="card"><h4 class="sec" style="margin-top:0">Datos del cliente</h4><dl class="kv">
+    ${f('dni','DNI')}${d.fecha_nacimiento ? `<dt>Nacimiento</dt><dd>${fDate(d.fecha_nacimiento+'T12:00')} (${ed} años)</dd>` : ''}
+    ${f('telefono','Teléfono')}${f('direccion','Dirección')}${f('colonia','Colonia / ciudad')}${f('punto_referencia','Punto de referencia')}
+    ${f('empresa','Empresa')}${f('cargo','Cargo')}${f('direccion_trabajo','Dir. trabajo')}${f('antiguedad','Antigüedad')}${f('telefono_trabajo','Tel. trabajo')}
+    ${s.forma_desembolso ? `<dt>Desembolso</dt><dd>${s.forma_desembolso === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'}</dd>` : ''}
+    ${s.cuenta_banco ? `<dt>Cuenta</dt><dd>${esc(s.cuenta_banco)}</dd>` : ''}
+    ${s.monto_solicitado ? `<dt>Monto a desembolsar</dt><dd>${L(s.monto_solicitado)}</dd>` : ''}
+    ${s.plazo_meses ? `<dt>Plazo</dt><dd>${s.plazo_meses} meses</dd>` : ''}
+    ${s.tipo !== 'nuevo' && s.forma_desembolso ? `<dt>Actualizar</dt><dd>${[s.actualizar_domicilio&&'Domicilio', s.actualizar_trabajo&&'Trabajo', s.actualizar_foto&&'Foto de perfil'].filter(Boolean).join(', ') || 'Nada'}</dd>` : ''}
+    ${f('notas','Notas')}
+    </dl>
+    ${refs.length ? `<label class="f">Referencias</label>${refs.map(r => `<div class="small">• ${esc(r.nombre)} (${esc(r.parentesco||'')}) ${r.telefono ? `<a href="tel:${esc(r.telefono)}">${esc(r.telefono)}</a>` : ''}</div>`).join('')}` : ''}
+    ${s.desembolso_referencia ? `<div class="alert ok small">Desembolsada ${fDT(s.desembolsado_en)} · ${esc(s.desembolso_referencia)}</div>` : ''}
+    ${s.verificacion_nota ? `<div class="alert ${s.estado==='rechazada_verificacion'?'err':'info'} small">Verificación: ${esc(s.verificacion_nota)}</div>` : ''}
+    ${s.motivo_cierre ? `<div class="alert warn small">Desistió: ${esc(s.motivo_cierre)}</div>` : ''}
+  </div>`;
+}
+
+function accionesHTML(s, c){
+  let h = '';
+  const abierta = !CERRADAS.includes(s.estado);
+  // Asesor: borrador
+  if (s.estado === 'borrador' && es('asesor')){
+    h += `<div class="card"><div class="small muted">${s.tipo === 'nuevo' ? 'Agregue los pagos de planilla (y comisiones si aplica) y envíe a análisis.' : 'Lista para enviar a análisis.'}</div>
+      <div class="btns"><button class="btn pri" id="aEnviar">Enviar a análisis</button></div></div>`;
+  }
+  // Analista: dictamen
+  if (s.estado === 'en_analisis' && es('analista')){
+    const refi = s.tipo !== 'nuevo';
+    h += `<div class="card"><h4 class="sec" style="margin-top:0">Dictamen</h4>
+      ${c.insuficiente ? `<div class="alert err small">Ingresos por debajo del mínimo (${L(S.params.ingreso_minimo)}).</div>` : ''}
+      <label class="f">Monto aprobado</label><input id="dMonto" inputmode="decimal" value="${s.tipo==='nuevo' && c.limite ? c.limite : ''}" placeholder="L">
+      ${refi ? `<div class="grid2"><div><label class="f">Saldo capital</label><input id="dCap" inputmode="decimal" placeholder="L"></div>
+        <div><label class="f">Saldo intereses</label><input id="dInt" inputmode="decimal" placeholder="L"></div></div>
+        <div class="alert info small" id="dLibre">Monto libre: —</div>` : ''}
+      <label class="f">Nota / motivo</label><textarea id="dNota" rows="2" placeholder="Obligatorio si deniega o devuelve"></textarea>
+      <div class="btns"><button class="btn ok" id="dAprobar">Aprobar</button><button class="btn bad" id="dDenegar">Denegar</button></div>
+      <div class="btns" style="margin-top:6px"><button class="btn ghost sm" id="dDevolver">↩ Devolver al asesor para corregir</button></div></div>`;
+  }
+  // Asesor: completar (revisadas)
+  if (s.estado === 'aprobada' && es('asesor')) h += completarHTML(s);
+  // Desembolso por transferencia
+  if (s.estado === 'desembolso_pendiente' && es('analista')){
+    const libre = montoLibre(s);
+    h += `<div class="card"><h4 class="sec" style="margin-top:0">Desembolso por transferencia</h4>
+      <dl class="kv"><dt>Cuenta</dt><dd>${esc(s.cuenta_banco||'—')}</dd>
+      <dt>Monto crédito</dt><dd>${L(s.monto_solicitado || s.monto_aprobado)}</dd>
+      ${s.tipo !== 'nuevo' ? `<dt>A transferir (libre)</dt><dd><b>${L(libre)}</b></dd>` : ''}</dl>
+      <label class="f">Referencia / N.º de transferencia</label><input id="tRef">
+      <div class="btns"><button class="btn ok" id="tOk">Marcar como desembolsada</button></div>
+      <div class="btns" style="margin-top:6px"><button class="btn ghost sm" id="tBack">↩ Regresar al asesor</button></div></div>`;
+  }
+  if (s.estado === 'por_verificar' && es('analista') && rol() !== 'verificador'){
+    h += `<div class="btns"><button class="btn ghost sm" id="tBack">↩ Regresar a revisadas del asesor</button></div>`;
+  }
+  if (abierta && es('asesor','analista') && s.estado !== 'desembolso_pendiente')
+    h += `<div class="btns"><button class="btn ghost sm" id="aDesistir" style="color:var(--red)">Cliente desistió / cerrar</button></div>`;
+  return h;
+}
+
+function completarHTML(s){
+  const d = s.datos_cliente || {};
+  const nuevo = s.tipo === 'nuevo';
+  const refs = d.referencias || [{},{}];
+  const v = k => esc(d[k] || '');
+  const verifs = Object.values(S.perfiles).filter(p => p.rol === 'verificador' && p.activo);
+  const domicilio = `<div class="grid2">
+      <div><label class="f">Dirección</label><input data-k="direccion" value="${v('direccion')}"></div>
+      <div><label class="f">Colonia / ciudad</label><input data-k="colonia" value="${v('colonia')}"></div></div>
+    <label class="f">Punto de referencia</label><input data-k="punto_referencia" value="${v('punto_referencia')}">`;
+  const trabajo = `<div class="grid2">
+      <div><label class="f">Empresa</label><input data-k="empresa" value="${v('empresa')}"></div>
+      <div><label class="f">Cargo</label><input data-k="cargo" value="${v('cargo')}"></div>
+      <div><label class="f">Dirección del trabajo</label><input data-k="direccion_trabajo" value="${v('direccion_trabajo')}"></div>
+      <div><label class="f">Antigüedad</label><input data-k="antiguedad" value="${v('antiguedad')}" placeholder="Ej. 2 años"></div>
+      <div><label class="f">Teléfono del trabajo</label><input data-k="telefono_trabajo" value="${v('telefono_trabajo')}" inputmode="tel"></div></div>`;
+  return `<div class="card" id="cForm"><h4 class="sec" style="margin-top:0">Completar con el cliente</h4>
+    <div class="alert ok small">Aprobada por ${L(s.monto_aprobado)}${s.tipo !== 'nuevo' && montoLibre(s) != null ? ` · Monto libre ${L(montoLibre(s))}` : ''}</div>
+    ${nuevo ? `
+      <div class="grid2">
+        <div><label class="f">DNI</label><input data-k="dni" value="${v('dni') || esc(s.dni||'')}" inputmode="numeric" placeholder="0501-1990-12345"></div>
+        <div><label class="f">Fecha de nacimiento</label><input data-k="fecha_nacimiento" type="date" value="${v('fecha_nacimiento')}"></div>
+        <div><label class="f">Teléfono</label><input data-k="telefono" value="${v('telefono') || esc(s.telefono||'')}" inputmode="tel"></div>
+      </div><div id="cEdad"></div>
+      <h4 class="sec">Domicilio</h4>${domicilio}
+      <h4 class="sec">Trabajo</h4>${trabajo}
+      <h4 class="sec">Referencias familiares</h4>
+      ${[0,1].map(i => `<div class="grid2" data-ref="${i}">
+        <div><label class="f">Nombre ref. ${i+1}</label><input data-r="nombre" value="${esc(refs[i]?.nombre||'')}"></div>
+        <div class="grid2" style="gap:0 8px"><div><label class="f">Parentesco</label><input data-r="parentesco" value="${esc(refs[i]?.parentesco||'')}"></div>
+        <div><label class="f">Teléfono</label><input data-r="telefono" value="${esc(refs[i]?.telefono||'')}" inputmode="tel"></div></div></div>`).join('')}
+    ` : `
+      <label class="f">¿Qué se debe actualizar?</label>
+      <label class="chk"><input type="checkbox" id="cDom" ${s.actualizar_domicilio?'checked':''}> Domicilio</label>
+      <div id="cDomF" class="${s.actualizar_domicilio?'':'hidden'}">${domicilio}</div>
+      <label class="chk"><input type="checkbox" id="cTrab" ${s.actualizar_trabajo?'checked':''}> Trabajo</label>
+      <div id="cTrabF" class="${s.actualizar_trabajo?'':'hidden'}">${trabajo}</div>
+      <label class="chk"><input type="checkbox" id="cFoto" ${s.actualizar_foto?'checked':''}> Foto de perfil</label>
+    `}
+    <h4 class="sec">Desembolso</h4>
+    <div class="grid2">
+      <div><label class="f">Monto del crédito (máx. ${L(s.monto_aprobado)})</label><input id="cMonto" inputmode="decimal" value="${s.monto_solicitado || s.monto_aprobado || ''}"></div>
+      <div><label class="f">Plazo (meses)</label><input id="cPlazo" inputmode="numeric" value="${s.plazo_meses || ''}"></div>
+    </div>
+    <label class="f">Forma de desembolso</label>
+    <div class="seg" id="cForma"><button type="button" data-v="efectivo" class="${s.forma_desembolso==='efectivo'?'on':''}">💵 Efectivo</button><button type="button" data-v="transferencia" class="${s.forma_desembolso==='transferencia'?'on':''}">🏦 Transferencia</button></div>
+    <div id="cCtaF" class="${s.forma_desembolso==='transferencia'?'':'hidden'}"><label class="f">Banco y número de cuenta</label><input id="cCta" value="${esc(s.cuenta_banco||'')}" placeholder="Ej. BAC 7412..."></div>
+    <div id="cVerF"><label class="f">Verificador (opcional)</label><select id="cVer"><option value="">Cualquier verificador</option>${verifs.map(p => `<option value="${p.id}" ${s.verificador_id===p.id?'selected':''}>${esc(p.nombre)}</option>`).join('')}</select></div>
+    <label class="f">Notas</label><textarea data-k="notas" rows="2">${v('notas')}</textarea>
+    <div id="cDestino" class="alert info small"></div>
+    <div class="btns"><button class="btn pri" id="cEnviar">Enviar</button></div>
+  </div>`;
+}
+
+function verificacionHTML(s, items){
+  const edit = s.estado === 'por_verificar' && es('verificador');
+  const hechos = items.filter(i => i.completado).length;
+  return `<div class="card"><h4 class="sec" style="margin-top:0">Verificación (${hechos}/${items.length})</h4>
+    ${items.map(i => `<div class="item ${i.completado?'done':''}" data-item="${i.item}">
+      <div class="hd"><input type="checkbox" ${i.completado?'checked':''} ${edit?'':'disabled'} data-ck>${ITEM[i.item]}<span class="spacer"></span>
+        ${i.lat ? `<a class="small" target="_blank" href="https://maps.google.com/?q=${i.lat},${i.lng}">📍 Mapa</a>` : ''}</div>
+      ${edit ? `<input data-nota placeholder="Nota" value="${esc(i.nota||'')}" style="margin-top:8px">
+        <div class="row" style="margin-top:8px">
+          ${i.item === 'referencias' || i.item === 'entrega_efectivo' ? '' : `<label class="btn sm ghost">📷 Foto<input type="file" accept="image/*" capture="environment" data-foto hidden></label>`}
+          <button class="btn sm ghost" data-gps>📍 Capturar GPS</button>
+          <span class="small muted" data-st>${i.actualizado_por ? 'Guardado ' + hace(i.actualizado_en) : ''}</span></div>`
+      : (i.nota ? `<div class="small" style="margin-top:6px">${esc(i.nota)}</div>` : '')}
+      ${i.foto_path ? `<div class="thumbs"><img data-path="${esc(i.foto_path)}" alt="foto"></div>` : ''}
+    </div>`).join('')}
+    ${edit ? `<label class="f">Observación final</label><textarea id="vNota" rows="2"></textarea>
+      <div class="btns"><button class="btn ok" id="vOk">Verificación exitosa${s.forma_desembolso==='efectivo'?' · efectivo entregado':''}</button><button class="btn bad" id="vBad">Rechazar</button></div>` : ''}
+  </div>`;
+}
+
+function enlazarDetalle(s, c){
+  const B = $('#sheetBody');
+  const refrescar = async () => { await cargarSolicitudes(); const n = S.sols.find(x => x.id === s.id); if (n) { S.dirty=false; await abrirDetalle(s.id, true); } pintarTabs(); };
+
+  // Ingresos
+  let cat = 'salario';
+  B.querySelectorAll('#iCat button').forEach(b => b.onclick = () => { cat = b.dataset.v; B.querySelectorAll('#iCat button').forEach(x => x.classList.toggle('on', x===b)); });
+  const add = $('#iAdd');
+  if (add){
+    const go = () => run(add, async () => {
+      const m = num($('#iMonto').value); if (!m || m <= 0) throw new Error('Monto inválido');
+      if (!$('#iFecha').value) throw new Error('Fecha requerida');
+      const { error } = await sb.from('ingresos').insert({ solicitud_id: s.id, fecha: $('#iFecha').value, monto: m, categoria: cat });
+      if (error) throw error;
+      await recargarIngresos(); setTimeout(() => $('#iMonto')?.focus(), 50);
+    });
+    add.onclick = go; $('#iMonto').onkeydown = e => { if (e.key === 'Enter') go(); };
+  }
+  B.querySelectorAll('[data-del]').forEach(b => b.onclick = () => run(b, async () => {
+    const { error } = await sb.from('ingresos').delete().eq('id', +b.dataset.del); if (error) throw error; await recargarIngresos();
+  }));
+  const updA = () => run(null, async () => {
+    await rpc('actualizar_datos_analisis', { p_id: s.id, p_tipo_pago: $('#dPago').value, p_rubro_especial: $('#dRubro').value === '1' });
+    s.tipo_pago = $('#dPago').value; s.rubro_especial = $('#dRubro').value === '1'; renderDetalleParcial();
+  });
+  if ($('#dPago') && !$('#dPago').disabled){ $('#dPago').onchange = updA; $('#dRubro').onchange = updA; }
+
+  // Asesor: enviar
+  if ($('#aEnviar')) $('#aEnviar').onclick = e => run(e.target, async () => { await rpc('enviar_analisis', { p_id: s.id }); toast('Enviada a análisis'); await refrescar(); });
+
+  // Analista
+  if ($('#dAprobar')){
+    const libre = () => { const m = num($('#dMonto').value)||0, k = num($('#dCap')?.value)||0, i = num($('#dInt')?.value)||0;
+      if ($('#dLibre')) $('#dLibre').innerHTML = `Monto libre: <b>${L(m - k - i)}</b>${m - k - i < 0 ? ' ⚠ negativo' : ''}`; };
+    ['#dMonto','#dCap','#dInt'].forEach(q => { if ($(q)) $(q).oninput = () => { S.dirty = true; libre(); }; }); libre();
+    const dict = (btn, tipo) => run(btn, async () => {
+      if (tipo === 'aprobada' && c.limite && s.tipo === 'nuevo' && num($('#dMonto').value) > c.limite && !confirm(`El monto supera el límite calculado (${L(c.limite)}). ¿Aprobar de todos modos?`)) return;
+      if (tipo === 'aprobada' && c.insuficiente && !confirm('Los ingresos están por debajo del mínimo. ¿Aprobar de todos modos?')) return;
+      await rpc('dictaminar', { p_id: s.id, p_dictamen: tipo, p_nota: $('#dNota').value || null, p_monto: num($('#dMonto').value),
+        p_saldo_capital: num($('#dCap')?.value), p_saldo_intereses: num($('#dInt')?.value) });
+      toast(tipo === 'aprobada' ? 'Aprobada · pasa a revisadas del asesor' : tipo === 'denegada' ? 'Denegada' : 'Devuelta al asesor');
+      S.dirty = false; await cerrarDetalle(); await cargarSolicitudes(); pintarTabs(); pintar();
+    });
+    $('#dAprobar').onclick = e => dict(e.target, 'aprobada');
+    $('#dDenegar').onclick = e => dict(e.target, 'denegada');
+    $('#dDevolver').onclick = e => dict(e.target, 'devolver');
+  }
+
+  // Completar
+  if ($('#cForm')) enlazarCompletar(s, refrescar);
+
+  // Desembolso
+  if ($('#tOk')) $('#tOk').onclick = e => run(e.target, async () => { await rpc('marcar_desembolsada', { p_id: s.id, p_referencia: $('#tRef').value }); toast('Desembolsada'); await refrescar(); });
+  if ($('#tBack')) $('#tBack').onclick = async e => { const n = await pedirTexto('Regresar al asesor', 'Qué debe corregir', 'Regresar'); if (n) run(e.target, async () => { await rpc('regresar_a_revisadas', { p_id: s.id, p_nota: n }); await refrescar(); }); };
+  if ($('#aDesistir')) $('#aDesistir').onclick = async e => { const n = await pedirTexto('Cerrar solicitud', 'Motivo (ej. el cliente ya no lo necesita)', 'Cerrar solicitud', 'bad'); if (n) run(e.target, async () => { await rpc('desistir', { p_id: s.id, p_motivo: n }); toast('Solicitud cerrada'); await refrescar(); }); };
+
+  // Verificación
+  B.querySelectorAll('.item').forEach(el => {
+    const it = el.dataset.item, st = el.querySelector('[data-st]');
+    const guardar = (extra = {}) => run(null, async () => {
+      await rpc('guardar_item', { p_id: s.id, p_item: it, p_completado: el.querySelector('[data-ck]').checked,
+        p_nota: el.querySelector('[data-nota]')?.value || null, p_foto: extra.foto || null, p_lat: extra.lat ?? null, p_lng: extra.lng ?? null });
+      if (st) st.textContent = 'Guardado ✓';
+      el.classList.toggle('done', el.querySelector('[data-ck]').checked);
+      if (extra.foto || extra.lat) { const y = $('#sheet').scrollTop; await abrirDetalle(s.id, true); $('#sheet').scrollTop = y; }
+    });
+    const ck = el.querySelector('[data-ck]'); if (ck && !ck.disabled) ck.onchange = () => guardar();
+    const nt = el.querySelector('[data-nota]'); if (nt) nt.onchange = () => guardar();
+    const gps = el.querySelector('[data-gps]');
+    if (gps) gps.onclick = () => {
+      if (!navigator.geolocation) return toast('GPS no disponible', true);
+      st.textContent = 'Obteniendo ubicación…';
+      navigator.geolocation.getCurrentPosition(p => guardar({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        err => { st.textContent = ''; toast('No se pudo obtener la ubicación: ' + err.message, true); }, { enableHighAccuracy:true, timeout:20000 });
+    };
+    const foto = el.querySelector('[data-foto]');
+    if (foto) foto.onchange = () => run(null, async () => {
+      const f = foto.files[0]; if (!f) return;
+      st.textContent = 'Subiendo foto…';
+      const blob = await comprimir(f);
+      const path = `${s.id}/${it}-${Date.now()}.jpg`;
+      const { error } = await sb.storage.from('evidencias').upload(path, blob, { contentType:'image/jpeg' });
+      if (error) throw error;
+      await guardar({ foto: path });
+    });
+  });
+  B.querySelectorAll('img[data-path]').forEach(async img => {
+    const { data } = await sb.storage.from('evidencias').createSignedUrl(img.dataset.path, 3600);
+    if (data?.signedUrl){ img.src = data.signedUrl; img.onclick = () => window.open(data.signedUrl, '_blank'); }
+  });
+  if ($('#vOk')) $('#vOk').onclick = e => run(e.target, async () => {
+    const r = await rpc('finalizar_verificacion', { p_id: s.id, p_resultado: 'ok', p_nota: $('#vNota').value || null });
+    toast(r === 'desembolsada' ? 'Verificada y desembolsada en efectivo' : 'Verificada · pasa a desembolso por transferencia'); await refrescar();
+  });
+  if ($('#vBad')) $('#vBad').onclick = e => run(e.target, async () => {
+    if (!$('#vNota').value.trim()) throw new Error('Escriba el motivo del rechazo en la observación final');
+    if (!confirm('¿Rechazar la solicitud en verificación?')) return;
+    await rpc('finalizar_verificacion', { p_id: s.id, p_resultado: 'rechazada', p_nota: $('#vNota').value }); await refrescar();
+  });
+
+  // Comentarios
+  const t = $('#cmTxt');
+  t.oninput = () => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 140) + 'px'; };
+  $('#cmSend').onclick = () => enviarComentario(t, null);
+  t.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 700){ e.preventDefault(); enviarComentario(t, null); } };
+}
+async function recargarIngresos(){
+  const { data } = await sb.from('ingresos').select('*').eq('solicitud_id', S.det).order('fecha');
+  S.detData.ing = data || []; renderDetalleParcial();
+}
+function renderDetalleParcial(){
+  // Re-render conservando scroll y datos escritos en formularios abiertos
+  const y = $('#sheet').scrollTop; const keep = {};
+  ['#dMonto','#dCap','#dInt','#dNota','#cmTxt','#iFecha'].forEach(q => { if ($(q)) keep[q] = $(q).value; });
+  renderDetalle(); cargarComentarios();
+  Object.entries(keep).forEach(([q,v]) => { if ($(q)) $(q).value = v; });
+  if ($('#dMonto')) $('#dMonto').dispatchEvent(new Event('input'));
+  $('#sheet').scrollTop = y;
+}
+function comprimir(file, max = 1280, q = 0.75){
+  return new Promise((res, rej) => {
+    const img = new Image(); img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas'); cv.width = img.width * k; cv.height = img.height * k;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); cv.toBlob(b => b ? res(b) : rej(new Error('No se pudo procesar la foto')), 'image/jpeg', q);
+      URL.revokeObjectURL(img.src);
+    }; img.onerror = () => rej(new Error('Imagen inválida')); img.src = URL.createObjectURL(file);
+  });
+}
+
+function enlazarCompletar(s, refrescar){
+  const F = $('#cForm'); const nuevo = s.tipo === 'nuevo';
+  let forma = s.forma_desembolso || null;
+  const destino = () => {
+    const act = !nuevo && ($('#cDom').checked || $('#cTrab').checked || $('#cFoto').checked);
+    const directo = !nuevo && forma === 'transferencia' && !act;
+    $('#cVerF').classList.toggle('hidden', directo);
+    $('#cDestino').innerHTML = !forma ? 'Seleccione la forma de desembolso.'
+      : directo ? '➡ Pasará directo a <b>Desembolsos por transferencia</b> (no requiere verificador).'
+      : `➡ Pasará a <b>Verificación</b>${forma === 'efectivo' ? ' (el verificador entrega el efectivo)' : ''}.`;
+  };
+  F.querySelectorAll('input,textarea,select').forEach(i => i.addEventListener('input', () => S.dirty = true));
+  F.querySelectorAll('#cForma button').forEach(b => b.onclick = () => { forma = b.dataset.v; S.dirty = true;
+    F.querySelectorAll('#cForma button').forEach(x => x.classList.toggle('on', x===b)); $('#cCtaF').classList.toggle('hidden', forma !== 'transferencia'); destino(); });
+  if (!nuevo){
+    $('#cDom').onchange = () => { $('#cDomF').classList.toggle('hidden', !$('#cDom').checked); destino(); };
+    $('#cTrab').onchange = () => { $('#cTrabF').classList.toggle('hidden', !$('#cTrab').checked); destino(); };
+    $('#cFoto').onchange = destino;
+  } else {
+    const fn = F.querySelector('[data-k="fecha_nacimiento"]');
+    const chkEdad = () => { const e = edad(fn.value); $('#cEdad').innerHTML = e != null && e < S.params.edad_minima ? `<div class="alert err small">⚠ El cliente tiene ${e} años. Mínimo ${S.params.edad_minima}: la solicitud no califica.</div>` : ''; };
+    fn.onchange = chkEdad; chkEdad();
+  }
+  destino();
+  $('#cEnviar').onclick = e => run(e.target, async () => {
+    const datos = { ...(s.datos_cliente || {}) };
+    F.querySelectorAll('[data-k]').forEach(i => { if (!i.closest('.hidden')) datos[i.dataset.k] = i.value.trim(); });
+    if (nuevo) datos.referencias = [...F.querySelectorAll('[data-ref]')].map(r => Object.fromEntries([...r.querySelectorAll('[data-r]')].map(i => [i.dataset.r, i.value.trim()])));
+    if (!forma) throw new Error('Seleccione la forma de desembolso');
+    if (nuevo){
+      const e2 = edad(datos.fecha_nacimiento);
+      if (!datos.fecha_nacimiento) throw new Error('Ingrese la fecha de nacimiento');
+      if (e2 < S.params.edad_minima) throw new Error(`El cliente tiene ${e2} años (mínimo ${S.params.edad_minima})`);
+      if (datos.referencias.filter(r => r.nombre && r.telefono).length < 2) throw new Error('Ingrese 2 referencias familiares con teléfono');
+    }
+    const r = await rpc('completar_solicitud', { p_id: s.id, p_datos: datos, p_forma: forma,
+      p_act_domicilio: !nuevo && $('#cDom').checked, p_act_trabajo: !nuevo && $('#cTrab').checked, p_act_foto: !nuevo && $('#cFoto').checked,
+      p_verificador: $('#cVer').value || null, p_monto_solicitado: num($('#cMonto').value), p_plazo: num($('#cPlazo').value), p_cuenta: $('#cCta').value || null });
+    S.dirty = false;
+    toast(r === 'por_verificar' ? 'Enviada a verificación' : 'Enviada a desembolsos por transferencia');
+    await refrescar();
+  });
+}
+
+// ================== Comentarios estilo Facebook ==================
+async function cargarComentarios(){
+  const id = S.det; if (!id) return;
+  const [{ data: cms }, ] = await Promise.all([sb.from('comentarios').select('*').eq('solicitud_id', id).order('creado_en')]);
+  const ids = (cms||[]).map(c => c.id);
+  const { data: likes } = ids.length ? await sb.from('comentario_likes').select('*').in('comentario_id', ids) : { data: [] };
+  if (S.det !== id || !$('#cmList')) return;
+  const lk = {}; (likes||[]).forEach(l => (lk[l.comentario_id] = lk[l.comentario_id] || []).push(l.usuario_id));
+  const raiz = (cms||[]).filter(c => !c.padre_id), hijos = id => (cms||[]).filter(c => c.padre_id === id);
+  S.com[id] = (cms||[]).length;
+  const uno = (c, sm) => {
+    const ls = lk[c.id] || [], yo = ls.includes(S.me.id);
+    return `<div class="cm" data-cm="${c.id}">${av(c.autor_id, sm)}<div class="cm-b">
+      <div class="bubble"><span class="au">${esc(nombre(c.autor_id))}</span><span class="rl">${ROL[S.perfiles[c.autor_id]?.rol]||''}</span><div class="tx">${esc(c.texto)}</div></div>
+      <div class="cm-meta"><button data-like="${c.id}" class="${yo?'liked':''}">${yo?'👍 Te gusta':'Me gusta'}</button>
+        ${sm ? '' : `<button data-reply="${c.id}">Responder</button>`}
+        <span title="${fDT(c.creado_en)}">${hace(c.creado_en)}</span>
+        ${ls.length ? `<span class="likes" title="${esc(ls.map(nombre).join(', '))}">👍 ${ls.length}</span>` : ''}
+        ${c.autor_id === S.me.id || rol()==='admin' ? `<button data-delc="${c.id}">Eliminar</button>` : ''}</div>
+      ${sm ? '' : `<div class="replies">${hijos(c.id).map(h => uno(h, true)).join('')}<div data-rbox="${c.id}"></div></div>`}
+    </div></div>`;
+  };
+  const L2 = $('#cmList');
+  const pendiente = S.replyTo ? L2.querySelector(`[data-rbox="${S.replyTo}"] textarea`)?.value : null;
+  L2.innerHTML = raiz.length ? raiz.map(c => uno(c)).join('') : `<div class="small muted">Sin comentarios. Usa este espacio para comunicarte sobre la solicitud.</div>`;
+  if (S.replyTo) abrirRespuesta(S.replyTo, pendiente);
+  L2.querySelectorAll('[data-like]').forEach(b => b.onclick = () => run(null, async () => {
+    const cid = +b.dataset.like;
+    if (b.classList.contains('liked')) await sb.from('comentario_likes').delete().eq('comentario_id', cid).eq('usuario_id', S.me.id);
+    else await sb.from('comentario_likes').insert({ comentario_id: cid, usuario_id: S.me.id });
+    cargarComentarios();
+  }));
+  L2.querySelectorAll('[data-reply]').forEach(b => b.onclick = () => abrirRespuesta(+b.dataset.reply));
+  L2.querySelectorAll('[data-delc]').forEach(b => b.onclick = () => run(null, async () => {
+    if (!confirm('¿Eliminar comentario?')) return;
+    const { error } = await sb.from('comentarios').delete().eq('id', +b.dataset.delc); if (error) throw error; cargarComentarios();
+  }));
+}
+function abrirRespuesta(cid, texto){
+  S.replyTo = cid;
+  document.querySelectorAll('[data-rbox]').forEach(x => x.innerHTML = '');
+  const box = document.querySelector(`[data-rbox="${cid}"]`); if (!box) return;
+  box.innerHTML = `<div class="composer">${av(S.me.id, true)}<textarea rows="1" placeholder="Escribe una respuesta…"></textarea><button class="send" style="width:34px;height:34px;font-size:14px">➤</button></div>`;
+  const t = box.querySelector('textarea'); if (texto) t.value = texto; t.focus();
+  box.querySelector('.send').onclick = () => enviarComentario(t, cid);
+}
+async function enviarComentario(t, padre){
+  const txt = t.value.trim(); if (!txt) return;
+  t.disabled = true;
+  const { error } = await sb.from('comentarios').insert({ solicitud_id: S.det, padre_id: padre, texto: txt, autor_id: S.me.id });
+  t.disabled = false;
+  if (error) return toast(errMsg(error), true);
+  t.value = ''; t.style.height = ''; if (padre) S.replyTo = null;
+  cargarComentarios();
+}
+
+// ================== Estadísticas ==================
+function rango(k){
+  const h = hoyHN(), d = new Date(h + 'T12:00');
+  const iso = x => x.toLocaleDateString('en-CA');
+  if (k === 'hoy') return [h, h];
+  if (k === '7d'){ const a = new Date(d); a.setDate(a.getDate()-6); return [iso(a), h]; }
+  if (k === '30d'){ const a = new Date(d); a.setDate(a.getDate()-29); return [iso(a), h]; }
+  if (k === 'mes') return [h.slice(0,8) + '01', h];
+  if (k === 'mesant'){ const a = new Date(d.getFullYear(), d.getMonth()-1, 1, 12), b = new Date(d.getFullYear(), d.getMonth(), 0, 12); return [iso(a), iso(b)]; }
+}
+async function pintarStats(){
+  const opts = [['hoy','Hoy'],['7d','7 días'],['mes','Este mes'],['mesant','Mes anterior'],['30d','30 días']];
+  $('#main').innerHTML = `<div class="filters">${opts.map(([k,t]) => `<button data-r="${k}" class="${S.statsRange===k?'on':''}">${t}</button>`).join('')}</div><div id="stBody"><div class="empty">Cargando…</div></div>`;
+  $('#main').querySelectorAll('[data-r]').forEach(b => b.onclick = () => { S.statsRange = b.dataset.r; pintarStats(); });
+  const [d0, d1] = rango(S.statsRange);
+  let r; try { r = await rpc('estadisticas', { p_desde: d0, p_hasta: d1 }); } catch(e){ return $('#stBody').innerHTML = `<div class="alert err">${esc(errMsg(e))}</div>`; }
+  const dict = r.aprobadas + r.denegadas, tasa = dict ? Math.round(r.aprobadas / dict * 100) : null;
+  const pe = r.por_estado_actual || {};
+  const hrs = h => h == null ? '—' : h < 24 ? `${h} h` : `${(h/24).toFixed(1)} d`;
+  let h = `<div class="kpis">
+    <div class="kpi"><div class="l">Solicitudes creadas</div><div class="v">${r.creadas}</div><div class="s">${Object.entries(r.por_tipo).map(([k,v]) => `${TIPO[k]} ${v}`).join(' · ') || '—'}</div></div>
+    <div class="kpi"><div class="l">Tasa de aprobación</div><div class="v">${tasa == null ? '—' : tasa + '%'}</div><div class="s">${r.aprobadas} aprobadas · ${r.denegadas} denegadas</div></div>
+    <div class="kpi"><div class="l">Desembolsadas</div><div class="v">${r.desembolsadas}</div><div class="s">💵 ${r.desembolso_efectivo} · 🏦 ${r.desembolso_transferencia}</div></div>
+    <div class="kpi"><div class="l">Monto colocado</div><div class="v" style="font-size:20px">${L(r.monto_desembolsado)}</div><div class="s">Aprobado ${L(r.monto_aprobado)}</div></div>
+    <div class="kpi"><div class="l">Tiempo en análisis</div><div class="v">${hrs(r.horas_analisis_prom)}</div><div class="s">promedio envío → dictamen</div></div>
+    <div class="kpi"><div class="l">Ciclo completo</div><div class="v">${hrs(r.horas_ciclo_prom)}</div><div class="s">creación → desembolso</div></div>
+  </div>
+  <h4 class="sec">Cartera en proceso ahora</h4>
+  <div class="pipe">${['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'].map(k => `<div class="st"><b>${pe[k]||0}</b><span class="small">${EST[k].t}</span></div>`).join('')}</div>
+  <h4 class="sec">Actividad por día</h4>
+  <div class="card"><div class="legend"><span><i style="background:var(--s1)"></i>Creadas</span><span><i style="background:var(--s2)"></i>Desembolsadas</span></div><div class="chart" id="chDia"></div></div>
+  <h4 class="sec">Por asesor</h4>
+  <div class="card" style="overflow-x:auto">${r.por_asesor.length ? `<table class="t"><thead><tr><th>Asesor</th><th class="num">Creadas</th><th class="num">Desemb.</th><th class="num">Rechaz.</th><th class="num">Monto</th></tr></thead><tbody>
+    ${r.por_asesor.map(a => `<tr><td>${esc(a.nombre)}</td><td class="num">${a.creadas}</td><td class="num">${a.desembolsadas}</td><td class="num">${a.rechazadas}</td><td class="num">${L(a.monto)}</td></tr>`).join('')}</tbody></table>` : '<div class="muted small">Sin datos</div>'}</div>
+  <h4 class="sec">Verificaciones por verificador</h4>
+  <div class="card">${r.por_verificador.length ? barras(r.por_verificador.map(v => [v.nombre, v.n, v.rechazadas ? `${v.n} (${v.rechazadas} rech.)` : v.n])) : '<div class="muted small">Sin datos</div>'}</div>
+  ${r.motivos_denegacion.length ? `<h4 class="sec">Motivos de denegación</h4><div class="card">${barras(r.motivos_denegacion.map(m => [m.nota || 'Sin nota', m.n, m.n]))}</div>` : ''}`;
+  $('#stBody').innerHTML = h;
+  graficoDias($('#chDia'), r.por_dia);
+}
+function barras(rows){
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  return rows.map(([l, v, t]) => `<div class="hbar"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(l)}">${esc(l)}</span><div class="tr"><div class="fl" style="width:${v/max*100}%"></div></div><b>${esc(t)}</b></div>`).join('');
+}
+function graficoDias(el, data){
+  if (!data.length) return el.innerHTML = '<div class="muted small">Sin datos</div>';
+  const W = 640, H = 200, pl = 28, pb = 22, pt = 8, n = data.length;
+  const max = Math.max(1, ...data.flatMap(d => [d.creadas, d.desembolsadas]));
+  const step = (W - pl) / n, bw = Math.max(2, Math.min(14, step / 2 - 3));
+  const y = v => pt + (H - pt - pb) * (1 - v / max);
+  const ticks = [...new Set([0, Math.round(max/2), max])];
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Solicitudes creadas y desembolsadas por día">`;
+  ticks.forEach(t => svg += `<line x1="${pl}" x2="${W}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(t)+4}" font-size="11" text-anchor="end" fill="var(--muted)">${t}</text>`);
+  const r = (x, v, c) => { if (!v) return ''; const top = y(v), h = y(0) - top; const rr = Math.min(4, h, bw/2);
+    return `<path d="M${x},${y(0)} v${-(h-rr)} q0,${-rr} ${rr},${-rr} h${bw-2*rr} q${rr},0 ${rr},${rr} v${h-rr} z" fill="${c}"/>`; };
+  const every = Math.ceil(n / 8);
+  data.forEach((d, i) => {
+    const cx = pl + step * i + step / 2;
+    svg += r(cx - bw - 1, d.creadas, 'var(--s1)') + r(cx + 1, d.desembolsadas, 'var(--s2)');
+    if (i % every === 0) svg += `<text x="${cx}" y="${H-6}" font-size="11" text-anchor="middle" fill="var(--muted)">${d.dia.slice(8)}/${d.dia.slice(5,7)}</text>`;
+    svg += `<rect data-i="${i}" x="${pl + step*i}" y="0" width="${step}" height="${H-pb}" fill="transparent"/>`;
+  });
+  svg += `<line x1="${pl}" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)"/></svg><div class="tip hidden"></div>`;
+  el.innerHTML = svg;
+  const tip = el.querySelector('.tip');
+  el.querySelectorAll('rect[data-i]').forEach(rc => {
+    const show = () => { const d = data[+rc.dataset.i]; const b = rc.getBoundingClientRect(), p = el.getBoundingClientRect();
+      tip.innerHTML = `<b>${fDate(d.dia+'T12:00')}</b><br>Creadas: ${d.creadas}<br>Desembolsadas: ${d.desembolsadas}`;
+      tip.style.left = Math.min(Math.max(b.left - p.left + b.width/2, 60), p.width - 60) + 'px'; tip.style.top = '40px'; tip.classList.remove('hidden'); };
+    rc.addEventListener('mouseenter', show); rc.addEventListener('click', show);
+    rc.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+  });
+}
+
+// ================== Admin: usuarios y parámetros ==================
+function pintarUsuarios(){
+  const us = Object.values(S.perfiles);
+  $('#main').innerHTML = `<div class="btns" style="margin:0 0 10px"><button class="btn pri" id="uNuevo">＋ Nuevo usuario</button></div>
+    ${us.map(u => `<div class="card row">${av(u.id)}<div style="flex:1;min-width:0"><b>${esc(u.nombre)}</b> ${u.activo ? '' : '<span class="chip c-red">Inactivo</span>'}<div class="small muted">${esc(u.email||'')} · ${ROL[u.rol]}</div></div><button class="btn sm ghost" data-u="${u.id}">Editar</button></div>`).join('')}`;
+  $('#uNuevo').onclick = () => {
+    const w = dialogo(`<h3>Nuevo usuario</h3>
+      <label class="f">Nombre</label><input id="uN"><label class="f">Correo</label><input id="uE" type="email">
+      <label class="f">Contraseña (mín. 6)</label><input id="uP" type="text">
+      <label class="f">Rol</label><select id="uR">${Object.entries(ROL).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+      <div class="btns"><button class="btn ghost" data-close>Cancelar</button><button class="btn pri" id="uOk">Crear</button></div>`);
+    w.querySelector('#uOk').onclick = e => run(e.target, async () => {
+      await fnUsuarios({ accion:'crear', nombre: $('#uN').value, email: $('#uE').value, password: $('#uP').value, rol: $('#uR').value });
+      cerrarDialogo(w); await cargarPerfiles(); pintarUsuarios(); toast('Usuario creado');
+    });
+  };
+  $('#main').querySelectorAll('[data-u]').forEach(b => b.onclick = () => {
+    const u = S.perfiles[b.dataset.u];
+    const w = dialogo(`<h3>${esc(u.nombre)}</h3>
+      <label class="f">Nombre</label><input id="eN" value="${esc(u.nombre)}">
+      <label class="f">Rol</label><select id="eR">${Object.entries(ROL).map(([k,v]) => `<option value="${k}" ${u.rol===k?'selected':''}>${v}</option>`).join('')}</select>
+      <label class="chk" style="margin-top:10px"><input type="checkbox" id="eA" ${u.activo?'checked':''}> Activo</label>
+      <label class="f">Nueva contraseña (opcional)</label><input id="eP" type="text" placeholder="Dejar vacío para no cambiar">
+      <div class="btns"><button class="btn ghost" data-close>Cancelar</button><button class="btn pri" id="eOk">Guardar</button></div>`);
+    w.querySelector('#eOk').onclick = e => run(e.target, async () => {
+      await rpc('actualizar_perfil', { p_id: u.id, p_nombre: $('#eN').value, p_rol: $('#eR').value, p_activo: $('#eA').checked });
+      if ($('#eP').value) await fnUsuarios({ accion:'password', user_id: u.id, password: $('#eP').value });
+      cerrarDialogo(w); await cargarPerfiles(); pintarUsuarios(); toast('Guardado');
+    });
+  });
+}
+function pintarParams(){
+  $('#main').innerHTML = `<div class="alert info small">Estos valores controlan el cálculo del análisis de ingresos (igual que la hoja de Excel).</div>
+    ${S.paramsRows.map(p => `<div class="card"><label class="f" style="margin-top:0">${esc(p.descripcion)}</label>
+      <div class="row"><input data-p="${esc(p.clave)}" value="${p.valor}" inputmode="decimal"><button class="btn sm pri" data-ps="${esc(p.clave)}">Guardar</button></div></div>`).join('')}`;
+  $('#main').querySelectorAll('[data-ps]').forEach(b => b.onclick = () => run(b, async () => {
+    const v = num(document.querySelector(`[data-p="${b.dataset.ps}"]`).value); if (v == null) throw new Error('Valor inválido');
+    await rpc('actualizar_parametro', { p_clave: b.dataset.ps, p_valor: v }); await cargarParams(); toast('Parámetro actualizado');
+  }));
+}
+
+// ================== Tiempo real ==================
+let tRe = null, canal = null;
+function suscribir(){
+  if (canal) sb.removeChannel(canal);
+  canal = sb.channel('vc')
+    .on('postgres_changes', { event:'*', schema:'public', table:'solicitudes' }, p => { avisar(p); programarRecarga(p); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'comentarios' }, p => {
+      const sid = p.new?.solicitud_id || p.old?.solicitud_id;
+      if (S.det && (!sid || sid === S.det)) cargarComentarios();
+      if (p.eventType === 'INSERT' && p.new.autor_id !== S.me.id && p.new.solicitud_id !== S.det){
+        const s = S.sols.find(x => x.id === p.new.solicitud_id);
+        if (s) notificar(`💬 ${nombre(p.new.autor_id)} comentó en ${s.nombre_cliente}`, p.new.texto.slice(0,80), s.id);
+      }
+      programarRecarga();
+    })
+    .on('postgres_changes', { event:'*', schema:'public', table:'comentario_likes' }, () => { if (S.det) cargarComentarios(); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'ingresos' }, p => {
+      const sid = p.new?.solicitud_id || p.old?.solicitud_id;
+      if (S.det && sid === S.det && !S.dirty) recargarIngresos();
+    })
+    .subscribe(st => { if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') setTimeout(suscribir, 5000); });
+}
+function programarRecarga(p){
+  clearTimeout(tRe);
+  tRe = setTimeout(async () => {
+    const antes = S.det ? S.sols.find(x => x.id === S.det) : null;
+    await cargarSolicitudes(); pintarTabs();
+    if ($('#sheet').classList.contains('hidden')) pintar();
+    else if (antes){
+      const ahora = S.sols.find(x => x.id === S.det);
+      if (ahora && ahora.estado !== antes.estado){
+        if (S.dirty){ toast(`Esta solicitud cambió a "${EST[ahora.estado].t}". Cierre y vuelva a abrir para ver los cambios.`); }
+        else abrirDetalle(S.det, true);
+      }
+    }
+  }, 600);
+}
+function avisar(p){
+  if (p.eventType !== 'UPDATE' && p.eventType !== 'INSERT') return;
+  const s = p.new, prev = S.sols.find(x => x.id === s.id);
+  if (prev && prev.estado === s.estado) return;
+  const n = s.nombre_cliente;
+  if (s.estado === 'en_analisis' && es('analista')) notificar('Nueva solicitud en análisis', `${n} · ${TIPO[s.tipo]}`, s.id);
+  else if (['aprobada','denegada'].includes(s.estado) && s.asesor_id === S.me.id) notificar(`Solicitud ${EST[s.estado].t.toLowerCase()}`, n, s.id);
+  else if (s.estado === 'borrador' && prev?.estado === 'en_analisis' && s.asesor_id === S.me.id) notificar('Solicitud devuelta para corregir', n, s.id);
+  else if (s.estado === 'por_verificar' && rol() === 'verificador' && (!s.verificador_id || s.verificador_id === S.me.id)) notificar('Nueva verificación asignada', n, s.id);
+  else if (s.estado === 'desembolso_pendiente' && es('analista')) notificar('Desembolso por transferencia pendiente', n, s.id);
+}
+function notificar(t, b, id){
+  toast(`${t}: ${b}`);
+  try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden){
+    const nt = new Notification(t, { body: b, tag: 'vc-' + id }); nt.onclick = () => { window.focus(); abrirDetalle(id); };
+  } } catch(e){}
+}
+document.addEventListener('visibilitychange', async () => {
+  if (!document.hidden && S.me){ await cargarSolicitudes(); pintarTabs(); if ($('#sheet').classList.contains('hidden')) pintar(); }
+});
+setInterval(async () => { if (S.me && !document.hidden && $('#sheet').classList.contains('hidden')){ await cargarSolicitudes(); pintarTabs(); if (!document.activeElement || document.activeElement.id !== 'q') pintar(); } }, 60000);
+
+sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') location.reload(); });
+init();
+</script>
+</body>
+</html>

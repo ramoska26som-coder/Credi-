@@ -1328,7 +1328,13 @@ const PASO = { borrador:{ t:'Captura', r:'asesor' }, en_analisis:{ t:'Análisis'
 const ORDEN_PASOS = ['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'];
 const rolDe = est => PASO[est]?.r || (est === 'desembolsada' ? 'finalizada' : 'cerrada');
 const rcVars = r => `--rc:var(--r-${r});--rb:var(--r-${r}-bg)`;
-const rolPill = (s) => { const r = rolDe(s.estado); return `<span class="rol" style="${rcVars(r)}">${RC[r].t}${PASO[s.estado] ? ' · ' + PASO[s.estado].t : ''}</span>`; };
+// Persona que tiene la solicitud ahora (asesor creador, verificador asignado)
+const responsable = s => { const r = rolDe(s.estado);
+  if (r === 'asesor') return nombre(s.asesor_id);
+  if (r === 'verificador' && s.verificador_id) return nombre(s.verificador_id);
+  return null; };
+const rolPill = (s) => { const r = rolDe(s.estado), who = responsable(s);
+  return `<span class="rol" style="${rcVars(r)}">${who ? esc(who.split(' ').slice(0,2).join(' ')) : RC[r].t}${PASO[s.estado] ? ' · ' + PASO[s.estado].t : ''}</span>`; };
 const leyendaHTML = () => `<div class="leyenda">${['asesor','analista','verificador','desembolso','finalizada','cerrada'].map(r => `<span class="rol" style="${rcVars(r)}">${RC[r].t}</span>`).join('')}</div>`;
 // Tiempo acumulado por paso (no por rol) de una solicitud, a partir de sus eventos
 function pasosDe(s){
@@ -1448,7 +1454,7 @@ function cardK(s, dia){
     <div class="rolbar">${rolPill(s)}${previo}</div>
     <div class="nm">${esc(s.nombre_cliente)}</div>
     <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}</div>
-    <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab ? `<span>Espera: <b>${ESPERA[s.estado]}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
+    <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab ? `<span>Espera: <b>${esc(responsable(s) || ESPERA[s.estado])}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
     <div class="tm">${tm}</div>${pasosHTML(s)}</div>`;
 }
 // Cronómetros en vivo (tablero y detalle)

@@ -1384,6 +1384,8 @@ const COLS = [
   { k:'cerr',  t:'Canceladas / Rechazadas', est:['denegada','rechazada_verificacion','desistida'], c:'var(--red)' }
 ];
 const diaHN = d => d ? new Date(d).toLocaleDateString('en-CA', { timeZone: TZ }) : null;
+// Capital nuevo colocado: en refinanciamiento/reingreso = monto del préstamo − saldo de capital anterior
+function capitalColocado(s){ const m = +(s.monto_solicitado || s.monto_aprobado || 0); return s.tipo !== 'nuevo' ? Math.max(0, m - (+s.saldo_capital || 0)) : m; }
 function pintarTablero(){
   const hoy = hoyHN(); if (!S.boardDay) S.boardDay = hoy;
   const dia = S.boardDay, esHoy = dia === hoy;
@@ -1398,7 +1400,7 @@ function pintarTablero(){
   const creadasDia = base.filter(s => diaHN(s.creado_en) === dia);
   const desDia = base.filter(s => s.estado === 'desembolsada' && diaHN(s.cerrado_en || s.desembolsado_en) === dia);
   const cicloProm = desDia.length ? desDia.reduce((a,s) => a + (s.duracion_total_habil_seg ?? segHabiles(s.creado_en, s.desembolsado_en)), 0) / desDia.length : null;
-  const monto = desDia.reduce((a,s) => a + +(s.monto_solicitado || s.monto_aprobado || 0), 0);
+  const monto = desDia.reduce((a,s) => a + capitalColocado(s), 0);
   const fechaTxt = new Date(dia + 'T12:00').toLocaleDateString('es-HN', { weekday:'long', day:'numeric', month:'long' });
   $('#main').innerHTML = `
     <div class="bd-top">
@@ -1411,7 +1413,7 @@ function pintarTablero(){
     <div class="search"><input id="q" placeholder="Buscar en el tablero" value="${esc(S.q)}"></div>
     <div class="bd-sum">
       <div class="kpi"><div class="l">Nuevas del día</div><div class="v">${creadasDia.length}</div></div>
-      <div class="kpi"><div class="l">Desembolsadas</div><div class="v">${desDia.length}</div><div class="s">${L(monto)}</div></div>
+      <div class="kpi"><div class="l">Desembolsadas</div><div class="v">${desDia.length}</div><div class="s">Capital colocado ${L(monto)}</div></div>
       <div class="kpi"><div class="l">Ciclo promedio (hábil)</div><div class="v">${fmtDur(cicloProm)}</div><div class="s">meta ${fmtDur((S.params.meta_total_min||0)*60)}</div></div>
       <div class="kpi"><div class="l">En proceso ahora</div><div class="v">${base.filter(abiertas).length}</div><div class="s">${base.filter(s => abiertas(s) && diaHN(s.creado_en) < hoy).length} de días anteriores</div></div>
     </div>
@@ -1494,7 +1496,7 @@ async function pintarStats(){
     <div class="kpi"><div class="l">Solicitudes creadas</div><div class="v">${r.creadas}</div><div class="s">${Object.entries(r.por_tipo).map(([k,v]) => `${TIPO[k]} ${v}`).join(' · ') || '—'}</div></div>
     <div class="kpi"><div class="l">Tasa de aprobación</div><div class="v">${tasa == null ? '—' : tasa + '%'}</div><div class="s">${r.aprobadas} aprobadas · ${r.denegadas} denegadas</div></div>
     <div class="kpi"><div class="l">Desembolsadas</div><div class="v">${r.desembolsadas}</div><div class="s">💵 ${r.desembolso_efectivo} · 🏦 ${r.desembolso_transferencia}</div></div>
-    <div class="kpi"><div class="l">Monto colocado</div><div class="v" style="font-size:20px">${L(r.monto_desembolsado)}</div><div class="s">Aprobado ${L(r.monto_aprobado)}</div></div>
+    <div class="kpi"><div class="l">Capital colocado</div><div class="v" style="font-size:20px">${L(r.monto_desembolsado)}</div><div class="s" title="En refinanciamiento se resta el saldo de capital anterior">Préstamos ${L(r.monto_prestamos)} − capital refinanciado ${L(r.capital_refinanciado)}</div></div>
     <div class="kpi"><div class="l">Ciclo promedio (hábil)</div><div class="v">${fmtDur(ci.prom_habil_seg)}</div><div class="s">creación → desembolso · ${fmtDur(ci.prom_seg)} cal.</div></div>
     <div class="kpi"><div class="l">Dentro de la meta</div><div class="v">${ci.n ? Math.round(ci.dentro_meta / ci.n * 100) + '%' : '—'}</div><div class="s">${ci.dentro_meta||0} de ${ci.n||0} · meta ${fmtDur((S.params.meta_total_min||0)*60)}</div></div>
   </div>
@@ -1509,7 +1511,7 @@ async function pintarStats(){
   <h4 class="sec">Actividad por día</h4>
   <div class="card"><div class="legend"><span><i style="background:var(--s1)"></i>Creadas</span><span><i style="background:var(--s2)"></i>Desembolsadas</span></div><div class="chart" id="chDia"></div></div>
   <h4 class="sec">Por asesor</h4>
-  <div class="card" style="overflow-x:auto">${r.por_asesor.length ? `<table class="t"><thead><tr><th>Asesor</th><th class="num">Creadas</th><th class="num">Desemb.</th><th class="num">Rechaz.</th><th class="num">Monto</th></tr></thead><tbody>
+  <div class="card" style="overflow-x:auto">${r.por_asesor.length ? `<table class="t"><thead><tr><th>Asesor</th><th class="num">Creadas</th><th class="num">Desemb.</th><th class="num">Rechaz.</th><th class="num">Capital colocado</th></tr></thead><tbody>
     ${r.por_asesor.map(a => `<tr><td>${esc(a.nombre)}</td><td class="num">${a.creadas}</td><td class="num">${a.desembolsadas}</td><td class="num">${a.rechazadas}</td><td class="num">${L(a.monto)}</td></tr>`).join('')}</tbody></table>` : '<div class="muted small">Sin datos</div>'}</div>
   <h4 class="sec">Verificaciones por verificador</h4>
   <div class="card">${r.por_verificador.length ? barras(r.por_verificador.map(v => [v.nombre, v.n, v.rechazadas ? `${v.n} (${v.rechazadas} rech.)` : v.n])) : '<div class="muted small">Sin datos</div>'}</div>

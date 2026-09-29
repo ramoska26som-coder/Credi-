@@ -3,41 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f5c4d">
-<title>VerifiCrédito</title>
+<meta name="theme-color" content="#1877F2">
+<title>VerifiCrédito · Más Pisto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
-  --bg:#f3f4f1; --card:#ffffff; --ink:#1b1d1c; --ink2:#55605b; --muted:#8a938f; --line:#e2e5e0;
-  --brand:#0f5c4d; --brand2:#e7f1ee; --accent:#eb6834;
+  /* Línea gráfica Más Pisto: azul marca + amarillo acento + tinta azul */
+  --bg:#F7FAFF; --card:#ffffff; --ink:#0A2A66; --ink2:#5B6B82; --muted:#8796AD; --line:#DCE6F5;
+  --brand:#1877F2; --brand-dk:#0B5AD6; --brand2:#EAF3FF; --accent:#FFD400; --accent-ink:#0A2A66;
   --gray:#6b7280; --gray-bg:#eef0f2; --blue:#1d5fb8; --blue-bg:#e3eefc; --green:#17803d; --green-bg:#e2f5e8;
   --red:#b42318; --red-bg:#fde8e6; --amber:#9a6200; --amber-bg:#fdf2d8; --violet:#6a3fb5; --violet-bg:#efe8fb;
-  --teal:#0e7c6b; --teal-bg:#ddf3ee; --s1:#2a78d6; --s2:#eb6834;
-  --shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
+  --teal:#0e7c6b; --teal-bg:#ddf3ee; --s1:#1877F2; --s2:#eb6834;
+  --shadow:0 1px 2px rgba(10,42,102,.06),0 4px 14px rgba(11,90,214,.06);
 }
 @media (prefers-color-scheme: dark){ :root{
-  --bg:#121413; --card:#1c1f1e; --ink:#eef1ef; --ink2:#b9c2be; --muted:#87918c; --line:#2d3230;
-  --brand:#3fb39a; --brand2:#1d2e2a; --gray-bg:#2a2d2f; --blue-bg:#1b2a40; --green-bg:#17301f; --red-bg:#3a1d1a;
+  --bg:#0B1426; --card:#13203A; --ink:#EAF3FF; --ink2:#A9B8D0; --muted:#7D8DA8; --line:#22324F;
+  --brand:#4C9AFF; --brand-dk:#1877F2; --brand2:#16284A; --gray-bg:#2a2d2f; --blue-bg:#1b2a40; --green-bg:#17301f; --red-bg:#3a1d1a;
   --amber-bg:#3a2e12; --violet-bg:#2a2140; --teal-bg:#15312c; --gray:#a4abb3; --blue:#7fb0f0; --green:#6fd08f;
-  --red:#f28b82; --amber:#f0c060; --violet:#b9a0f0; --teal:#5fd0bb; --s1:#3987e5; --s2:#d95926;
+  --red:#f28b82; --amber:#f0c060; --violet:#b9a0f0; --teal:#5fd0bb; --s1:#4C9AFF; --s2:#d95926;
   --shadow:0 1px 2px rgba(0,0,0,.4);
 }}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,.name,.kpi .v,.res .box .v,.login .logo,.col-h b{font-family:Poppins,Inter,system-ui,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 .hidden{display:none!important}
-header.top{position:sticky;top:0;z-index:20;background:var(--brand);color:#fff;padding:10px 16px calc(0px);}
+header.top{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,#1877F2,#0B5AD6);color:#fff;padding:10px 16px 0}
 header.top .row{display:flex;align-items:center;gap:10px}
-header.top h1{font-size:17px;margin:0;flex:1;font-weight:650;letter-spacing:.2px}
+header.top h1{font-size:19px;margin:0;flex:1;font-weight:800;letter-spacing:-.3px;line-height:1.05}
+header.top h1 .plus{color:var(--accent)} header.top h1 small{display:block;font:600 10px/1.4 Inter,sans-serif;letter-spacing:1.4px;text-transform:uppercase;opacity:.85}
 header.top .who{font-size:12px;opacity:.9;text-align:right}
 .iconbtn{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:10px;padding:7px 10px;font-size:14px}
 nav.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:10px -16px 0;padding:0 12px}
 nav.tabs::-webkit-scrollbar{display:none}
 nav.tabs button{flex:none;background:none;border:0;color:rgba(255,255,255,.78);padding:9px 10px 11px;border-bottom:3px solid transparent;font-weight:600;font-size:14px;white-space:nowrap}
-nav.tabs button.on{color:#fff;border-color:#fff}
+nav.tabs button.on{color:#fff;border-color:var(--accent)}
 nav.tabs .n{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:rgba(255,255,255,.22);font-size:11px;line-height:18px;text-align:center}
 main{padding:12px 16px 110px;max-width:900px;margin:0 auto}
+main.wide{max-width:1400px}
 .search{display:flex;gap:8px;margin-bottom:10px}
 .search input{flex:1}
 input,select,textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none}
@@ -60,13 +66,14 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:10px 0 4px;font-we
 .c-teal{color:var(--teal);background:var(--teal-bg)}
 .btn{border:0;border-radius:10px;padding:10px 14px;font-weight:650;background:var(--gray-bg);color:var(--ink)}
 .btn.pri{background:var(--brand);color:#fff}
+.btn.pri:active{background:var(--brand-dk)}
 .btn.ok{background:var(--green);color:#fff} .btn.bad{background:var(--red);color:#fff}
 .btn.ghost{background:none;border:1px solid var(--line)}
 .btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
 .btn:disabled{opacity:.5}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .btns .btn{flex:1;min-width:120px}
-.fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:15;background:var(--accent);color:#fff;border:0;border-radius:28px;padding:14px 20px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:15;background:var(--accent);color:var(--accent-ink);border:0;border-radius:28px;padding:14px 20px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .empty{text-align:center;color:var(--muted);padding:40px 10px}
 .seg{display:flex;background:var(--gray-bg);border-radius:10px;padding:3px;gap:3px}
 .seg button{flex:1;border:0;background:none;border-radius:8px;padding:8px 6px;font-weight:600;font-size:13.5px;color:var(--ink2)}
@@ -158,6 +165,37 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 .pipe{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
 .pipe .st{flex:1;min-width:92px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;text-align:center}
 .pipe .st b{display:block;font-size:20px}
+/* Tablero kanban */
+.bd-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.bd-top .day{font-family:Poppins,Inter,sans-serif;font-weight:700;font-size:17px;flex:1;min-width:150px}
+.bd-top .day::first-letter{text-transform:uppercase}
+.bd-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+@media (max-width:640px){.bd-sum{grid-template-columns:repeat(2,1fr)}}
+.bd-sum .kpi{padding:9px 12px} .bd-sum .kpi .v{font-size:20px}
+.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
+@media (max-width:980px){.board{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 8px;-webkit-overflow-scrolling:touch}
+  .board .col{flex:0 0 84vw;max-width:360px;scroll-snap-align:start}}
+.col{background:var(--brand2);border-radius:16px;padding:8px;min-height:120px}
+.col-h{display:flex;align-items:center;gap:8px;padding:6px 6px 10px;border-bottom:3px solid var(--cc);margin-bottom:8px}
+.col-h b{font-size:14.5px;flex:1}
+.col-h .cnt{background:var(--card);border-radius:999px;padding:1px 9px;font-weight:700;font-size:13px}
+.col-body{display:flex;flex-direction:column;gap:8px;max-height:calc(100dvh - 300px);overflow-y:auto}
+@media (max-width:980px){.col-body{max-height:none}}
+.kc{background:var(--card);border-radius:12px;padding:10px 11px;box-shadow:var(--shadow);border:1px solid var(--line);border-left:4px solid var(--kc,var(--line));cursor:pointer}
+.kc .nm{font-weight:650;font-size:14.5px;line-height:1.25}
+.kc .ln{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px;color:var(--ink2);margin-top:5px}
+.kc .tm{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.tm span{font-size:11.5px;font-weight:650;padding:2px 7px;border-radius:7px;background:var(--gray-bg);color:var(--ink2);font-variant-numeric:tabular-nums}
+.tm .warn{background:var(--amber-bg);color:var(--amber)} .tm .late{background:var(--red-bg);color:var(--red)} .tm .good{background:var(--green-bg);color:var(--green)}
+.col .empty{padding:18px 6px;font-size:13px}
+/* Línea de tiempos */
+.steps{position:relative}
+.stp{display:grid;grid-template-columns:18px 1fr auto;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.stp:last-child{border-bottom:0}
+.stp i{width:12px;height:12px;border-radius:50%;margin-top:4px;background:var(--brand)}
+.stp .d{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stp .d small{display:block;font-weight:500;color:var(--muted)}
+.stp.now i{background:var(--accent);box-shadow:0 0 0 3px rgba(255,212,0,.35)}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .toast.err{background:var(--red);color:#fff}
 .login{max-width:380px;margin:9vh auto;padding:0 16px}
@@ -173,8 +211,8 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 
 <!-- ===== Login ===== -->
 <div id="vLogin" class="login hidden">
-  <div class="logo">VerifiCrédito</div>
-  <p class="s">Gestión de solicitudes de crédito</p>
+  <div class="logo">Más Pisto<span style="color:var(--accent)">+</span></div>
+  <p class="s">VerifiCrédito · Gestión de solicitudes</p>
   <div class="card" id="loginCard">
     <form id="fLogin">
       <label class="f">Correo</label><input id="lEmail" type="email" autocomplete="username" required>
@@ -197,7 +235,7 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 <div id="vApp" class="hidden">
   <header class="top">
     <div class="row">
-      <h1>VerifiCrédito</h1>
+      <h1>Más Pisto<span class="plus">+</span><small>VerifiCrédito</small></h1>
       <div class="who"><div id="whoName"></div><div id="whoRol"></div></div>
       <button class="iconbtn" id="btnBell" title="Notificaciones">🔔</button>
       <button class="iconbtn" id="btnOut" title="Salir">⎋</button>
@@ -239,7 +277,7 @@ const ACC = { creada:'Creó la solicitud', enviada_analisis:'Envió a análisis'
 const CERRADAS = ['desembolsada','denegada','rechazada_verificacion','desistida'];
 
 const S = { user:null, me:null, perfiles:{}, params:{}, sols:[], com:{}, tab:null, q:'', filtroTodas:'abiertas',
-  det:null, detData:null, replyTo:null, statsRange:'mes', dirty:false };
+  det:null, detData:null, replyTo:null, statsRange:'mes', dirty:false, feriados:new Set(), feriadosRows:[], boardDay:null, boardTodos:false };
 
 // ================== Utilidades ==================
 const $ = s => document.querySelector(s);
@@ -366,6 +404,8 @@ async function cargarParams(){
   const { data } = await sb.from('parametros').select('*');
   S.params = Object.fromEntries((data||[]).map(p => [p.clave, +p.valor]));
   S.paramsRows = data || [];
+  const { data: fs } = await sb.from('feriados').select('*').order('fecha');
+  S.feriadosRows = fs || []; S.feriados = new Set(S.feriadosRows.map(f => f.fecha));
 }
 async function cargarSolicitudes(){
   const { data, error } = await sb.from('solicitudes').select('*').order('actualizado_en', { ascending:false }).limit(1000);
@@ -388,12 +428,13 @@ function tabsRol(){
     verificadas:['verificadas','Mis verificaciones', s => s.verificado_en && s.verificador_id === S.me.id],
     desembolsos:['desembolsos','Desembolsos', s => s.estado === 'desembolso_pendiente' || (s.estado === 'desembolsada' && dias(s.desembolsado_en, 7))],
     todas:['todas','Todas', s => true],
+    tablero:['tablero','Tablero', s => false],
     stats:['stats','Estadísticas'], usuarios:['usuarios','Usuarios'], params:['params','Parámetros']
   };
-  const m = { asesor:['solicitudes','revisadas','proceso','todas','stats'],
-    analista:['analisis','desembolsos','todas','stats'],
-    verificador:['verificar','verificadas','stats'],
-    admin:['solicitudes','revisadas','analisis','verificar','desembolsos','todas','stats','usuarios','params'] };
+  const m = { asesor:['tablero','solicitudes','revisadas','proceso','todas','stats'],
+    analista:['tablero','analisis','desembolsos','todas','stats'],
+    verificador:['verificar','tablero','verificadas','stats'],
+    admin:['tablero','solicitudes','revisadas','analisis','verificar','desembolsos','todas','stats','usuarios','params'] };
   return m[rol()].map(k => T[k]);
 }
 function pintarTabs(){
@@ -406,12 +447,14 @@ function pintarTabs(){
     return `<button data-k="${k}" class="${S.tab===k?'on':''}">${t}${n}</button>`;
   }).join('');
   $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { S.tab = b.dataset.k; S.q=''; pintarTabs(); pintar(); window.scrollTo(0,0); });
-  $('#fab').classList.toggle('hidden', !(es('asesor') && ['solicitudes','revisadas','proceso'].includes(S.tab)));
+  $('#fab').classList.toggle('hidden', !(es('asesor') && ['tablero','solicitudes','revisadas','proceso'].includes(S.tab)));
 }
 
 // ================== Listas ==================
 function pintar(){
   const tab = tabsRol().find(t => t[0] === S.tab);
+  $('#main').classList.toggle('wide', S.tab === 'tablero');
+  if (S.tab === 'tablero') return pintarTablero();
   if (S.tab === 'stats') return pintarStats();
   if (S.tab === 'usuarios') return pintarUsuarios();
   if (S.tab === 'params') return pintarParams();
@@ -634,9 +677,8 @@ function renderDetalle(){
   h += `<div class="card"><h4 class="sec" style="margin-top:0">Comentarios</h4><div id="cmList"><div class="muted small">Cargando…</div></div>
     <div class="composer">${av(S.me.id)}<textarea id="cmTxt" rows="1" placeholder="Escribe un comentario…"></textarea><button class="send" id="cmSend">➤</button></div></div>`;
 
-  // Historial
-  h += `<div class="card"><h4 class="sec" style="margin-top:0">Historial</h4><div class="tl">${evs.map(e =>
-    `<div class="ev"><b>${esc(nombre(e.usuario_id))}</b> ${esc(ACC[e.accion]||e.accion)}${e.nota ? `: <i>${esc(e.nota)}</i>` : ''}<br><small>${fDT(e.creado_en)}</small></div>`).join('')}</div></div>`;
+  // Tiempos por paso + historial de gestiones
+  h += tiemposHTML(s, evs);
 
   $('#sheetTitle').textContent = s.nombre_cliente; $('#sheetChip').innerHTML = chip(s.estado);
   $('#sheetBody').innerHTML = h;
@@ -1024,6 +1066,145 @@ async function enviarComentario(t, padre){
   cargarComentarios();
 }
 
+// ================== Tiempos ==================
+function fmtDur(sec){
+  if (sec == null || isNaN(sec)) return '—';
+  sec = Math.max(0, Math.round(sec));
+  if (sec < 60) return '<1 min';
+  const m = Math.floor(sec / 60), h = Math.floor(m / 60), d = Math.floor(h / 24);
+  if (h < 1) return `${m} min`;
+  if (d < 1) return `${h} h ${String(m % 60).padStart(2,'0')} min`;
+  return `${d} d ${h % 24} h`;
+}
+// Segundos hábiles (misma regla que la BD: L-V 8:30–16:30, sáb 8:30–12:00, sin domingos ni feriados). Honduras = UTC-6 fijo.
+function segHabiles(t0, t1){
+  const P = S.params, off = 6 * 3600e3;
+  const a = new Date(t0).getTime() - off, b = new Date(t1).getTime() - off;
+  if (!(b > a)) return 0;
+  const hi = (P.hora_inicio ?? 8.5) * 3600e3, hlv = (P.hora_cierre_lv ?? 16.5) * 3600e3, hs = (P.hora_cierre_sab ?? 12) * 3600e3;
+  let tot = 0, da = new Date(a), d = Date.UTC(da.getUTCFullYear(), da.getUTCMonth(), da.getUTCDate());
+  for (; d <= b; d += 864e5){
+    const dt = new Date(d), dow = dt.getUTCDay();
+    if (dow === 0 || S.feriados.has(dt.toISOString().slice(0,10))) continue;
+    const ini = Math.max(d + hi, a), fin = Math.min(d + (dow === 6 ? hs : hlv), b);
+    if (fin > ini) tot += fin - ini;
+  }
+  return Math.round(tot / 1000);
+}
+const ESPERA = { borrador:'Asesor', en_analisis:'Analista', aprobada:'Asesor', por_verificar:'Verificador', desembolso_pendiente:'Analista' };
+function clsMeta(segHab, metaMin){ if (!metaMin) return ''; const r = segHab / (metaMin * 60); return r >= 1 ? 'late' : r >= .75 ? 'warn' : ''; }
+function tiemposHTML(s, evs){
+  const pasos = evs.filter(e => e.de_estado);
+  const cerrada = CERRADAS.includes(s.estado);
+  const ahora = new Date();
+  const totHab = cerrada ? s.duracion_total_habil_seg : segHabiles(s.creado_en, ahora);
+  const totCal = cerrada ? s.duracion_total_seg : (ahora - new Date(s.creado_en)) / 1000;
+  const creada = evs.find(e => e.accion === 'creada');
+  let h = `<div class="card"><h4 class="sec" style="margin-top:0">Tiempos por paso</h4>
+    <div class="res" style="margin:0 0 10px"><div class="box"><div class="l">${cerrada ? 'Tiempo total (hábil)' : 'Lleva en total (hábil)'}</div><div class="v" ${cerrada?'':`data-live-tot="${s.creado_en}"`}>${fmtDur(totHab)}</div><div class="small muted">${fmtDur(totCal)} calendario</div></div>
+    <div class="box"><div class="l">Meta creación → desembolso</div><div class="v">${fmtDur((S.params.meta_total_min||0)*60)}</div><div class="small muted">${totHab != null && S.params.meta_total_min ? (totHab <= S.params.meta_total_min*60 ? '✓ dentro de la meta' : '⚠ fuera de la meta') : ''}</div></div></div>
+    <div class="steps">
+    <div class="stp"><i></i><div><b>${esc(nombre(creada?.usuario_id || s.asesor_id))}</b> creó la solicitud<br><small class="muted">${fDT(s.creado_en)}</small></div><div class="d"></div></div>`;
+  pasos.forEach(e => {
+    h += `<div class="stp"><i></i><div><span class="small muted">${EST[e.de_estado]?.t || e.de_estado} →</span> <b>${esc(nombre(e.usuario_id))}</b> ${esc((ACC[e.accion]||e.accion).toLowerCase())}${e.nota ? `: <i>${esc(e.nota)}</i>` : ''}<br><small class="muted">${fDT(e.creado_en)}</small></div>
+      <div class="d">${fmtDur(e.duracion_habil_seg)}<small>${fmtDur(e.duracion_seg)} cal.</small></div></div>`;
+  });
+  if (!cerrada){
+    const desde = s.estado_desde || s.actualizado_en;
+    h += `<div class="stp now"><i></i><div><b>${EST[s.estado].t}</b> — espera: ${ESPERA[s.estado]}<br><small class="muted">desde ${fDT(desde)}</small></div>
+      <div class="d" data-live-paso="${desde}">${fmtDur(segHabiles(desde, ahora))}<small>en curso</small></div></div>`;
+  }
+  return h + `</div><div class="small muted" style="margin-top:8px">Tiempos hábiles: L–V ${hh(S.params.hora_inicio)}–${hh(S.params.hora_cierre_lv)}, sáb ${hh(S.params.hora_inicio)}–${hh(S.params.hora_cierre_sab)}, sin domingos ni feriados.</div></div>`;
+}
+function hh(x){ if (x == null) return '—'; const h = Math.floor(x), m = Math.round((x - h) * 60); return `${((h + 11) % 12) + 1}:${String(m).padStart(2,'0')} ${h < 12 ? 'a. m.' : 'p. m.'}`; }
+
+// ================== Tablero kanban ==================
+const COLS = [
+  { k:'pend',  t:'Pendientes',              est:['borrador','en_analisis'], c:'var(--brand)' },
+  { k:'curso', t:'En curso',                est:['aprobada','por_verificar','desembolso_pendiente'], c:'var(--accent)' },
+  { k:'fin',   t:'Finalizadas',             est:['desembolsada'], c:'var(--green)' },
+  { k:'cerr',  t:'Canceladas / Rechazadas', est:['denegada','rechazada_verificacion','desistida'], c:'var(--red)' }
+];
+const diaHN = d => d ? new Date(d).toLocaleDateString('en-CA', { timeZone: TZ }) : null;
+function pintarTablero(){
+  const hoy = hoyHN(); if (!S.boardDay) S.boardDay = hoy;
+  const dia = S.boardDay, esHoy = dia === hoy;
+  const base = S.sols.filter(s => (rol() !== 'asesor' || S.boardTodos) ? true : s.asesor_id === S.me.id);
+  const q = S.q.trim().toLowerCase();
+  const match = s => !q || [s.nombre_cliente, s.codigo, s.dni, s.telefono].some(v => (v||'').toLowerCase().includes(q));
+  const abiertas = s => !CERRADAS.includes(s.estado);
+  const enCol = c => base.filter(match).filter(s => c.est.includes(s.estado)).filter(s =>
+    abiertas(s) ? (esHoy ? diaHN(s.creado_en) <= dia : diaHN(s.creado_en) === dia) : diaHN(s.cerrado_en || s.actualizado_en) === dia)
+    .sort((a,b) => abiertas(a) ? new Date(a.estado_desde || a.actualizado_en) - new Date(b.estado_desde || b.actualizado_en)
+                                : new Date(b.cerrado_en || b.actualizado_en) - new Date(a.cerrado_en || a.actualizado_en));
+  const creadasDia = base.filter(s => diaHN(s.creado_en) === dia);
+  const desDia = base.filter(s => s.estado === 'desembolsada' && diaHN(s.cerrado_en || s.desembolsado_en) === dia);
+  const cicloProm = desDia.length ? desDia.reduce((a,s) => a + (s.duracion_total_habil_seg ?? segHabiles(s.creado_en, s.desembolsado_en)), 0) / desDia.length : null;
+  const monto = desDia.reduce((a,s) => a + +(s.monto_solicitado || s.monto_aprobado || 0), 0);
+  const fechaTxt = new Date(dia + 'T12:00').toLocaleDateString('es-HN', { weekday:'long', day:'numeric', month:'long' });
+  $('#main').innerHTML = `
+    <div class="bd-top">
+      <button class="btn sm ghost" data-dd="-1">‹</button>
+      <div class="day">${esHoy ? 'Hoy · ' : ''}${fechaTxt}</div>
+      <button class="btn sm ghost" data-dd="1" ${esHoy?'disabled':''}>›</button>
+      ${esHoy ? '' : '<button class="btn sm pri" data-dd="0">Hoy</button>'}
+      ${rol() === 'asesor' ? `<div class="seg" style="min-width:170px"><button data-bt="0" class="${S.boardTodos?'':'on'}">Mías</button><button data-bt="1" class="${S.boardTodos?'on':''}">Todas</button></div>` : ''}
+    </div>
+    <div class="search"><input id="q" placeholder="Buscar en el tablero" value="${esc(S.q)}"></div>
+    <div class="bd-sum">
+      <div class="kpi"><div class="l">Nuevas del día</div><div class="v">${creadasDia.length}</div></div>
+      <div class="kpi"><div class="l">Desembolsadas</div><div class="v">${desDia.length}</div><div class="s">${L(monto)}</div></div>
+      <div class="kpi"><div class="l">Ciclo promedio (hábil)</div><div class="v">${fmtDur(cicloProm)}</div><div class="s">meta ${fmtDur((S.params.meta_total_min||0)*60)}</div></div>
+      <div class="kpi"><div class="l">En proceso ahora</div><div class="v">${base.filter(abiertas).length}</div><div class="s">${base.filter(s => abiertas(s) && diaHN(s.creado_en) < hoy).length} de días anteriores</div></div>
+    </div>
+    <div class="board">${COLS.map(c => { const l = enCol(c); return `
+      <section class="col"><div class="col-h" style="--cc:${c.c}"><b>${c.t}</b><span class="cnt">${l.length}</span></div>
+      <div class="col-body">${l.length ? l.map(s => cardK(s, dia)).join('') : '<div class="empty">Sin solicitudes</div>'}</div></section>`; }).join('')}
+    </div>`;
+  $('#main').querySelectorAll('[data-dd]').forEach(b => b.onclick = () => {
+    const n = +b.dataset.dd; if (!n){ S.boardDay = hoy; } else { const d = new Date(S.boardDay + 'T12:00'); d.setDate(d.getDate() + n); S.boardDay = d.toLocaleDateString('en-CA'); }
+    pintarTablero(); });
+  $('#main').querySelectorAll('[data-bt]').forEach(b => b.onclick = () => { S.boardTodos = b.dataset.bt === '1'; pintarTablero(); });
+  const qi = $('#q'); qi.oninput = () => { S.q = qi.value; const p = qi.selectionStart; pintarTablero(); const n = $('#q'); n.focus(); n.setSelectionRange(p,p); };
+  $('#main').querySelectorAll('.kc').forEach(c => c.onclick = () => abrirDetalle(+c.dataset.id));
+}
+function cardK(s, dia){
+  const ab = !CERRADAS.includes(s.estado), ahora = new Date();
+  const desde = s.estado_desde || s.actualizado_en;
+  const monto = s.monto_aprobado ? L(s.monto_solicitado || s.monto_aprobado) : '';
+  const colorEst = { gray:'var(--gray)', blue:'var(--blue)', green:'var(--green)', red:'var(--red)', amber:'var(--amber)', violet:'var(--violet)', teal:'var(--teal)' }[EST[s.estado].c];
+  let tm = '';
+  if (ab){
+    const pHab = segHabiles(desde, ahora), tHab = segHabiles(s.creado_en, ahora);
+    tm = `<span class="${clsMeta(pHab, S.params.meta_paso_min)}" data-live-paso="${desde}" title="Tiempo hábil en este paso">⏱ ${fmtDur(pHab)}</span>
+          <span class="${clsMeta(tHab, S.params.meta_total_min)}" data-live-tot="${s.creado_en}" title="Tiempo hábil total desde que se creó">Σ ${fmtDur(tHab)}</span>`;
+  } else {
+    const t = s.duracion_total_habil_seg;
+    tm = `<span class="${s.estado === 'desembolsada' ? (t != null && t <= (S.params.meta_total_min||0)*60 ? 'good' : 'warn') : ''}" title="Tiempo hábil total">Σ ${fmtDur(t)}</span><span>${fDT(s.cerrado_en || s.actualizado_en).split(',').pop().trim()}</span>`;
+  }
+  const previo = ab && diaHN(s.creado_en) < dia ? `<span class="chip c-gray">desde ${fDate(s.creado_en).replace(/ de \d{4}$/,'')}</span>` : '';
+  return `<div class="kc" data-id="${s.id}" style="--kc:${colorEst}">
+    <div class="nm">${esc(s.nombre_cliente)}</div>
+    <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}${previo}</div>
+    <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab ? `<span>Espera: <b>${ESPERA[s.estado]}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
+    <div class="tm">${tm}</div></div>`;
+}
+// Cronómetros en vivo (tablero y detalle)
+setInterval(() => {
+  const ahora = new Date();
+  document.querySelectorAll('[data-live-paso]').forEach(el => {
+    const v = segHabiles(el.dataset.livePaso, ahora);
+    const small = el.querySelector('small');
+    if (small) el.firstChild.textContent = fmtDur(v);
+    else { el.textContent = '⏱ ' + fmtDur(v); if (el.closest('.kc')) el.className = clsMeta(v, S.params.meta_paso_min); }
+  });
+  document.querySelectorAll('[data-live-tot]').forEach(el => {
+    const v = segHabiles(el.dataset.liveTot, ahora);
+    if (el.closest('.kc')){ el.textContent = 'Σ ' + fmtDur(v); el.className = clsMeta(v, S.params.meta_total_min); }
+    else el.textContent = fmtDur(v);
+  });
+}, 30000);
+
 // ================== Estadísticas ==================
 function rango(k){
   const h = hoyHN(), d = new Date(h + 'T12:00');
@@ -1039,7 +1220,8 @@ async function pintarStats(){
   $('#main').innerHTML = `<div class="filters">${opts.map(([k,t]) => `<button data-r="${k}" class="${S.statsRange===k?'on':''}">${t}</button>`).join('')}</div><div id="stBody"><div class="empty">Cargando…</div></div>`;
   $('#main').querySelectorAll('[data-r]').forEach(b => b.onclick = () => { S.statsRange = b.dataset.r; pintarStats(); });
   const [d0, d1] = rango(S.statsRange);
-  let r; try { r = await rpc('estadisticas', { p_desde: d0, p_hasta: d1 }); } catch(e){ return $('#stBody').innerHTML = `<div class="alert err">${esc(errMsg(e))}</div>`; }
+  let r, rt; try { [r, rt] = await Promise.all([rpc('estadisticas', { p_desde: d0, p_hasta: d1 }), rpc('estadisticas_tiempos', { p_desde: d0, p_hasta: d1 })]); } catch(e){ return $('#stBody').innerHTML = `<div class="alert err">${esc(errMsg(e))}</div>`; }
+  const ci = rt.ciclo || {};
   const dict = r.aprobadas + r.denegadas, tasa = dict ? Math.round(r.aprobadas / dict * 100) : null;
   const pe = r.por_estado_actual || {};
   const hrs = h => h == null ? '—' : h < 24 ? `${h} h` : `${(h/24).toFixed(1)} d`;
@@ -1048,11 +1230,17 @@ async function pintarStats(){
     <div class="kpi"><div class="l">Tasa de aprobación</div><div class="v">${tasa == null ? '—' : tasa + '%'}</div><div class="s">${r.aprobadas} aprobadas · ${r.denegadas} denegadas</div></div>
     <div class="kpi"><div class="l">Desembolsadas</div><div class="v">${r.desembolsadas}</div><div class="s">💵 ${r.desembolso_efectivo} · 🏦 ${r.desembolso_transferencia}</div></div>
     <div class="kpi"><div class="l">Monto colocado</div><div class="v" style="font-size:20px">${L(r.monto_desembolsado)}</div><div class="s">Aprobado ${L(r.monto_aprobado)}</div></div>
-    <div class="kpi"><div class="l">Tiempo en análisis</div><div class="v">${hrs(r.horas_analisis_prom)}</div><div class="s">promedio envío → dictamen</div></div>
-    <div class="kpi"><div class="l">Ciclo completo</div><div class="v">${hrs(r.horas_ciclo_prom)}</div><div class="s">creación → desembolso</div></div>
+    <div class="kpi"><div class="l">Ciclo promedio (hábil)</div><div class="v">${fmtDur(ci.prom_habil_seg)}</div><div class="s">creación → desembolso · ${fmtDur(ci.prom_seg)} cal.</div></div>
+    <div class="kpi"><div class="l">Dentro de la meta</div><div class="v">${ci.n ? Math.round(ci.dentro_meta / ci.n * 100) + '%' : '—'}</div><div class="s">${ci.dentro_meta||0} de ${ci.n||0} · meta ${fmtDur((S.params.meta_total_min||0)*60)}</div></div>
   </div>
   <h4 class="sec">Cartera en proceso ahora</h4>
   <div class="pipe">${['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'].map(k => `<div class="st"><b>${pe[k]||0}</b><span class="small">${EST[k].t}</span></div>`).join('')}</div>
+  <h4 class="sec">Tiempo promedio por paso (hábil)</h4>
+  <div class="card">${rt.por_paso.length ? barras(rt.por_paso.map(x => [EST[x.estado]?.t || x.estado, x.prom_habil_seg || 0, `${fmtDur(x.prom_habil_seg)} · ${x.n}`])) + `<div class="small muted" style="margin-top:6px">Tiempo que cada solicitud pasa en cada etapa antes de avanzar (promedio · cantidad de pasos).</div>` : '<div class="muted small">Sin datos</div>'}</div>
+  <h4 class="sec">Gestiones por persona</h4>
+  <div class="card" style="overflow-x:auto">${rt.por_gestor.length ? `<table class="t"><thead><tr><th>Gestor</th><th>Rol</th><th class="num">Gestiones</th><th class="num">Prom. hábil</th></tr></thead><tbody>
+    ${rt.por_gestor.map(g => `<tr><td>${esc(g.nombre)}</td><td>${ROL[g.rol]||g.rol}</td><td class="num">${g.n}</td><td class="num">${fmtDur(g.prom_habil_seg)}</td></tr>`).join('')}</tbody></table>
+    <div class="small muted" style="margin-top:6px">Prom. hábil = tiempo desde que la solicitud llegó al paso hasta que la persona la movió.</div>` : '<div class="muted small">Sin datos</div>'}</div>
   <h4 class="sec">Actividad por día</h4>
   <div class="card"><div class="legend"><span><i style="background:var(--s1)"></i>Creadas</span><span><i style="background:var(--s2)"></i>Desembolsadas</span></div><div class="chart" id="chDia"></div></div>
   <h4 class="sec">Por asesor</h4>
@@ -1133,9 +1321,20 @@ function pintarParams(){
   $('#main').innerHTML = `<div class="alert info small">Estos valores controlan el cálculo del análisis de ingresos (igual que la hoja de Excel).</div>
     ${S.paramsRows.map(p => `<div class="card"><label class="f" style="margin-top:0">${esc(p.descripcion)}</label>
       <div class="row"><input data-p="${esc(p.clave)}" value="${p.valor}" inputmode="decimal"><button class="btn sm pri" data-ps="${esc(p.clave)}">Guardar</button></div></div>`).join('')}`;
+  $('#main').insertAdjacentHTML('beforeend', `<h4 class="sec">Feriados (no cuentan como tiempo hábil)</h4>
+    <div class="card"><table class="t"><tbody>${S.feriadosRows.map(f => `<tr><td>${fDate(f.fecha+'T12:00')}</td><td>${esc(f.descripcion)}</td><td style="width:30px"><button class="x" data-fd="${f.fecha}">×</button></td></tr>`).join('') || '<tr><td class="muted">Sin feriados</td></tr>'}</tbody></table>
+    <div class="addrow" style="grid-template-columns:1fr 1.4fr auto"><input type="date" id="fFecha"><input id="fDesc" placeholder="Descripción"><button class="btn pri" id="fAdd">Agregar</button></div></div>`);
   $('#main').querySelectorAll('[data-ps]').forEach(b => b.onclick = () => run(b, async () => {
     const v = num(document.querySelector(`[data-p="${b.dataset.ps}"]`).value); if (v == null) throw new Error('Valor inválido');
     await rpc('actualizar_parametro', { p_clave: b.dataset.ps, p_valor: v }); await cargarParams(); toast('Parámetro actualizado');
+  }));
+  $('#fAdd').onclick = e => run(e.target, async () => {
+    if (!$('#fFecha').value) throw new Error('Seleccione la fecha');
+    await rpc('guardar_feriado', { p_fecha: $('#fFecha').value, p_descripcion: $('#fDesc').value }); await cargarParams(); pintarParams(); toast('Feriado agregado');
+  });
+  $('#main').querySelectorAll('[data-fd]').forEach(b => b.onclick = () => run(b, async () => {
+    if (!confirm('¿Quitar este feriado?')) return;
+    await rpc('guardar_feriado', { p_fecha: b.dataset.fd, p_descripcion: null, p_borrar: true }); await cargarParams(); pintarParams();
   }));
 }
 

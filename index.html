@@ -166,7 +166,7 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 .legend{display:flex;gap:14px;font-size:12.5px;color:var(--ink2);margin-bottom:6px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-100%);z-index:3}
-.hbar{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+.hbar{display:grid;grid-template-columns:minmax(110px,190px) 1fr auto;gap:8px;align-items:center;font-size:13px;margin:6px 0}
 .hbar .tr{background:var(--gray-bg);border-radius:4px;height:14px;overflow:hidden}
 .hbar .fl{height:100%;background:var(--s1);border-radius:0 4px 4px 0}
 .pipe{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
@@ -219,6 +219,33 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 .rf-head .rf-nm{font-family:Poppins,Inter,sans-serif;font-weight:700;font-size:17px;line-height:1.2}
 .rf-head .rf-sub{font-size:12.5px;opacity:.92;margin-top:2px}
 .dict{border-radius:12px;padding:10px 12px;font-weight:700;margin-top:10px;text-align:center;font-family:Poppins,Inter,sans-serif}
+.grid-ch{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:760px){.grid-ch{grid-template-columns:1fr}}
+.chart{overflow-x:auto}
+.chart svg{min-width:100%}
+/* Reconocimiento de deuda: hoja carta idéntica al formato */
+.rd-wrap{position:fixed;inset:0;z-index:55;background:#dfe4ea;overflow:auto;display:flex;flex-direction:column}
+@media (prefers-color-scheme: dark){.rd-wrap{background:#0b1426}}
+.rd-bar{position:sticky;top:0;z-index:2;background:var(--card);border-bottom:1px solid var(--line);padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.rd-bar .t{flex:1 1 100%;display:flex;align-items:center;gap:8px;font-weight:700}
+.rd-bar .fld{display:flex;flex-direction:column;gap:3px;min-width:130px;flex:1}
+.rd-bar .fld label{font-size:11px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.3px}
+.rd-bar .fld input{padding:8px 10px}
+.rd-bar .acc{display:flex;gap:8px;flex-wrap:wrap}
+.rd-stage{padding:16px;display:flex;justify-content:center}
+.rd-scaler{transform-origin:top left}
+.rd-page{position:relative;width:8.5in;height:11in;background:#fff;color:#000;font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;font-size:10pt;line-height:12.2pt;box-shadow:0 1px 3px rgba(0,0,0,.15),0 10px 30px rgba(0,0,0,.10);overflow:hidden}
+.rd-page .border{position:absolute;left:24pt;top:24pt;right:24pt;bottom:24pt;border:.5pt solid #000;box-shadow:1.5pt 1.5pt 0 #000}
+.rd-page .content{position:absolute;left:.75in;right:.75in;top:1in}
+.rd-page p{margin:0;text-align:justify}
+.rd-page .title{text-align:center;font-size:12pt;line-height:14.6pt;font-weight:700;text-decoration:underline}
+.rd-page b,.rd-page .b{font-weight:700}
+.rd-page .bu{font-weight:700;text-decoration:underline}
+.rd-page .u{text-decoration:underline}
+.rd-page .big{font-size:12pt;line-height:14.6pt}
+.rd-page .sig{position:relative;height:calc(14 * 12.2pt)}
+.rd-page .sig .ln{position:absolute;white-space:pre}
+.rd-page .huella{position:absolute;border:.75pt solid #000;border-radius:8pt;background:#fff}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .toast.err{background:var(--red);color:#fff}
 .login{max-width:380px;margin:9vh auto;padding:0 16px}
@@ -296,7 +323,7 @@ const ACC = { creada:'Creó la solicitud', enviada_analisis:'Envió a análisis'
   dictamen_aprobada:'Aprobó', dictamen_denegada:'Denegó', enviada_verificacion:'Envió a verificación',
   enviada_desembolso:'Envió a desembolso por transferencia', verificacion_ok:'Verificación exitosa',
   verificacion_rechazada:'Rechazó en verificación', desembolsada:'Marcó como desembolsada', desistida:'Cliente desistió',
-  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa' };
+  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa', reconocimiento_deuda:'Generó el reconocimiento de deuda', edicion_admin:'Editó la solicitud', cambio_estado_admin:'Cambió el estado (administrador)' };
 const CERRADAS = ['desembolsada','denegada','rechazada_verificacion','desistida'];
 
 const S = { user:null, me:null, perfiles:{}, params:{}, sols:[], com:{}, tab:null, q:'', filtroTodas:'abiertas',
@@ -628,7 +655,7 @@ window.addEventListener('popstate', () => {
 
 function renderDetalle(){
   const { s, ing, items, evs } = S.detData;
-  const editIng = (s.estado === 'borrador' && es('asesor')) || (s.estado === 'en_analisis' && es('analista'));
+  const editIng = rol() === 'admin' || (s.estado === 'borrador' && es('asesor')) || (s.estado === 'en_analisis' && es('analista'));
   const c = calcular(ing, s.tipo_pago, s.rubro_especial);
   const d = s.datos_cliente || {};
   const ed = edad(d.fecha_nacimiento);
@@ -668,6 +695,13 @@ function renderDetalle(){
       </dl></div>`;
   }
 
+  // Documentos: reconocimiento de deuda (habilitado desde que se aprueba)
+  if (reconocimientoHabilitado(s)){
+    const gen = [...evs].reverse().find(e => e.accion === 'reconocimiento_deuda');
+    h += `<div class="card row" style="gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><b>📄 Reconocimiento de deuda</b>
+      <div class="small muted">${gen ? `Último: ${esc(nombre(gen.usuario_id))} · ${fDT(gen.creado_en)}` : 'Vista previa, imprimir o descargar en PDF.'}</div></div>
+      <button class="btn pri" id="rdAbrir">Ver documento</button></div>`;
+  }
   // Análisis de ingresos
   const mostrarIng = s.tipo === 'nuevo' || ing.length || editIng;
   if (mostrarIng){
@@ -758,6 +792,14 @@ function datosClienteHTML(s){
 
 function accionesHTML(s, c){
   let h = '';
+  // Administrador: edición total y eliminación
+  if (rol() === 'admin'){
+    const eds = (S.detData.evs || []).filter(e => e.accion === 'edicion_admin').slice(-5).reverse();
+    h += `<div class="card" style="border:1.5px dashed var(--brand)"><h4 class="sec" style="margin-top:0">Administración</h4>
+      <div class="btns" style="margin-top:0"><button class="btn pri" id="admEditar">✏️ Editar solicitud completa</button><button class="btn bad" id="admEliminar">🗑 Eliminar solicitud</button></div>
+      ${eds.length ? `<label class="f">Últimos cambios del administrador</label>${eds.map(e => `<div class="small" style="margin:4px 0"><b>${esc(nombre(e.usuario_id))}</b> · ${fDT(e.creado_en)}<br><span class="muted">${esc(e.nota)}</span></div>`).join('')}` : ''}
+    </div>`;
+  }
   const abierta = !CERRADAS.includes(s.estado);
   // Asesor: borrador
   if (s.estado === 'borrador' && es('asesor')){
@@ -822,6 +864,9 @@ function completarHTML(s){
         <div><label class="f">Teléfono</label><input data-k="telefono" value="${v('telefono') || esc(s.telefono||'')}" inputmode="tel"></div>
       </div><div id="cEdad"></div>
       <h4 class="sec">Domicilio</h4>${domicilio}
+      <h4 class="sec">Verificación en campo</h4>
+      <div class="seg" id="cVerTipo"><button type="button" data-v="1" class="on">🏠 Domicilio y 🏢 trabajo</button><button type="button" data-v="0">🏠 Solo domicilio</button></div>
+      <div class="small muted" style="margin-top:4px">Define cuántas visitas hará el verificador.</div>
       <h4 class="sec">Trabajo</h4>${trabajo}
       <h4 class="sec">Referencias familiares</h4>
       ${[0,1].map(i => `<div class="grid2" data-ref="${i}">
@@ -852,7 +897,8 @@ function completarHTML(s){
 }
 
 function verificacionHTML(s, items){
-  const edit = s.estado === 'por_verificar' && es('verificador');
+  const edit = (s.estado === 'por_verificar' && es('verificador')) || rol() === 'admin';
+  const fin = s.estado === 'por_verificar' && es('verificador');
   const hechos = items.filter(i => i.completado).length;
   return `<div class="card"><h4 class="sec" style="margin-top:0">Verificación (${hechos}/${items.length})</h4>
     ${items.map(i => `<div class="item ${i.completado?'done':''}" data-item="${i.item}">
@@ -866,7 +912,7 @@ function verificacionHTML(s, items){
       : (i.nota ? `<div class="small" style="margin-top:6px">${esc(i.nota)}</div>` : '')}
       ${i.foto_path ? `<div class="thumbs"><img data-path="${esc(i.foto_path)}" alt="foto"></div>` : ''}
     </div>`).join('')}
-    ${edit ? `<label class="f">Observación final</label><textarea id="vNota" rows="2"></textarea>
+    ${fin ? `<label class="f">Observación final</label><textarea id="vNota" rows="2"></textarea>
       <div class="btns"><button class="btn ok" id="vOk">Verificación exitosa${s.forma_desembolso==='efectivo'?' · efectivo entregado':''}</button><button class="btn bad" id="vBad">Rechazar</button></div>` : ''}
   </div>`;
 }
@@ -899,6 +945,7 @@ function enlazarDetalle(s, c){
   if ($('#dPago') && !$('#dPago').disabled){ $('#dPago').onchange = updA; $('#dRubro').onchange = updA; }
 
   enlazarRefi(s);
+  if ($('#rdAbrir')) $('#rdAbrir').onclick = () => abrirReconocimiento(S.detData.s);
   if ($('#dAsesor')) $('#dAsesor').onchange = e => run(e.target, async () => { await rpc('reasignar_asesor', { p_id: s.id, p_asesor: e.target.value }); toast('Asesor reasignado'); await refrescar(); });
   // Asesor: enviar
   if ($('#aEnviar')) $('#aEnviar').onclick = e => run(e.target, async () => { await rpc('enviar_analisis', { p_id: s.id }); toast('Enviada a análisis'); await refrescar(); });
@@ -933,6 +980,16 @@ function enlazarDetalle(s, c){
   // Desembolso
   if ($('#tOk')) $('#tOk').onclick = e => run(e.target, async () => { await rpc('marcar_desembolsada', { p_id: s.id, p_referencia: $('#tRef').value }); toast('Desembolsada'); await refrescar(); });
   if ($('#tBack')) $('#tBack').onclick = async e => { const n = await pedirTexto('Regresar al asesor', 'Qué debe corregir', 'Regresar'); if (n) run(e.target, async () => { await rpc('regresar_a_revisadas', { p_id: s.id, p_nota: n }); await refrescar(); }); };
+  if ($('#admEditar')) $('#admEditar').onclick = () => editorAdmin(S.detData.s, refrescar);
+  if ($('#admEliminar')) $('#admEliminar').onclick = async e => {
+    const m = await pedirTexto(`Eliminar ${s.codigo}`, 'Motivo de la eliminación (ej. duplicada, prueba)', 'Continuar', 'bad');
+    if (!m) return;
+    if (!confirm(`¿Eliminar definitivamente ${s.codigo} · ${s.nombre_cliente}? Se borran ingresos, comentarios, verificación e historial. Queda un respaldo para auditoría.`)) return;
+    run(e.target, async () => {
+      await rpc('admin_eliminar_solicitud', { p_id: s.id, p_motivo: m });
+      S.dirty = false; await cerrarDetalle(); await cargarSolicitudes(); pintarTabs(); pintar(); toast('Solicitud eliminada');
+    });
+  };
   if ($('#aDesistir')) $('#aDesistir').onclick = async e => { const n = await pedirTexto('Cerrar solicitud', 'Motivo (ej. el cliente ya no lo necesita)', 'Cerrar solicitud', 'bad'); if (n) run(e.target, async () => { await rpc('desistir', { p_id: s.id, p_motivo: n }); toast('Solicitud cerrada'); await refrescar(); }); };
 
   // Verificación
@@ -1011,14 +1068,14 @@ function comprimir(file, max = 1280, q = 0.75){
 
 function enlazarCompletar(s, refrescar){
   const F = $('#cForm'); const nuevo = s.tipo === 'nuevo';
-  let forma = s.forma_desembolso || null;
+  let forma = s.forma_desembolso || null, verTrab = true;
   const destino = () => {
     const act = !nuevo && ($('#cDom').checked || $('#cTrab').checked || $('#cFoto').checked);
     const directo = !nuevo && forma === 'transferencia' && !act;
     $('#cVerF').classList.toggle('hidden', directo);
     $('#cDestino').innerHTML = !forma ? 'Seleccione la forma de desembolso.'
       : directo ? '➡ Pasará directo a <b>Desembolsos por transferencia</b> (no requiere verificador).'
-      : `➡ Pasará a <b>Verificación</b>${forma === 'efectivo' ? ' (el verificador entrega el efectivo)' : ''}.`;
+      : `➡ Pasará a <b>Verificación</b>${nuevo ? (verTrab ? ' · visitas: domicilio y trabajo' : ' · visita: solo domicilio') : ''}${forma === 'efectivo' ? ' (el verificador entrega el efectivo)' : ''}.`;
   };
   F.querySelectorAll('input,textarea,select').forEach(i => i.addEventListener('input', () => S.dirty = true));
   F.querySelectorAll('#cForma button').forEach(b => b.onclick = () => { forma = b.dataset.v; S.dirty = true;
@@ -1028,6 +1085,8 @@ function enlazarCompletar(s, refrescar){
     $('#cTrab').onchange = () => { $('#cTrabF').classList.toggle('hidden', !$('#cTrab').checked); destino(); };
     $('#cFoto').onchange = destino;
   } else {
+    F.querySelectorAll('#cVerTipo button').forEach(b => b.onclick = () => { verTrab = b.dataset.v === '1'; S.dirty = true;
+      F.querySelectorAll('#cVerTipo button').forEach(x => x.classList.toggle('on', x === b)); destino(); });
     const fn = F.querySelector('[data-k="fecha_nacimiento"]');
     const chkEdad = () => { const e = edad(fn.value); $('#cEdad').innerHTML = e != null && e < S.params.edad_minima ? `<div class="alert err small">⚠ El cliente tiene ${e} años. Mínimo ${S.params.edad_minima}: la solicitud no califica.</div>` : ''; };
     fn.onchange = chkEdad; chkEdad();
@@ -1045,11 +1104,83 @@ function enlazarCompletar(s, refrescar){
       if (datos.referencias.filter(r => r.nombre && r.telefono).length < 2) throw new Error('Ingrese 2 referencias familiares con teléfono');
     }
     const r = await rpc('completar_solicitud', { p_id: s.id, p_datos: datos, p_forma: forma,
-      p_act_domicilio: !nuevo && $('#cDom').checked, p_act_trabajo: !nuevo && $('#cTrab').checked, p_act_foto: !nuevo && $('#cFoto').checked,
+      p_act_domicilio: !nuevo && $('#cDom').checked, p_act_trabajo: nuevo ? verTrab : $('#cTrab').checked, p_act_foto: !nuevo && $('#cFoto').checked,
       p_verificador: $('#cVer').value || null, p_monto_solicitado: num($('#cMonto').value), p_plazo: num($('#cPlazo').value), p_cuenta: $('#cCta').value || null });
     S.dirty = false;
     toast(r === 'por_verificar' ? 'Enviada a verificación' : 'Enviada a desembolsos por transferencia');
     await refrescar();
+  });
+}
+
+// ================== Editor total (administrador) ==================
+const toLocalDT = iso => { if (!iso) return ''; const d = new Date(new Date(iso).getTime() - 6 * 3600e3); return d.toISOString().slice(0,16); };
+const fromLocalDT = v => v ? new Date(v + ':00-06:00').toISOString() : null;
+function editorAdmin(s, refrescar){
+  const users = roles => [['', '— Sin asignar —'], ...Object.values(S.perfiles).filter(p => roles.includes(p.rol)).map(p => [p.id, p.nombre + (p.activo ? '' : ' (inactivo)')])];
+  const G = [
+    ['Datos generales', [['nombre_cliente','Nombre del cliente','text'], ['telefono','Teléfono','text'], ['dni','DNI','text'],
+      ['tipo','Tipo','select', Object.entries(TIPO)], ['estado','Estado','select', Object.entries(EST).map(([k,v]) => [k, v.t])],
+      ['asesor_id','Asesor','select', users(['asesor','admin']).slice(1)], ['analista_id','Analista','select', users(['analista','admin'])],
+      ['verificador_id','Verificador','select', users(['verificador','admin'])], ['creado_en','Fecha y hora de solicitud','datetime']]],
+    ['Análisis de ingresos', [['tipo_pago','Tipo de pago','select', [['Semanal','Semanal'],['Quincenal','Quincenal'],['Mensual','Mensual']]], ['rubro_especial','Rubro especial','bool']]],
+    ['Refinanciamiento / reingreso', [['fecha_ingreso','Fecha de ingreso','date'], ['ultimo_aumento','Último aumento','date'], ['limite_actual','Límite actual','num'],
+      ['pct_manual','% límite manual','pct'], ['tasa_actual','Tasa actual %','pct'], ['saldo_capital','Saldo capital','num'], ['saldo_intereses','Saldo intereses','num'],
+      ['plan_pago','Plan','select', [['nivelado','Nivelado'],['solo_interes','Solo interés']]]]],
+    ['Dictamen', [['monto_aprobado','Monto / límite aprobado','num'], ['tasa_preferencial','Tasa preferencial','bool'], ['dictamen_en','Fecha del dictamen','datetime'], ['dictamen_nota','Nota del dictamen','area']]],
+    ['Desembolso', [['monto_solicitado','Monto del crédito','num'], ['plazo_meses','Plazo (meses)','int'], ['forma_desembolso','Forma de desembolso','select', [['','—'],['efectivo','Efectivo'],['transferencia','Transferencia']]],
+      ['cuenta_banco','Banco y cuenta','text'], ['actualizar_domicilio','Actualizar domicilio','bool'], ['actualizar_trabajo','Actualizar trabajo','bool'], ['actualizar_foto','Actualizar foto','bool'],
+      ['desembolso_referencia','Referencia de desembolso','text'], ['desembolsado_en','Fecha de desembolso','datetime']]],
+    ['Verificación y cierre', [['verificacion_nota','Nota de verificación','area'], ['verificado_en','Fecha de verificación','datetime'], ['motivo_cierre','Motivo de cierre','area']]]
+  ];
+  const DC = [['dni','DNI'],['fecha_nacimiento','Fecha de nacimiento','date'],['telefono','Teléfono'],['direccion','Dirección'],['colonia','Colonia / ciudad'],['punto_referencia','Punto de referencia'],
+    ['empresa','Empresa'],['cargo','Cargo'],['direccion_trabajo','Dirección del trabajo'],['antiguedad','Antigüedad'],['telefono_trabajo','Teléfono del trabajo'],['notas','Notas','area']];
+  const val = (k, t) => { const v = s[k]; if (v == null) return ''; if (t === 'datetime') return toLocalDT(v); if (t === 'pct') return +(v * 100).toFixed(2); return v; };
+  const campo = ([k, lbl, t, opts]) => {
+    if (t === 'bool') return `<label class="chk"><input type="checkbox" data-af="${k}" data-t="bool" ${s[k] ? 'checked' : ''}> ${lbl}</label>`;
+    if (t === 'select') return `<div><label class="f">${lbl}</label><select data-af="${k}" data-t="select">${opts.map(([v, x]) => `<option value="${esc(v)}" ${String(s[k] ?? '') === String(v) ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>`;
+    if (t === 'area') return `<div style="grid-column:1/-1"><label class="f">${lbl}</label><textarea data-af="${k}" data-t="area" rows="2">${esc(val(k, t))}</textarea></div>`;
+    const type = t === 'datetime' ? 'datetime-local' : t === 'date' ? 'date' : 'text';
+    return `<div><label class="f">${lbl}</label><input data-af="${k}" data-t="${t}" type="${type}" ${['num','pct','int'].includes(t) ? 'inputmode="decimal"' : ''} value="${esc(val(k, t))}"></div>`;
+  };
+  const d = s.datos_cliente || {}, refs = d.referencias || [{},{}];
+  const w = dialogo(`<h3>Editar ${esc(s.codigo)}</h3><div class="small muted">Todos los cambios quedan registrados con su motivo.</div>
+    ${G.map(([t, fs]) => `<h4 class="sec">${t}</h4><div class="grid2">${fs.map(campo).join('')}</div>`).join('')}
+    <h4 class="sec">Datos del cliente</h4><div class="grid2">${DC.map(([k, lbl, t]) => t === 'area'
+      ? `<div style="grid-column:1/-1"><label class="f">${lbl}</label><textarea data-dc="${k}" rows="2">${esc(d[k] || '')}</textarea></div>`
+      : `<div><label class="f">${lbl}</label><input data-dc="${k}" type="${t === 'date' ? 'date' : 'text'}" value="${esc(d[k] || '')}"></div>`).join('')}</div>
+    ${[0,1].map(i => `<div class="grid2" data-aref="${i}"><div><label class="f">Referencia ${i+1}</label><input data-r="nombre" value="${esc(refs[i]?.nombre || '')}" placeholder="Nombre"></div>
+      <div class="grid2" style="gap:0 8px"><div><label class="f">Parentesco</label><input data-r="parentesco" value="${esc(refs[i]?.parentesco || '')}"></div><div><label class="f">Teléfono</label><input data-r="telefono" value="${esc(refs[i]?.telefono || '')}"></div></div></div>`).join('')}
+    <div class="alert warn small" id="aeEstado" style="display:none">Cambiar el estado a mano no ejecuta los pasos automáticos (por ejemplo, no crea la lista del verificador). Úselo para corregir.</div>
+    <label class="f">Motivo del cambio (obligatorio)</label><textarea id="aeMotivo" rows="2" placeholder="Ej. corrección solicitada por gerencia"></textarea>
+    <div class="btns"><button class="btn ghost" data-close>Cancelar</button><button class="btn pri" id="aeGuardar">Guardar cambios</button></div>`);
+  w.querySelector('.dlg').style.maxWidth = '720px';
+  const est = w.querySelector('[data-af="estado"]'); est.onchange = () => { w.querySelector('#aeEstado').style.display = est.value !== s.estado ? 'block' : 'none'; };
+  w.querySelector('#aeGuardar').onclick = e => run(e.target, async () => {
+    const motivo = w.querySelector('#aeMotivo').value.trim();
+    if (!motivo) throw new Error('Escriba el motivo del cambio');
+    const cambios = {};
+    w.querySelectorAll('[data-af]').forEach(el => {
+      const k = el.dataset.af, t = el.dataset.t; let v;
+      if (t === 'bool') v = el.checked;
+      else if (t === 'num' || t === 'int'){ v = num(el.value); if (t === 'int' && v != null) v = Math.round(v); }
+      else if (t === 'pct'){ const n = num(el.value); v = n == null ? null : +(n / 100).toFixed(4); }
+      else if (t === 'datetime') v = fromLocalDT(el.value);
+      else v = el.value.trim() === '' ? null : el.value.trim();
+      const o = s[k];
+      const igual = t === 'datetime' ? (toLocalDT(o) === (el.value || '')) : (t === 'num' || t === 'int' || t === 'pct') ? ((o == null ? null : +o) === v) : t === 'bool' ? (!!o === v) : ((o ?? null) === v);
+      if (!igual){
+        if (['nombre_cliente','tipo','estado','asesor_id','tipo_pago','plan_pago','creado_en'].includes(k) && v == null) throw new Error('El campo "' + k + '" no puede quedar vacío');
+        cambios[k] = v;
+      }
+    });
+    const nd = { ...d };
+    w.querySelectorAll('[data-dc]').forEach(el => { const v = el.value.trim(); if (v) nd[el.dataset.dc] = v; else delete nd[el.dataset.dc]; });
+    const nrefs = [...w.querySelectorAll('[data-aref]')].map(r => Object.fromEntries([...r.querySelectorAll('[data-r]')].map(i => [i.dataset.r, i.value.trim()])));
+    if (nrefs.some(r => r.nombre || r.telefono) || d.referencias) nd.referencias = nrefs;
+    if (JSON.stringify(nd) !== JSON.stringify(d)) cambios.datos_cliente = nd;
+    if (!Object.keys(cambios).length) throw new Error('No hay cambios que guardar');
+    const n = await rpc('admin_editar_solicitud', { p_id: s.id, p_cambios: cambios, p_motivo: motivo });
+    await cerrarDialogo(w); toast(`${n} campo(s) actualizados`); await refrescar();
   });
 }
 
@@ -1293,6 +1424,108 @@ function enlazarRefi(s){
   });
 }
 
+// ================== Reconocimiento de deuda (formato de la herramienta) ==================
+const RD_DOC = "<p class=\"title\"><span class=\"bu big\">RECONOCIMIENTO&nbsp;DE&nbsp;UNA&nbsp;DEUDA</span></p>\n<p>&nbsp;</p>\n<p>El señor(a) <span class=\"u\">&nbsp;</span><span class=\"bu big\">{{NOMBRE}}</span><span class=\"bu big\">&nbsp;,</span><span class=\"b\"> </span>con tarjeta de identidad número <span class=\"b\">X</span><span class=\"bu\">&nbsp;</span><span class=\"bu big\">{{ID}}</span><span class=\"bu\">&nbsp;</span><span class=\"b\"> </span>A quien en lo sucesivo se le denominara como <span class=\"b\">(PRESTATARIO)</span> y YO<span class=\"b\"> MAS PISTO DE S. DE RL, </span>a quien en lo sucesivo se le denominara como<span class=\"b\"> (ACREEDOR) </span>con tarjeta de identidad número 05019025194918, comerciante, ambos mayores de edad, el primero del domicilio de SAN PEDRO SULA, Cortes, y el segundo de este Domicilio. - Hacemos el presente documento de <span class=\"b\">RECONOCIMIENTO DE DEUDA, </span>para lo cual el <span class=\"b\">PRESTATARIO</span><span class=\"b\"> </span><span class=\"b\">manifiesta</span>:</p>\n<p><span class=\"bu\">PRIMERO:</span> Que por este acto hace formal reconocimiento de deuda que mantiene con el <span class=\"b\">ACREEDOR, </span>deuda<span class=\"b\"> </span>por la cantidad de <span class=\"b\">X</span><span class=\"bu\">&nbsp;</span><span class=\"bu big\">{{LETRAS}}</span><span class=\"bu\">&nbsp;&nbsp;</span><span class=\"b\">(</span><span class=\"bu big\">{{CIFRA}}</span><span class=\"b\">), </span>los cuales pagara bajo las siguientes condiciones.</p>\n<p><span class=\"b\">- 1.1.</span> Dicha deuda será cancelada en un plazo de 1 MES, contados a partir de esta misma fecha. </p>\n<p>- <span class=\"b\">1.2</span>. Será amortizada mediante <span class=\"b\">UNA</span> (1) única cuota de <span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(L.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</span><span class=\"b\">.</span></p>\n<p><span class=\"b\">- 1.3 </span>El plazo aquí estipulado es voluntario para el <span class=\"b\">PRESTATARIO</span>, pudiendo pagar en forma anticipada el total de la deuda.</p>\n<p> <span class=\"bu\">SEGUNDO:</span><span class=\"b\"> </span>Continúa manifestando el <span class=\"b\">PRESTATARIO</span><span class=\"b\">,</span><span class=\"b\"> </span>que tiene conocimiento de las causas las cuales sus incumplimientos permitirán exigir el pago anticipado de la deuda e interés que se presente a la fecha. </p>\n<p>- <span class=\"b\">2.1</span>. El <span class=\"b\">PRESTATARIO</span> incurrirá en mora por falta de pago de una cuota vencida, en cuyo caso el acreedor cobrará un interés moratorio del <span class=\"b\">(</span><span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class=\"b\">) %</span> mensual sobre el total de las cuotas atrasadas, </p>\n<p>- <span class=\"b\">2.2</span> En caso de comprobarse que el<span class=\"b\"> PRESTATARIO</span> mintió en alguno de los datos solicitados para la aprobación del préstamo se le cobrara una sanción del <span class=\"b\">(</span><span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class=\"b\">) %</span> por incumplimiento, pudiendo además el<span class=\"b\"> ACREEDOR</span> exigir de inmediato judicial o extrajudicialmente el pago total del saldo pendiente.</p>\n<p> <span class=\"bu\">TERCERO:</span><span class=\"b\"> </span>Continúa manifestando <span class=\"b\">PRESTATARIO, </span>que tiene conocimiento de:</p>\n<p>- <span class=\"b\">3.1</span>. Se toma como garantía todo artículo como tv, cama, refrigeradora, lavadora etc., que se encuentre en el lugar establecido como residencia del <span class=\"b\">PRESTATARIO</span><span class=\"b\">,</span><span class=\"b\"> </span>dada la dirección por el mismo.</p>\n<p>- <span class=\"b\">3.2</span>. En caso de no contar con el valor a cancelar en efectivo el <span class=\"b\">PRESTATARIO</span> permitirá proceder a la recolección de los artículos establecidos en la cláusula <span class=\"b\">(3.1</span>) Tomados en garantía, para la cancelación de la deuda.</p>\n<p><span class=\"bu\">CUARTO:</span> Continúa manifestando el <span class=\"b\">PRESTATARIO,</span> que tiene conocimiento de:</p>\n<p><span class=\"b\">- 4.1.</span> Todo gasto generado por recuperación de deuda como honorarios de abogado, gestión de cobro, sanción penal será asumido por el <span class=\"b\">PRESTATARIO</span><span class=\"bu\">,</span> por incumplimiento de cualquiera de las clausulas anteriores.</p>\n<p>El <span class=\"b\">PRESTATARIO</span><span class=\"bu\">,</span> manifiesta haber leído y entendido el presente documento estando en plena facultad y libertad mental de libre decisión. Teniendo conocimiento que el documento denominado <span class=\"b\">RECONOCIMIENTO DE DEUDA</span> es válido como <span class=\"b\">PAGARE O LETRA DE CAMBIO</span> según como lo determinan las leyes en <span class=\"b\">HONDURAS</span>, para recuperación de la deuda. Cuyo valor total de <span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;,</span> <span class=\"b\">(L.</span><span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>). Será asumido por el <span class=\"b\">PRESTATARIO</span><span class=\"b\">,</span> como determina el <span class=\"b\">(artículo 4.1</span>).</p>\n<p><span class=\"b\">Yo</span><span class=\"b\"> X</span><span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class=\"b\">, </span>denominado como<span class=\"b\"> PRESTATARIO </span>renuncio al fuero de mi domicilio y me someto a la competencia del Juzgado de Letras de lo Civil de la sección Judicial de San Pedro Sula, Cortes.</p>\n<p>Por su parte <span class=\"b\">MAS PISTO DE S. DE RL</span> denominado como él<span class=\"b\"> (ACREEDOR), </span>en la condición en que actúa<span class=\"b\"> </span>dice: que es cierto todo lo manifestado por el <span class=\"b\">PRESTATARIO </span>en las cláusulas precedentes, y que acepta entregar documento como <span class=\"b\">FINIQUITO DE DEUDA</span> una vez que haya sido cancelada en su totalidad la deuda.</p>\n<p style=\"text-align:left\">En fe de lo cual firmamos el presente Reconocimiento de Deuda en la ciudad de San Pedro Sula, Cortes, a los <span class=\"bu\">&nbsp;&nbsp;</span><span class=\"bu big\">{{DIA}}</span><span class=\"bu\">&nbsp;</span><br>días del mes de <span class=\"bu\">&nbsp;</span><span class=\"bu big\">{{MES}}</span><span class=\"bu\">&nbsp;</span><span class=\"b\"> </span>del <span class=\"b\">{{ANIO}}</span>.</p>\n<div class=\"sig\">\n  <div class=\"huella\" style=\"left:118.95pt;top:calc(1*12.2pt + 7.85pt);width:47.95pt;height:65.25pt\"></div>\n  <div class=\"huella\" style=\"left:309pt;top:calc(4*12.2pt + 5.3pt + 36.7pt);width:47.95pt;height:65.95pt\"></div>\n  <div class=\"ln\" style=\"left:0;top:calc(3*12.2pt)\"><b>Firma</b>.<span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>\n  <div class=\"ln\" style=\"left:406.8pt;top:calc(3*12.2pt)\"><span class=\"bu\">MAS PISTO DE S. DE RL</span></div>\n  <div class=\"ln\" style=\"left:406.8pt;top:calc(4*12.2pt)\"><span class=\"bu\">T.I</span> <span class=\"bu\">05019025194918</span></div>\n  <div class=\"ln\" style=\"left:0;top:calc(5*12.2pt)\"><b>&nbsp;</b><span class=\"bu\">T.I&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>\n  <div class=\"ln\" style=\"left:406.8pt;top:calc(5*12.2pt)\"><b>ACREEDOR</b></div>\n  <div class=\"ln\" style=\"left:0;top:calc(6*12.2pt)\"><span class=\"bu\">DEUDOR</span></div>\n  <div class=\"ln\" style=\"left:193.5pt;top:calc(10*12.2pt)\"><b>Firma</b><span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.</span></div>\n  <div class=\"ln\" style=\"left:193.5pt;top:calc(12*12.2pt)\"><b>T.I</b><span class=\"bu\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.</span></div>\n  <div class=\"ln\" style=\"left:193.5pt;top:calc(13*12.2pt)\"><b>AVAL</b></div>\n  <div class=\"ln\" style=\"left:319.5pt;top:calc(13*12.2pt)\"><b>Huella.</b></div>\n</div>";
+const RD = (() => {
+  const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const UNI=["","uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve"];
+  const DEC=["","","","treinta","cuarenta","cincuenta","sesenta","setenta","ochenta","noventa"];
+  const CEN=["","ciento","doscientos","trescientos","cuatrocientos","quinientos","seiscientos","setecientos","ochocientos","novecientos"];
+  function menorMil(n){ if(n===0) return ""; if(n===100) return "cien"; const c=Math.floor(n/100), r=n%100; let out=CEN[c];
+    if(r){ const t = r<30 ? UNI[r] : DEC[Math.floor(r/10)] + (r%10 ? " y "+UNI[r%10] : ""); out=(out?out+" ":"")+t; } return out; }
+  const apoc = s => s.replace(/veintiuno$/,"veintiún").replace(/uno$/,"un");
+  function entero(n){ if(n===0) return "cero"; const mm=Math.floor(n/1e6), m=Math.floor((n%1e6)/1000), r=n%1000, p=[];
+    if(mm) p.push(mm===1?"un millón":apoc(entero(mm))+" millones"); if(m) p.push(m===1?"mil":apoc(menorMil(m))+" mil"); if(r) p.push(menorMil(r)); return p.join(" "); }
+  const titulo = s => s.replace(/(^|\s)(\S)/g,(x,a,b)=>a+b.toUpperCase()).replace(/ Y /g," y ").replace(/ Con /g," con ");
+  function letras(v){ const e=Math.floor(v+1e-9), c=Math.round((v-e)*100); let s = titulo(apoc(entero(e))); if(c) s += " con " + String(c).padStart(2,"0") + "/100"; return s; }
+  function cifra(v){ const cents = Math.round(v*100)%100 !== 0; return "L. " + v.toLocaleString("en-US",{minimumFractionDigits:cents?2:0,maximumFractionDigits:2}); }
+  function anio(y){ const r=y%100, base = (Math.floor(y/1000)===2 ? "Dos Mil" : titulo(entero(y-r))); if(!r) return base; let t;
+    if(r<=20) t = titulo(UNI[r]); else { const d=Math.floor(r/10), u=r%10; t = (d===2?"Veinte":titulo(DEC[d])) + (u ? " y "+UNI[u] : ""); } return base+" "+t; }
+  function fmtId(raw){ const d=String(raw||'').replace(/\D/g,"").slice(0,13); if(d.length<=4) return d; if(d.length<=8) return d.slice(0,4)+"-"+d.slice(4); return d.slice(0,4)+"-"+d.slice(4,8)+"-"+d.slice(8); }
+  function html(d){
+    const sp = w => "&nbsp;".repeat(Math.max(1,Math.round(w/2.4)));
+    const val = (x,w) => x ? esc(x) : sp(w);
+    const f = (d.fecha || hoyHN()).split("-").map(Number);
+    const m = { NOMBRE:val(d.nombre,150), ID:val(d.id,70), LETRAS:val(d.monto ? letras(d.monto) : '',60), CIFRA:val(d.monto ? cifra(d.monto) : '',40),
+      DIA:val(String(f[2]),12), MES:val(MESES[f[1]-1],50), ANIO:esc(anio(f[0])) };
+    return RD_DOC.replace(/\{\{(\w+)\}\}/g, (x,k) => m[k] ?? x);
+  }
+  return { html, letras, cifra, fmtId };
+})();
+const cargarScript = src => new Promise((ok, fail) => { if (document.querySelector(`script[src="${src}"]`)) return ok();
+  const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = () => fail(new Error('No se pudo cargar ' + src.split('/').pop() + '. Revise su conexión.')); document.head.appendChild(sc); });
+function reconocimientoHabilitado(s){ return !!s.dictamen_en && !['denegada','borrador','en_analisis'].includes(s.estado); }
+function abrirReconocimiento(s){
+  const d = s.datos_cliente || {};
+  const st = { nombre: s.nombre_cliente, id: RD.fmtId(s.dni || d.dni || ''), monto: +(s.monto_solicitado || s.monto_aprobado || 0), fecha: hoyHN() };
+  const w = document.createElement('div'); w.className = 'rd-wrap';
+  w.innerHTML = `<div class="rd-bar">
+      <div class="t"><button class="back" data-x>←</button><span>Reconocimiento de deuda · ${esc(s.codigo)}</span></div>
+      <div class="fld" style="flex:2"><label>Nombre completo</label><input data-f="nombre" value="${esc(st.nombre)}"></div>
+      <div class="fld"><label>Identidad</label><input data-f="id" inputmode="numeric" maxlength="15" value="${esc(st.id)}" placeholder="0501-1990-12345"></div>
+      <div class="fld"><label>Monto (L)</label><input data-f="monto" inputmode="decimal" value="${st.monto || ''}"></div>
+      <div class="fld"><label>Fecha</label><input data-f="fecha" type="date" value="${st.fecha}"></div>
+      <div class="acc"><button class="btn pri" data-a="print">🖨 Imprimir</button><button class="btn" data-a="pdf">⬇ Descargar PDF</button></div>
+      <div class="small" data-msg style="flex:1 1 100%;color:var(--red)"></div>
+    </div>
+    <div class="rd-stage"><div class="rd-scaler"><div class="rd-page"><div class="border"></div><div class="content"></div></div></div></div>`;
+  document.body.appendChild(w); history.pushState({ rd:1 }, ''); S.dlgs = (S.dlgs || []).concat(w);
+  const page = w.querySelector('.rd-page'), scaler = w.querySelector('.rd-scaler'), stage = w.querySelector('.rd-stage'), msg = w.querySelector('[data-msg]');
+  const ajustar = () => { const sc = Math.min(1, (stage.clientWidth - 32) / page.offsetWidth); scaler.style.transform = sc < 1 ? `scale(${sc})` : ''; scaler.style.height = sc < 1 ? page.offsetHeight * sc + 'px' : ''; scaler.style.width = sc < 1 ? page.offsetWidth * sc + 'px' : ''; };
+  const render = () => { w.querySelector('.content').innerHTML = RD.html(st); ajustar(); };
+  w.querySelectorAll('[data-f]').forEach(i => i.oninput = () => {
+    if (i.dataset.f === 'id'){ i.value = RD.fmtId(i.value); st.id = i.value; }
+    else if (i.dataset.f === 'monto') st.monto = num(i.value) || 0;
+    else st[i.dataset.f] = i.value.trim();
+    msg.textContent = ''; render(); });
+  const listo = () => {
+    const f = []; if (!st.nombre) f.push('nombre'); if (st.id.replace(/\D/g,'').length !== 13) f.push('identidad (13 dígitos)'); if (!(st.monto > 0)) f.push('monto');
+    if (f.length){ msg.textContent = 'Falta: ' + f.join(', ') + '.'; return false; } return true; };
+  const archivo = () => 'Reconocimiento_Deuda_' + st.nombre.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'_').replace(/^_|_$/g,'');
+  const registrar = accion => rpc('registrar_reconocimiento', { p_id: s.id, p_dni: st.id, p_monto: st.monto, p_accion: accion }).then(() => { if (!s.dni && st.id) s.dni = st.id; }).catch(e => console.warn(e));
+  w.querySelector('[data-x]').onclick = () => cerrarDialogo(w);
+  w.querySelector('[data-a="print"]').onclick = () => {
+    if (!listo()) return;
+    const css = [...document.styleSheets].map(ss => { try { return [...ss.cssRules].map(r => r.cssText).filter(t => t.includes('.rd-page')).join('\n'); } catch(e){ return ''; } }).join('\n');
+    const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    document.body.appendChild(fr);
+    const dd = fr.contentDocument;
+    dd.open(); dd.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(archivo())}</title><style>${css}
+      @page{size:letter;margin:0} html,body{margin:0;background:#fff} .rd-page{box-shadow:none;height:10.98in}</style></head>
+      <body><div class="rd-page">${page.innerHTML}</div></body></html>`); dd.close();
+    setTimeout(() => { fr.contentWindow.focus(); fr.contentWindow.print(); setTimeout(() => fr.remove(), 2000); }, 300);
+    registrar('impreso');
+  };
+  w.querySelector('[data-a="pdf"]').onclick = e => {
+    if (!listo()) return;
+    run(e.target, async () => {
+      e.target.textContent = 'Generando…';
+      try {
+        await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+        await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+        const holder = document.createElement('div'); holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+        const clone = page.cloneNode(true); clone.style.boxShadow = 'none'; holder.appendChild(clone); document.body.appendChild(holder);
+        // html2canvas dibuja mal el subrayado: se reemplaza por borde inferior en trozos de una línea
+        clone.querySelectorAll('.bu').forEach(el => { el.style.textDecoration = 'none';
+          const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), nodes = []; while (tw.nextNode()) nodes.push(tw.currentNode);
+          nodes.forEach(n => { const parts = n.nodeValue.match(/[^ ]+ *| +/g); if (!parts) return; const fr = document.createDocumentFragment();
+            parts.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; sp.style.cssText = 'text-decoration:none;border-bottom:0.8pt solid #000;'; fr.appendChild(sp); });
+            n.parentNode.replaceChild(fr, n); }); });
+        try {
+          if (document.fonts && document.fonts.ready) await document.fonts.ready;
+          const canvas = await html2canvas(clone, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
+          const pdf = new jspdf.jsPDF({ unit: 'pt', format: 'letter', orientation: 'portrait' });
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 612, 792);
+          pdf.save(archivo() + '.pdf');
+        } finally { holder.remove(); }
+        registrar('pdf');
+      } finally { e.target.textContent = '⬇ Descargar PDF'; }
+    });
+  };
+  window.addEventListener('resize', ajustar);
+  render(); setTimeout(ajustar, 50);
+}
+
 // ================== Tiempos ==================
 function fmtDur(sec){
   if (sec == null || isNaN(sec)) return '—';
@@ -1479,6 +1712,7 @@ setInterval(() => {
 }, 30000);
 
 // ================== Estadísticas ==================
+const MESES_C = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 function rango(k){
   const h = hoyHN(), d = new Date(h + 'T12:00');
   const iso = x => x.toLocaleDateString('en-CA');
@@ -1487,25 +1721,49 @@ function rango(k){
   if (k === '30d'){ const a = new Date(d); a.setDate(a.getDate()-29); return [iso(a), h]; }
   if (k === 'mes') return [h.slice(0,8) + '01', h];
   if (k === 'mesant'){ const a = new Date(d.getFullYear(), d.getMonth()-1, 1, 12), b = new Date(d.getFullYear(), d.getMonth(), 0, 12); return [iso(a), iso(b)]; }
+  if (k.startsWith('m:')){ const [y, m] = k.slice(2).split('-').map(Number); const a = new Date(y, m-1, 1, 12), b = new Date(y, m, 0, 12); const fin = iso(b) > h ? h : iso(b); return [iso(a), fin]; }
 }
 async function pintarStats(){
-  const opts = [['hoy','Hoy'],['7d','7 días'],['mes','Este mes'],['mesant','Mes anterior'],['30d','30 días']];
-  $('#main').innerHTML = `<div class="filters">${opts.map(([k,t]) => `<button data-r="${k}" class="${S.statsRange===k?'on':''}">${t}</button>`).join('')}</div><div id="stBody"><div class="empty">Cargando…</div></div>`;
+  const opts = [['hoy','Hoy'],['7d','7 días'],['30d','30 días']];
+  const d = new Date(hoyHN() + 'T12:00');
+  const meses = [5,4,3,2,1,0].map(i => { const x = new Date(d.getFullYear(), d.getMonth() - i, 1, 12); return [`m:${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`, MESES_C[x.getMonth()]]; });
+  if (S.statsRange === 'mes') S.statsRange = meses[5][0];
+  $('#main').innerHTML = `<div class="filters">${opts.map(([k,t]) => `<button data-r="${k}" class="${S.statsRange===k?'on':''}">${t}</button>`).join('')}
+    <span style="flex:none;align-self:center;font-size:12px;color:var(--muted);font-weight:700;margin:0 2px 0 8px">MES</span>
+    ${meses.map(([k,t]) => `<button data-r="${k}" class="${S.statsRange===k?'on':''}" style="text-transform:capitalize">${t}</button>`).join('')}</div><div id="stBody"><div class="empty">Cargando…</div></div>`;
   $('#main').querySelectorAll('[data-r]').forEach(b => b.onclick = () => { S.statsRange = b.dataset.r; pintarStats(); });
   const [d0, d1] = rango(S.statsRange);
   let r, rt; try { [r, rt] = await Promise.all([rpc('estadisticas', { p_desde: d0, p_hasta: d1 }), rpc('estadisticas_tiempos', { p_desde: d0, p_hasta: d1 })]); } catch(e){ return $('#stBody').innerHTML = `<div class="alert err">${esc(errMsg(e))}</div>`; }
   const ci = rt.ciclo || {};
   const dict = r.aprobadas + r.denegadas, tasa = dict ? Math.round(r.aprobadas / dict * 100) : null;
-  const pe = r.por_estado_actual || {};
-  const hrs = h => h == null ? '—' : h < 24 ? `${h} h` : `${(h/24).toFixed(1)} d`;
+  const pctDen = dict ? (r.denegadas / dict * 100).toFixed(2) : null;
+  const pe = r.por_estado_actual || {}, ct = r.colocado_por_tipo || {};
+  const tk = t => ct[t] || { n:0, capital:0 };
+  const dias = r.dias_activos || 0;
+  const promDia = dias ? r.monto_desembolsado / dias : null, cantDia = dias ? Math.round(r.desembolsadas / dias) : null;
+  const kpiT = (t, c) => `<div class="kpi" style="border-top:3px solid ${c}"><div class="l" style="color:${c}">${t === 'nuevo' ? 'Nuevos préstamos' : TIPO[t]}</div><div class="v" style="font-size:20px">${L(tk(t).capital)}</div><div class="s">Cant.: <b>${tk(t).n}</b>${t !== 'nuevo' && tk(t).prestamos ? ` · préstamos ${L(tk(t).prestamos)}` : ''}</div></div>`;
+  const visT = (r.visitas || []).reduce((a, v) => ({ dom: a.dom + v.domicilio, tra: a.tra + v.trabajo, des: a.des + v.desembolso }), { dom:0, tra:0, des:0 });
   let h = `<div class="kpis">
-    <div class="kpi"><div class="l">Solicitudes creadas</div><div class="v">${r.creadas}</div><div class="s">${Object.entries(r.por_tipo).map(([k,v]) => `${TIPO[k]} ${v}`).join(' · ') || '—'}</div></div>
-    <div class="kpi"><div class="l">Tasa de aprobación</div><div class="v">${tasa == null ? '—' : tasa + '%'}</div><div class="s">${r.aprobadas} aprobadas · ${r.denegadas} denegadas</div></div>
-    <div class="kpi"><div class="l">Desembolsadas</div><div class="v">${r.desembolsadas}</div><div class="s">💵 ${r.desembolso_efectivo} · 🏦 ${r.desembolso_transferencia}</div></div>
-    <div class="kpi"><div class="l">Capital colocado</div><div class="v" style="font-size:20px">${L(r.monto_desembolsado)}</div><div class="s" title="En refinanciamiento se resta el saldo de capital anterior">Préstamos ${L(r.monto_prestamos)} − capital refinanciado ${L(r.capital_refinanciado)}</div></div>
-    <div class="kpi"><div class="l">Ciclo promedio (hábil)</div><div class="v">${fmtDur(ci.prom_habil_seg)}</div><div class="s">creación → desembolso · ${fmtDur(ci.prom_seg)} cal.</div></div>
+    <div class="kpi" style="border-top:3px solid var(--green)"><div class="l" style="color:var(--green)">Nuevo capital</div><div class="v" style="font-size:22px">${L(r.monto_desembolsado)}</div><div class="s" title="Préstamos desembolsados (incluye capital refinanciado)">Préstamos ${L(r.monto_prestamos)}</div></div>
+    <div class="kpi" style="border-top:3px solid var(--brand)"><div class="l" style="color:var(--brand)">Solicitudes exitosas</div><div class="v">${r.desembolsadas}</div><div class="s">💵 ${r.desembolso_efectivo} · 🏦 ${r.desembolso_transferencia}</div></div>
+    <div class="kpi" style="border-top:3px solid var(--red)"><div class="l" style="color:var(--red)">Denegadas</div><div class="v">${r.denegadas}</div><div class="s">${pctDen == null ? '—' : pctDen + '% de lo dictaminado'}</div></div>
+    <div class="kpi" style="border-top:3px solid var(--teal)"><div class="l" style="color:var(--teal)">Capital prom. diario</div><div class="v" style="font-size:20px">${promDia == null ? '—' : L(Math.round(promDia))}</div><div class="s">Cant.: <b>${cantDia ?? '—'}</b> por día · ${dias} día(s) con desembolsos</div></div>
+    ${kpiT('nuevo', 'var(--blue)')}${kpiT('refinanciamiento', 'var(--amber)')}${kpiT('reingreso', 'var(--violet)')}
+    <div class="kpi"><div class="l">Solicitudes creadas</div><div class="v">${r.creadas}</div><div class="s">Aprobación ${tasa == null ? '—' : tasa + '%'}</div></div>
+    <div class="kpi"><div class="l">Ciclo promedio (hábil)</div><div class="v">${fmtDur(ci.prom_habil_seg)}</div><div class="s">creación → desembolso</div></div>
     <div class="kpi"><div class="l">Dentro de la meta</div><div class="v">${ci.n ? Math.round(ci.dentro_meta / ci.n * 100) + '%' : '—'}</div><div class="s">${ci.dentro_meta||0} de ${ci.n||0} · meta ${fmtDur((S.params.meta_total_min||0)*60)}</div></div>
+    <div class="kpi"><div class="l">Visitas de verificadores</div><div class="v">${r.visitas_total || 0}</div><div class="s">🏠 ${visT.dom} · 🏢 ${visT.tra} · 💵 ${visT.des}</div></div>
   </div>
+  <div class="grid-ch">
+    <div class="card"><h4 class="sec" style="margin-top:0">Colocado últimas 5 semanas</h4><div class="chart" id="chSem"></div></div>
+    <div class="card"><h4 class="sec" style="margin-top:0">Capital colocado por mes</h4><div class="chart" id="chMes"></div></div>
+  </div>
+  <div class="card"><h4 class="sec" style="margin-top:0">Colocado por día</h4><div class="chart" id="chCap"></div></div>
+  <div class="card"><h4 class="sec" style="margin-top:0">Solicitudes exitosas por día</h4><div class="chart" id="chExi"></div></div>
+  <h4 class="sec">Visitas de verificación y desembolso</h4>
+  <div class="card" style="overflow-x:auto">${(r.visitas || []).length ? `<table class="t"><thead><tr><th>Verificador</th><th class="num">🏠 Domicilio</th><th class="num">🏢 Trabajo</th><th class="num">💵 Desembolso</th><th class="num">Total</th><th class="num">Rechaz.</th></tr></thead><tbody>
+    ${r.visitas.map(v => `<tr><td>${esc(v.nombre)}</td><td class="num">${v.domicilio}</td><td class="num">${v.trabajo}</td><td class="num">${v.desembolso}</td><td class="num"><b>${v.total}</b></td><td class="num">${v.rechazadas}</td></tr>`).join('')}</tbody></table>
+    <div class="small muted" style="margin-top:6px">Se cuentan cuando el verificador cierra la verificación: una visita por lugar visitado (domicilio, trabajo) y una por entrega de efectivo.</div>` : '<div class="muted small">Sin visitas en el período</div>'}</div>
   <h4 class="sec">Cartera en proceso ahora</h4>
   <div class="pipe">${['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'].map(k => `<div class="st"><b>${pe[k]||0}</b><span class="small">${EST[k].t}</span></div>`).join('')}</div>
   <h4 class="sec">Tiempo promedio por paso (hábil)</h4>
@@ -1514,16 +1772,58 @@ async function pintarStats(){
   <div class="card" style="overflow-x:auto">${rt.por_gestor.length ? `<table class="t"><thead><tr><th>Gestor</th><th>Rol</th><th class="num">Gestiones</th><th class="num">Prom. hábil</th></tr></thead><tbody>
     ${rt.por_gestor.map(g => `<tr><td>${esc(g.nombre)}</td><td>${ROL[g.rol]||g.rol}</td><td class="num">${g.n}</td><td class="num">${fmtDur(g.prom_habil_seg)}</td></tr>`).join('')}</tbody></table>
     <div class="small muted" style="margin-top:6px">Prom. hábil = tiempo desde que la solicitud llegó al paso hasta que la persona la movió.</div>` : '<div class="muted small">Sin datos</div>'}</div>
-  <h4 class="sec">Actividad por día</h4>
-  <div class="card"><div class="legend"><span><i style="background:var(--s1)"></i>Creadas</span><span><i style="background:var(--s2)"></i>Desembolsadas</span></div><div class="chart" id="chDia"></div></div>
   <h4 class="sec">Por asesor</h4>
   <div class="card" style="overflow-x:auto">${r.por_asesor.length ? `<table class="t"><thead><tr><th>Asesor</th><th class="num">Creadas</th><th class="num">Desemb.</th><th class="num">Rechaz.</th><th class="num">Capital colocado</th></tr></thead><tbody>
     ${r.por_asesor.map(a => `<tr><td>${esc(a.nombre)}</td><td class="num">${a.creadas}</td><td class="num">${a.desembolsadas}</td><td class="num">${a.rechazadas}</td><td class="num">${L(a.monto)}</td></tr>`).join('')}</tbody></table>` : '<div class="muted small">Sin datos</div>'}</div>
-  <h4 class="sec">Verificaciones por verificador</h4>
-  <div class="card">${r.por_verificador.length ? barras(r.por_verificador.map(v => [v.nombre, v.n, v.rechazadas ? `${v.n} (${v.rechazadas} rech.)` : v.n])) : '<div class="muted small">Sin datos</div>'}</div>
   ${r.motivos_denegacion.length ? `<h4 class="sec">Motivos de denegación</h4><div class="card">${barras(r.motivos_denegacion.map(m => [m.nota || 'Sin nota', m.n, m.n]))}</div>` : ''}`;
   $('#stBody').innerHTML = h;
-  graficoDias($('#chDia'), r.por_dia);
+  const activos = r.por_dia.filter(x => x.desembolsadas > 0);
+  const fd = x => `${+x.dia.slice(8)}/${+x.dia.slice(5,7)}`;
+  graficoBarras($('#chSem'), r.semanas.map(w => ({ l: String(w.semana), v: +w.capital, t: L(Math.round(w.capital)), tip: `Semana ${w.semana} (desde ${fDate(w.ini + 'T12:00')})<br>${L(w.capital)} · ${w.n} desembolso(s)` })));
+  graficoBarras($('#chMes'), r.meses.map(m => ({ l: MESES_C[+m.mes.slice(5) - 1], v: +m.capital, t: L(Math.round(m.capital)), tip: `${MESES_C[+m.mes.slice(5) - 1]} ${m.mes.slice(0,4)}<br>${L(m.capital)} · ${m.n} desembolso(s)` })));
+  graficoLinea($('#chCap'), activos.map(x => ({ l: fd(x), v: +x.capital, t: L(Math.round(x.capital)), tip: `${fDate(x.dia + 'T12:00')}<br>${L(x.capital)} · ${x.desembolsadas} exitosa(s)` })));
+  graficoBarras($('#chExi'), activos.map(x => ({ l: fd(x), v: x.desembolsadas, t: String(x.desembolsadas), tip: `${fDate(x.dia + 'T12:00')}<br>${x.desembolsadas} exitosa(s) · ${L(x.capital)}` })));
+}
+// Gráficos simples: una serie, etiqueta de valor encima (como el dashboard de Excel), tooltip al pasar/tocar
+function tipChart(el, rects, data){
+  const tip = el.querySelector('.tip');
+  rects.forEach(rc => {
+    const show = () => { const d = data[+rc.dataset.i], b = rc.getBoundingClientRect(), p = el.getBoundingClientRect();
+      tip.innerHTML = d.tip; tip.style.left = Math.min(Math.max(b.left - p.left + b.width / 2, 70), p.width - 70) + 'px'; tip.style.top = '28px'; tip.classList.remove('hidden'); };
+    rc.addEventListener('mouseenter', show); rc.addEventListener('click', show); rc.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+  });
+}
+function graficoBarras(el, data){
+  if (!data.length || data.every(d => !d.v)) return el.innerHTML = '<div class="muted small">Sin datos en el período</div>';
+  const W = Math.max(320, data.length * 58), H = 180, pb = 22, pt = 22, n = data.length, max = Math.max(...data.map(d => d.v), 1);
+  const step = W / n, bw = Math.min(34, step * 0.5), y = v => pt + (H - pt - pb) * (1 - v / max);
+  const every = n > 14 ? Math.ceil(n / 14) : 1;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" style="min-width:${Math.round(W * 0.7)}px">`;
+  data.forEach((d, i) => {
+    const cx = step * i + step / 2, top = y(d.v), h = y(0) - top, r = Math.min(4, h / 2);
+    if (d.v) svg += `<path d="M${cx - bw/2},${y(0)} v${-(h - r)} q0,${-r} ${r},${-r} h${bw - 2*r} q${r},0 ${r},${r} v${h - r} z" fill="var(--s1)"/>`;
+    if (d.v && (i % every === 0 || d.v === max)) svg += `<text x="${cx}" y="${top - 6}" font-size="11" text-anchor="middle" fill="var(--ink)">${esc(d.t)}</text>`;
+    if (i % every === 0) svg += `<text x="${cx}" y="${H - 6}" font-size="11" text-anchor="middle" fill="var(--muted)">${esc(d.l)}</text>`;
+    svg += `<rect data-i="${i}" x="${step * i}" y="0" width="${step}" height="${H - pb}" fill="transparent"/>`;
+  });
+  svg += `<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/></svg><div class="tip hidden"></div>`;
+  el.innerHTML = svg; tipChart(el, el.querySelectorAll('rect[data-i]'), data);
+}
+function graficoLinea(el, data){
+  if (!data.length) return el.innerHTML = '<div class="muted small">Sin desembolsos en el período</div>';
+  const W = Math.max(360, data.length * 64), H = 170, pb = 22, pt = 26, n = data.length, max = Math.max(...data.map(d => d.v), 1);
+  const step = W / n, x = i => step * i + step / 2, y = v => pt + (H - pt - pb - 8) * (1 - v / max);
+  const every = n > 14 ? Math.ceil(n / 14) : 1;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" style="min-width:${Math.round(W * 0.7)}px">`;
+  svg += `<path d="${data.map((d, i) => (i ? 'L' : 'M') + x(i) + ',' + y(d.v)).join(' ')}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/>`;
+  data.forEach((d, i) => {
+    svg += `<circle cx="${x(i)}" cy="${y(d.v)}" r="4" fill="var(--s1)" stroke="var(--card)" stroke-width="2"/>`;
+    if (i % every === 0 || d.v === max) svg += `<text x="${x(i)}" y="${y(d.v) - 9}" font-size="11" text-anchor="middle" fill="var(--ink)">${esc(d.t)}</text>`;
+    if (i % every === 0) svg += `<text x="${x(i)}" y="${H - 6}" font-size="11" text-anchor="middle" fill="var(--muted)">${esc(d.l)}</text>`;
+    svg += `<rect data-i="${i}" x="${step * i}" y="0" width="${step}" height="${H - pb}" fill="transparent"/>`;
+  });
+  svg += `</svg><div class="tip hidden"></div>`;
+  el.innerHTML = svg; tipChart(el, el.querySelectorAll('rect[data-i]'), data);
 }
 function barras(rows){
   const max = Math.max(1, ...rows.map(r => r[1]));

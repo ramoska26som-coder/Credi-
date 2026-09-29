@@ -293,7 +293,7 @@ const ACC = { creada:'Creó la solicitud', enviada_analisis:'Envió a análisis'
   dictamen_aprobada:'Aprobó', dictamen_denegada:'Denegó', enviada_verificacion:'Envió a verificación',
   enviada_desembolso:'Envió a desembolso por transferencia', verificacion_ok:'Verificación exitosa',
   verificacion_rechazada:'Rechazó en verificación', desembolsada:'Marcó como desembolsada', desistida:'Cliente desistió',
-  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud' };
+  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa' };
 const CERRADAS = ['desembolsada','denegada','rechazada_verificacion','desistida'];
 
 const S = { user:null, me:null, perfiles:{}, params:{}, sols:[], com:{}, tab:null, q:'', filtroTodas:'abiertas',
@@ -1150,7 +1150,9 @@ function calcRefi(s, c){
   const pctAprob = manual ? +s.pct_manual : (tard3 > 5 ? 0 : Math.max(0, 1 - tard3 * 0.1));
   const limAprob = mround(sugerido * pctAprob, 1000);
   const disponible = limAprob - (+s.saldo_capital || 0) - (+s.saldo_intereses || 0);
-  const pref = tard3 < 3 && tard7 === 0 && prom > (P.umbral_tasa_preferencial || 20000) && antig != null && antig > 120;
+  const prefCalc = tard3 < 3 && tard7 === 0 && prom > (P.umbral_tasa_preferencial || 20000) && antig != null && antig > 120;
+  // Después del dictamen manda lo que quedó autorizado (puede haberse ajustado manualmente)
+  const pref = s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : prefCalc;
   const tasaNiv = pref ? 0.105 : 0.14, tasaSI = pref ? 0.16 : 0.20;
   const tasaNueva = s.plan_pago === 'solo_interes' ? tasaSI : tasaNiv;
   const cuotas = [3, 6, 8, 10, 12].map(n => { const q = limAprob / n + limAprob * tasaNiv; return { plazo: `${n} meses`, cuota: q, pct: prom ? q / prom : null }; });

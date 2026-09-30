@@ -560,6 +560,7 @@ $('#fab').onclick = () => {
     <label class="f">Tipo</label>
     <div class="seg" id="nTipo">${Object.entries(TIPO).map(([k,t],i) => `<button type="button" data-v="${k}" class="${i?'':'on'}">${t}</button>`).join('')}</div>
     <label class="f">Nombre completo del cliente</label><input id="nNombre" autocomplete="off">
+    <label class="f">Número de identidad</label><input id="nDni" inputmode="numeric" maxlength="15" placeholder="0501-1990-12345" autocomplete="off">
     ${rol() === 'admin' ? `<label class="f">Asesor responsable</label><select id="nAsesor">${Object.values(S.perfiles).filter(p => p.activo && ['asesor','admin'].includes(p.rol)).map(p => `<option value="${p.id}" ${p.id === S.me.id ? 'selected' : ''}>${esc(p.nombre)}${p.rol === 'admin' ? ' (admin)' : ''}</option>`).join('')}</select>` : ''}
     <label class="f">Teléfono (opcional)</label><input id="nTel" inputmode="tel" autocomplete="off">
     <div id="nIngF" class="hidden"><label class="f">Fecha de ingreso del cliente (antigüedad)</label><input id="nIng" type="date" max="${hoyHN()}"></div>
@@ -575,10 +576,13 @@ $('#fab').onclick = () => {
     $('#nHelp').textContent = nuevo ? 'Se crea con el nombre; luego agrega los ingresos y la envía a análisis.'
       : 'Para reingreso/refinanciamiento solo se necesita el nombre: se envía directo a análisis.';
   });
-  $('#nNombre').oninput = () => { $('#nCoin').innerHTML = coincidencias({ id:0, nombre_cliente: $('#nNombre').value, telefono: $('#nTel').value }); };
+  const coin = () => { $('#nCoin').innerHTML = coincidencias({ id:0, nombre_cliente: $('#nNombre').value, telefono: $('#nTel').value, dni: $('#nDni').value }); };
+  $('#nNombre').oninput = coin;
+  $('#nDni').oninput = () => { $('#nDni').value = RD.fmtId($('#nDni').value); coin(); };
   $('#nNombre').focus();
   $('#nOk').onclick = e => run(e.target, async () => {
-    const id = await rpc('crear_solicitud', { p_nombre: $('#nNombre').value, p_tipo: tipo, p_telefono: $('#nTel').value || null, p_enviar: tipo !== 'nuevo', p_fecha_ingreso: tipo !== 'nuevo' ? ($('#nIng').value || null) : null, p_asesor: $('#nAsesor')?.value || null });
+    if ($('#nDni').value.replace(/\D/g,'').length !== 13) throw new Error('Ingrese el número de identidad (13 dígitos)');
+    const id = await rpc('crear_solicitud', { p_dni: $('#nDni').value, p_nombre: $('#nNombre').value, p_tipo: tipo, p_telefono: $('#nTel').value || null, p_enviar: tipo !== 'nuevo', p_fecha_ingreso: tipo !== 'nuevo' ? ($('#nIng').value || null) : null, p_asesor: $('#nAsesor')?.value || null });
     await cerrarDialogo(w); await cargarSolicitudes(); pintarTabs(); pintar();
     toast(tipo === 'nuevo' ? 'Solicitud creada. Agregue los ingresos.' : 'Enviada a análisis');
     if (tipo === 'nuevo') abrirDetalle(id);
@@ -852,7 +856,6 @@ function completarHTML(s){
       <div class="small muted" style="margin-bottom:6px">¿Qué debe actualizar el verificador?</div>
       <label class="chk"><input type="checkbox" id="cDom" ${s.actualizar_domicilio?'checked':''}> 🏠 Domicilio</label>
       <label class="chk"><input type="checkbox" id="cTrab" ${s.actualizar_trabajo?'checked':''}> 🏢 Trabajo</label>
-      <label class="chk"><input type="checkbox" id="cFoto" ${s.actualizar_foto?'checked':''}> 📷 Foto de perfil</label>
     `}
     <h4 class="sec">Forma de desembolso</h4>
     <div class="seg" id="cForma"><button type="button" data-v="efectivo" class="${s.forma_desembolso==='efectivo'?'on':''}">💵 Efectivo</button><button type="button" data-v="transferencia" class="${s.forma_desembolso==='transferencia'?'on':''}">🏦 Transferencia</button></div>
@@ -873,7 +876,6 @@ function verificacionHTML(s, items){
         ${i.lat ? `<a class="small" target="_blank" href="https://maps.google.com/?q=${i.lat},${i.lng}">📍 Mapa</a>` : ''}</div>
       ${edit ? `<input data-nota placeholder="Nota" value="${esc(i.nota||'')}" style="margin-top:8px">
         <div class="row" style="margin-top:8px">
-          ${i.item === 'referencias' || i.item === 'entrega_efectivo' ? '' : `<label class="btn sm ghost">📷 Foto<input type="file" accept="image/*" capture="environment" data-foto hidden></label>`}
           <button class="btn sm ghost" data-gps>📍 Capturar GPS</button>
           <span class="small muted" data-st>${i.actualizado_por ? 'Guardado ' + hace(i.actualizado_en) : ''}</span></div>`
       : (i.nota ? `<div class="small" style="margin-top:6px">${esc(i.nota)}</div>` : '')}
@@ -1037,7 +1039,7 @@ function enlazarCompletar(s, refrescar){
   const F = $('#cForm'); const nuevo = s.tipo === 'nuevo';
   let forma = s.forma_desembolso || null, verTrab = true;
   const destino = () => {
-    const act = !nuevo && ($('#cDom').checked || $('#cTrab').checked || $('#cFoto').checked);
+    const act = !nuevo && ($('#cDom').checked || $('#cTrab').checked);
     const directo = !nuevo && forma === 'transferencia' && !act;
     $('#cVerF').classList.toggle('hidden', directo);
     $('#cDestino').innerHTML = !forma ? 'Seleccione la forma de desembolso.'
@@ -1048,7 +1050,7 @@ function enlazarCompletar(s, refrescar){
   F.querySelectorAll('#cForma button').forEach(b => b.onclick = () => { forma = b.dataset.v; S.dirty = true;
     F.querySelectorAll('#cForma button').forEach(x => x.classList.toggle('on', x===b)); $('#cCtaF').classList.toggle('hidden', forma !== 'transferencia'); destino(); });
   if (!nuevo){
-    $('#cDom').onchange = destino; $('#cTrab').onchange = destino; $('#cFoto').onchange = destino;
+    $('#cDom').onchange = destino; $('#cTrab').onchange = destino;
   } else {
     F.querySelectorAll('#cVerTipo button').forEach(b => b.onclick = () => { verTrab = b.dataset.v === '1'; S.dirty = true;
       F.querySelectorAll('#cVerTipo button').forEach(x => x.classList.toggle('on', x === b)); destino(); });
@@ -1058,7 +1060,7 @@ function enlazarCompletar(s, refrescar){
   $('#cEnviar').onclick = e => run(e.target, async () => {
     if (!forma) throw new Error('Seleccione la forma de desembolso');
     const r = await rpc('completar_solicitud', { p_id: s.id, p_datos: {}, p_forma: forma,
-      p_act_domicilio: !nuevo && $('#cDom').checked, p_act_trabajo: nuevo ? verTrab : $('#cTrab').checked, p_act_foto: !nuevo && $('#cFoto').checked,
+      p_act_domicilio: !nuevo && $('#cDom').checked, p_act_trabajo: nuevo ? verTrab : $('#cTrab').checked, p_act_foto: false,
       p_verificador: $('#cVer').value || null, p_monto_solicitado: null, p_plazo: null, p_cuenta: $('#cCta').value || null });
     S.dirty = false;
     toast(r === 'por_verificar' ? 'Enviada a verificación' : 'Enviada a desembolsos por transferencia');

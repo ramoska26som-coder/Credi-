@@ -180,7 +180,7 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 @media (max-width:980px){.bd-sum{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:640px){.bd-sum{grid-template-columns:repeat(2,1fr)}}
 .bd-sum .kpi{padding:9px 12px} .bd-sum .kpi .v{font-size:20px}
-.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
+.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start}
 @media (max-width:980px){.board{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 8px;-webkit-overflow-scrolling:touch}
   .board .col{flex:0 0 84vw;max-width:360px;scroll-snap-align:start}}
 .col{background:var(--brand2);border-radius:16px;padding:8px;min-height:120px}
@@ -191,6 +191,10 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 @media (max-width:980px){.col-body{max-height:none}}
 .kc{background:var(--card);border-radius:12px;padding:10px 11px;box-shadow:var(--shadow);border:1px solid var(--line);border-left:4px solid var(--kc,var(--line));cursor:pointer}
 .kc .nm{font-weight:650;font-size:14.5px;line-height:1.25}
+/* Solicitud en espera: tarjeta en gris */
+.espera{--rc:var(--gray)!important;--rb:var(--gray-bg)!important;--kc:var(--gray)!important;background:var(--gray-bg)!important;border-left-color:var(--gray)!important}
+.espera .chip,.espera .rol,.espera .tm span{filter:grayscale(1)}
+.espera .nm,.espera .name{color:var(--ink2)}
 .kc .ln{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px;color:var(--ink2);margin-top:5px}
 .kc .tm{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
 .tm span{font-size:11.5px;font-weight:650;padding:2px 7px;border-radius:7px;background:var(--gray-bg);color:var(--ink2);font-variant-numeric:tabular-nums}
@@ -324,7 +328,7 @@ const ACC = { creada:'Creó la solicitud', enviada_analisis:'Envió a análisis'
   dictamen_aprobada:'Aprobó', dictamen_denegada:'Denegó', enviada_verificacion:'Envió a verificación',
   enviada_desembolso:'Envió a desembolso por transferencia', verificacion_ok:'Verificación exitosa',
   verificacion_rechazada:'Rechazó en verificación', desembolsada:'Marcó como desembolsada', desistida:'Cliente desistió',
-  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa', reconocimiento_deuda:'Generó el reconocimiento de deuda', edicion_admin:'Editó la solicitud', cambio_estado_admin:'Cambió el estado (administrador)' };
+  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa', reconocimiento_deuda:'Generó el reconocimiento de deuda', edicion_admin:'Editó la solicitud', cambio_estado_admin:'Cambió el estado (administrador)', en_espera:'Puso en espera', reanudada:'Reanudó la solicitud' };
 const CERRADAS = ['desembolsada','denegada','rechazada_verificacion','desistida'];
 
 const S = { user:null, me:null, perfiles:{}, params:{}, sols:[], com:{}, tab:null, q:'', filtroTodas:'abiertas',
@@ -347,6 +351,7 @@ function hace(d){
 const chip = e => `<span class="chip c-${EST[e]?.c||'gray'}">${esc(EST[e]?.t||e)}</span>`;
 const tipoChip = t => `<span class="chip ${t==='nuevo'?'c-blue':t==='reingreso'?'c-teal':t==='refinanciamiento'?'c-violet':'c-amber'}">${TIPO[t]||esc(t)}</span>`;
 const nombre = id => S.perfiles[id]?.nombre || '—';
+const esperaChip = s => s.en_espera ? `<span class="chip c-gray" title="${esc(s.espera_motivo||'')}" style="border:1px solid var(--gray)">⏸ En espera</span>` : '';
 const iniciales = n => (n||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
 const AVC = ['#2a78d6','#eb6834','#1baf7a','#c98500','#d55181','#6a3fb5','#0e7c6b','#b42318'];
 const avColor = id => AVC[[...String(id)].reduce((a,c) => a + c.charCodeAt(0), 0) % AVC.length];
@@ -515,9 +520,10 @@ function pintar(){
   let lista = S.sols.filter(tab[2]);
   let extra = '';
   if (S.tab === 'todas'){
-    const fs = [['abiertas','Abiertas'],['todas','Todas'],...Object.entries(EST).map(([k,v]) => [k, v.t])];
+    const fs = [['abiertas','Abiertas'],['espera','⏸ En espera'],['todas','Todas'],...Object.entries(EST).map(([k,v]) => [k, v.t])];
     extra = `<div class="filters">${fs.map(([k,t]) => `<button data-f="${k}" class="${S.filtroTodas===k?'on':''}">${t}</button>`).join('')}</div>`;
     if (S.filtroTodas === 'abiertas') lista = lista.filter(s => !CERRADAS.includes(s.estado));
+    else if (S.filtroTodas === 'espera') lista = lista.filter(s => s.en_espera);
     else if (S.filtroTodas !== 'todas') lista = lista.filter(s => s.estado === S.filtroTodas);
   }
   if (S.tab === 'revisadas'){
@@ -528,6 +534,8 @@ function pintar(){
   if (q) lista = lista.filter(s => [s.nombre_cliente, s.codigo, s.dni, s.telefono].some(v => (v||'').toLowerCase().includes(q)));
   // Orden: lo más antiguo esperando primero en colas de trabajo
   if (['analisis','verificar'].includes(S.tab)) lista.sort((a,b) => new Date(a.estado_desde || a.creado_en) - new Date(b.estado_desde || b.creado_en));
+  // Las que están en espera van al final
+  lista.sort((a,b) => (a.en_espera ? 1 : 0) - (b.en_espera ? 1 : 0));
   $('#main').innerHTML = `
     <div class="search"><input id="q" placeholder="Buscar por nombre, código, DNI o teléfono" value="${esc(S.q)}">
       ${['solicitudes','revisadas','proceso'].includes(S.tab) ? `<div class="seg" style="flex:none;min-width:160px"><button data-sm="0" class="${S.soloMias?'':'on'}">Todas</button><button data-sm="1" class="${S.soloMias?'on':''}">Solo mías</button></div>` : ''}</div>
@@ -541,16 +549,17 @@ function pintar(){
 function cardSol(s){
   const monto = s.monto_aprobado ? L(s.monto_solicitado || s.monto_aprobado) : '';
   const c = S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : '';
-  const fecha = CERRADAS.includes(s.estado) ? hace(s.cerrado_en || s.estado_desde || s.creado_en) : `En este paso ${hace(s.estado_desde || s.creado_en).replace(/^hace /,'')}`;
+  const fecha = CERRADAS.includes(s.estado) ? hace(s.cerrado_en || s.estado_desde || s.creado_en) : s.en_espera ? `En espera ${hace(s.espera_desde).replace(/^hace /,'')}` : `En este paso ${hace(s.estado_desde || s.creado_en).replace(/^hace /,'')}`;
   let extra = '';
   if (s.estado === 'desembolso_pendiente' || s.forma_desembolso) extra = `<span>${s.forma_desembolso === 'transferencia' ? '🏦 Transferencia' : s.forma_desembolso === 'efectivo' ? '💵 Efectivo' : ''}</span>`;
-  return `<div class="card sol" data-id="${s.id}" style="${rcVars(rolDe(s.estado))}">
+  return `<div class="card sol${s.en_espera ? ' espera' : ''}" data-id="${s.id}" style="${rcVars(rolDe(s.estado))}">
     <div class="main">
       <div style="margin-bottom:4px">${rolPill(s)}</div>
       <div class="name">${esc(s.nombre_cliente)}</div>
       <div class="sub"><span>${esc(s.codigo)}</span>${tipoChip(s.tipo)}<span>👤 ${esc(nombre(s.asesor_id))}</span>${extra}${c}</div>
+      ${s.en_espera && s.espera_motivo ? `<div class="small" style="color:var(--gray);margin-top:3px">⏸ ${esc(s.espera_motivo)}</div>` : ''}
     </div>
-    <div class="right">${chip(s.estado)}<div class="amt" style="margin-top:6px">${monto}</div><div class="small muted">${fecha}</div></div>
+    <div class="right">${chip(s.estado)}${s.en_espera ? '<div style="margin-top:4px">' + esperaChip(s) + '</div>' : ''}<div class="amt" style="margin-top:6px">${monto}</div><div class="small muted">${fecha}</div></div>
   </div>`;
 }
 
@@ -668,12 +677,13 @@ function renderDetalle(){
 
   // Encabezado
   h += `<div class="card">
-    <div class="row" style="flex-wrap:wrap;gap:6px">${tipoChip(s.tipo)} ${chip(s.estado)} <span class="spacer"></span><span class="small muted">${esc(s.codigo)}</span></div>
+    <div class="row" style="flex-wrap:wrap;gap:6px">${tipoChip(s.tipo)} ${chip(s.estado)} ${esperaChip(s)} <span class="spacer"></span><span class="small muted">${esc(s.codigo)}</span></div>
     <dl class="kv" style="margin-top:10px">
       <dt>Asesor</dt><dd>${rol() === 'admin' && !CERRADAS.includes(s.estado) ? `<select id="dAsesor" style="padding:4px 8px">${Object.values(S.perfiles).filter(p => p.activo && ['asesor','admin'].includes(p.rol)).map(p => `<option value="${p.id}" ${p.id === s.asesor_id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>` : esc(nombre(s.asesor_id))}</dd>
       ${s.telefono ? `<dt>Teléfono</dt><dd><a href="tel:${esc(s.telefono)}">${esc(s.telefono)}</a> · <a href="https://wa.me/504${esc(s.telefono.replace(/\D/g,'').slice(-8))}" target="_blank">WhatsApp</a></dd>` : ''}
       ${s.dni ? `<dt>DNI</dt><dd>${esc(s.dni)}</dd>` : ''}
       <dt>Creada</dt><dd>${fDT(s.creado_en)}</dd>
+      ${s.espera_total_habil_seg > 0 ? `<dt>Tiempo en espera</dt><dd>${fmtDur(s.espera_total_habil_seg)} hábil (acumulado)</dd>` : ''}
       ${s.analista_id ? `<dt>Analista</dt><dd>${esc(nombre(s.analista_id))}</dd>` : ''}
       ${s.verificador_id ? `<dt>Verificador</dt><dd>${esc(nombre(s.verificador_id))}</dd>` : ''}
     </dl>
@@ -681,6 +691,16 @@ function renderDetalle(){
     ${ed != null && ed < S.params.edad_minima ? `<div class="alert err small">⚠ Cliente de ${ed} años (mínimo ${S.params.edad_minima}).</div>` : ''}
   </div>`;
 
+  // En espera
+  if (s.en_espera){
+    h += `<div class="card" style="border:1.5px solid var(--gray);background:var(--gray-bg)">
+      <div class="row" style="gap:8px;align-items:flex-start"><div style="font-size:22px">⏸</div><div style="flex:1">
+        <b style="color:var(--ink2)">Solicitud en espera</b>
+        <div class="small">Desde ${fDT(s.espera_desde)} · por ${esc(nombre(s.espera_por))} · <span data-live-esp="${s.espera_desde}">${fmtDur(segHabiles(s.espera_desde, new Date()))}</span> hábil</div>
+        <div style="margin-top:4px">${esc(s.espera_motivo)}</div></div></div>
+      ${CERRADAS.includes(s.estado) ? '' : '<div class="btns"><button class="btn pri" id="eReanudar">▶ Reanudar solicitud</button></div>'}
+      <div class="small muted" style="margin-top:6px">Si se avanza la solicitud a otro paso se reanuda automáticamente.</div></div>`;
+  }
   // Devuelta
   const ultDev = [...evs].reverse().find(e => e.accion === 'devuelta_asesor');
   if (s.estado === 'borrador' && ultDev) h += `<div class="alert warn"><b>Devuelta por ${esc(nombre(ultDev.usuario_id))}:</b> ${esc(ultDev.nota)}</div>`;
@@ -847,6 +867,8 @@ function accionesHTML(s, c){
   if (s.estado === 'por_verificar' && es('analista') && rol() !== 'verificador'){
     h += `<div class="btns"><button class="btn ghost sm" id="tBack">↩ Regresar a revisadas del asesor</button></div>`;
   }
+  if (abierta && !s.en_espera)
+    h += `<div class="btns"><button class="btn ghost sm" id="ePoner" style="color:var(--gray)">⏸ Poner en espera</button></div>`;
   if (abierta && es('asesor','analista') && s.estado !== 'desembolso_pendiente')
     h += `<div class="btns"><button class="btn ghost sm" id="aDesistir" style="color:var(--red)">Cliente desistió / cerrar</button></div>`;
   return h;
@@ -994,6 +1016,8 @@ function enlazarDetalle(s, c){
       S.dirty = false; await cerrarDetalle(); await cargarSolicitudes(); pintarTabs(); pintar(); toast('Solicitud eliminada');
     });
   };
+  if ($('#ePoner')) $('#ePoner').onclick = async e => { const n = await pedirTexto('Poner en espera', 'Motivo (ej. cliente enviará documentos mañana)', 'Poner en espera'); if (n) run(e.target, async () => { await rpc('poner_en_espera', { p_id: s.id, p_motivo: n }); toast('Solicitud en espera'); await refrescar(); }); };
+  if ($('#eReanudar')) $('#eReanudar').onclick = e => run(e.target, async () => { await rpc('reanudar', { p_id: s.id, p_nota: null }); toast('Solicitud reanudada'); await refrescar(); });
   if ($('#aDesistir')) $('#aDesistir').onclick = async e => { const n = await pedirTexto('Cerrar solicitud', 'Motivo (ej. el cliente ya no lo necesita)', 'Cerrar solicitud', 'bad'); if (n) run(e.target, async () => { await rpc('desistir', { p_id: s.id, p_motivo: n }); toast('Solicitud cerrada'); await refrescar(); }); };
 
   // Verificación
@@ -1598,7 +1622,7 @@ const responsable = s => { const r = rolDe(s.estado);
   return null; };
 const rolPill = (s) => { const r = rolDe(s.estado), who = responsable(s);
   return `<span class="rol" style="${rcVars(r)}">${who ? esc(who.split(' ').slice(0,2).join(' ')) : RC[r].t}${PASO[s.estado] ? ' · ' + PASO[s.estado].t : ''}</span>`; };
-const leyendaHTML = () => `<div class="leyenda">${['asesor','analista','verificador','desembolso','finalizada','cerrada'].map(r => `<span class="rol" style="${rcVars(r)}">${RC[r].t}</span>`).join('')}</div>`;
+const leyendaHTML = () => `<div class="leyenda">${['asesor','analista','verificador','desembolso','finalizada','cerrada'].map(r => `<span class="rol" style="${rcVars(r)}">${RC[r].t}</span>`).join('')}<span class="rol" style="--rc:var(--gray);--rb:var(--gray-bg)">En espera</span></div>`;
 // Tiempo acumulado por paso (no por rol) de una solicitud, a partir de sus eventos
 function pasosDe(s){
   const evs = S.evs[s.id] || [], acc = {};
@@ -1649,12 +1673,13 @@ function hh(x){ if (x == null) return '—'; const h = Math.floor(x), m = Math.r
 const COLS = [
   { k:'pend',  t:'Pendientes',              est:['borrador','en_analisis'], c:'var(--brand)' },
   { k:'curso', t:'En curso',                est:['aprobada','por_verificar','desembolso_pendiente'], c:'var(--accent)' },
+  { k:'esp',   t:'En espera',               est:['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'], c:'var(--gray)', espera:true },
   { k:'fin',   t:'Finalizadas',             est:['desembolsada'], c:'var(--green)' },
   { k:'cerr',  t:'Canceladas / Rechazadas', est:['denegada','rechazada_verificacion','desistida'], c:'var(--red)' }
 ];
 const diaHN = d => d ? new Date(d).toLocaleDateString('en-CA', { timeZone: TZ }) : null;
 // Capital nuevo colocado: en refinanciamiento/reingreso = monto del préstamo − saldo de capital anterior
-function capitalColocado(s){ const m = +(s.monto_solicitado || s.monto_aprobado || 0); return s.tipo !== 'nuevo' ? Math.max(0, m - (+s.saldo_capital || 0)) : m; }
+function capitalColocado(s){ if (s.capital_colocado_hist != null) return +s.capital_colocado_hist; const m = +(s.monto_solicitado || s.monto_aprobado || 0); return s.tipo !== 'nuevo' ? Math.max(0, m - (+s.saldo_capital || 0)) : m; }
 function pintarTablero(){
   const hoy = hoyHN(); if (!S.boardDay) S.boardDay = hoy;
   const dia = S.boardDay, esHoy = dia === hoy;
@@ -1662,7 +1687,7 @@ function pintarTablero(){
   const q = S.q.trim().toLowerCase();
   const match = s => !q || [s.nombre_cliente, s.codigo, s.dni, s.telefono].some(v => (v||'').toLowerCase().includes(q));
   const abiertas = s => !CERRADAS.includes(s.estado);
-  const enCol = c => base.filter(match).filter(s => c.est.includes(s.estado)).filter(s =>
+  const enCol = c => base.filter(match).filter(s => c.est.includes(s.estado) && (CERRADAS.includes(s.estado) || !!s.en_espera === !!c.espera)).filter(s =>
     abiertas(s) ? (esHoy ? diaHN(s.creado_en) <= dia : diaHN(s.creado_en) === dia) : diaHN(s.cerrado_en || s.actualizado_en) === dia)
     .sort((a,b) => abiertas(a) ? new Date(a.estado_desde || a.actualizado_en) - new Date(b.estado_desde || b.actualizado_en)
                                 : new Date(b.cerrado_en || b.actualizado_en) - new Date(a.cerrado_en || a.actualizado_en));
@@ -1715,16 +1740,18 @@ function cardK(s, dia){
     tm = `<span class="${s.estado === 'desembolsada' ? (t != null && t <= (S.params.meta_total_min||0)*60 ? 'good' : 'warn') : ''}" title="Tiempo hábil total">⏱ ${fmtDur(t)}</span><span>${fDT(s.cerrado_en || s.actualizado_en).split(',').pop().trim()}</span>`;
   }
   const previo = ab && diaHN(s.creado_en) < dia ? `<span class="chip c-gray">desde ${fDate(s.creado_en).replace(/ de \d{4}$/,'')}</span>` : '';
-  return `<div class="kc" data-id="${s.id}" style="${rcVars(rolDe(s.estado))}">
+  return `<div class="kc${s.en_espera ? ' espera' : ''}" data-id="${s.id}" style="${rcVars(rolDe(s.estado))}">
     <div class="rolbar">${rolPill(s)}${previo}</div>
     <div class="nm">${esc(s.nombre_cliente)}</div>
-    <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}</div>
-    <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab ? `<span>Espera: <b>${esc(responsable(s) || ESPERA[s.estado])}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
+    <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}${esperaChip(s)}</div>
+    ${s.en_espera ? `<div class="ln" style="color:var(--gray)">⏸ ${esc(s.espera_motivo||'')} · ${hace(s.espera_desde)}</div>` : ''}
+    <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab && !s.en_espera ? `<span>Espera: <b>${esc(responsable(s) || ESPERA[s.estado])}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
     <div class="tm">${tm}</div></div>`;
 }
 // Cronómetros en vivo (tablero y detalle)
 setInterval(() => {
   const ahora = new Date();
+  document.querySelectorAll('[data-live-esp]').forEach(el => { el.textContent = fmtDur(segHabiles(el.dataset.liveEsp, ahora)); });
   document.querySelectorAll('[data-live-paso]').forEach(el => {
     const v = segHabiles(el.dataset.livePaso, ahora);
     const small = el.querySelector('small');

@@ -316,7 +316,7 @@ const EST = {
   desembolso_pendiente:{t:'Desembolso pendiente',c:'violet'}, desembolsada:{t:'Desembolsada',c:'teal'},
   rechazada_verificacion:{t:'Rechazada en verificación',c:'red'}, desistida:{t:'Desistida',c:'gray'}
 };
-const TIPO = { nuevo:'Nuevo', reingreso:'Reingreso', refinanciamiento:'Refinanciamiento' };
+const TIPO = { nuevo:'Nuevo', reingreso:'Reingreso', refinanciamiento:'Refinanciamiento', reestructuracion:'Reestructuración', cambio_modalidad:'Cambio de modalidad' };
 const ROL = { asesor:'Asesor', analista:'Analista', verificador:'Verificador', admin:'Administrador' };
 const ITEM = { domicilio:'Visita a domicilio', trabajo:'Visita a trabajo', foto_perfil:'Foto de perfil del cliente',
   referencias:'Referencias familiares', entrega_efectivo:'Entrega de efectivo' };
@@ -345,7 +345,7 @@ function hace(d){
   return fDate(d);
 }
 const chip = e => `<span class="chip c-${EST[e]?.c||'gray'}">${esc(EST[e]?.t||e)}</span>`;
-const tipoChip = t => `<span class="chip ${t==='nuevo'?'c-blue':t==='reingreso'?'c-teal':'c-violet'}">${TIPO[t]}</span>`;
+const tipoChip = t => `<span class="chip ${t==='nuevo'?'c-blue':t==='reingreso'?'c-teal':t==='refinanciamiento'?'c-violet':'c-amber'}">${TIPO[t]||esc(t)}</span>`;
 const nombre = id => S.perfiles[id]?.nombre || '—';
 const iniciales = n => (n||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
 const AVC = ['#2a78d6','#eb6834','#1baf7a','#c98500','#d55181','#6a3fb5','#0e7c6b','#b42318'];
@@ -459,7 +459,7 @@ async function cargarParams(){
   S.feriadosRows = fs || []; S.feriados = new Set(S.feriadosRows.map(f => f.fecha));
 }
 async function cargarSolicitudes(){
-  const { data, error } = await sb.from('solicitudes').select('*').order('creado_en', { ascending:false }).limit(1000);
+  const { data, error } = await sb.from('solicitudes').select('*').order('creado_en', { ascending:false }).limit(5000);
   if (error) return toast(errMsg(error), true);
   S.sols = data || [];
   const desdeEv = new Date(Date.now() - 120 * 864e5).toISOString();
@@ -475,7 +475,7 @@ const mio = s => !S.soloMias || s.asesor_id === S.me.id;
 function tabsRol(){
   const T = {
     solicitudes:['solicitudes','Solicitudes', s => mio(s) && ['borrador','en_analisis'].includes(s.estado)],
-    revisadas:['revisadas','Revisadas', s => mio(s) && (s.estado === 'aprobada' || (s.estado === 'denegada' && dias(s.dictamen_en, 15)))],
+    revisadas:['revisadas','Revisadas', s => mio(s) && !s.importado && (s.estado === 'aprobada' || (s.estado === 'denegada' && dias(s.dictamen_en, 15)))],
     proceso:['proceso','En proceso', s => mio(s) && (['por_verificar','desembolso_pendiente'].includes(s.estado) || (s.estado==='desembolsada' && dias(s.desembolsado_en, 7)))],
     analisis:['analisis','Análisis', s => s.estado === 'en_analisis'],
     verificar:['verificar','Por verificar', s => s.estado === 'por_verificar' && (!s.verificador_id || s.verificador_id === S.me.id || rol()==='admin')],
@@ -1781,7 +1781,7 @@ async function pintarStats(){
     <div class="kpi" style="border-top:3px solid var(--brand)"><div class="l" style="color:var(--brand)">Solicitudes exitosas</div><div class="v">${r.desembolsadas}</div><div class="s">💵 ${r.desembolso_efectivo} · 🏦 ${r.desembolso_transferencia}</div></div>
     <div class="kpi" style="border-top:3px solid var(--red)"><div class="l" style="color:var(--red)">Denegadas</div><div class="v">${r.denegadas}</div><div class="s">${pctDen == null ? '—' : pctDen + '% de lo dictaminado'}</div></div>
     <div class="kpi" style="border-top:3px solid var(--teal)"><div class="l" style="color:var(--teal)">Capital prom. diario</div><div class="v" style="font-size:20px">${promDia == null ? '—' : L(Math.round(promDia))}</div><div class="s">Cant.: <b>${cantDia ?? '—'}</b> por día · ${dias} día(s) con desembolsos</div></div>
-    ${kpiT('nuevo', 'var(--blue)')}${kpiT('refinanciamiento', 'var(--amber)')}${kpiT('reingreso', 'var(--violet)')}
+    ${kpiT('nuevo', 'var(--blue)')}${kpiT('refinanciamiento', 'var(--amber)')}${kpiT('reingreso', 'var(--violet)')}${['reestructuracion','cambio_modalidad'].filter(t => tk(t).n).map(t => kpiT(t, 'var(--teal)')).join('')}
     <div class="kpi"><div class="l">Solicitudes creadas</div><div class="v">${r.creadas}</div><div class="s">Aprobación ${tasa == null ? '—' : tasa + '%'}</div></div>
     <div class="kpi"><div class="l">Ciclo promedio (hábil)</div><div class="v">${fmtDur(ci.prom_habil_seg)}</div><div class="s">creación → desembolso</div></div>
     <div class="kpi"><div class="l">Dentro de la meta</div><div class="v">${ci.n ? Math.round(ci.dentro_meta / ci.n * 100) + '%' : '—'}</div><div class="s">${ci.dentro_meta||0} de ${ci.n||0} · meta ${fmtDur((S.params.meta_total_min||0)*60)}</div></div>

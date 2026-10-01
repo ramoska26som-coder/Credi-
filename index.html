@@ -176,7 +176,8 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 .bd-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .bd-top .day{font-family:Poppins,Inter,sans-serif;font-weight:700;font-size:17px;flex:1;min-width:150px}
 .bd-top .day::first-letter{text-transform:uppercase}
-.bd-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.bd-sum{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+@media (max-width:980px){.bd-sum{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:640px){.bd-sum{grid-template-columns:repeat(2,1fr)}}
 .bd-sum .kpi{padding:9px 12px} .bd-sum .kpi .v{font-size:20px}
 .board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
@@ -458,7 +459,7 @@ async function cargarParams(){
   S.feriadosRows = fs || []; S.feriados = new Set(S.feriadosRows.map(f => f.fecha));
 }
 async function cargarSolicitudes(){
-  const { data, error } = await sb.from('solicitudes').select('*').order('actualizado_en', { ascending:false }).limit(1000);
+  const { data, error } = await sb.from('solicitudes').select('*').order('creado_en', { ascending:false }).limit(1000);
   if (error) return toast(errMsg(error), true);
   S.sols = data || [];
   const desdeEv = new Date(Date.now() - 120 * 864e5).toISOString();
@@ -526,7 +527,7 @@ function pintar(){
   const q = S.q.trim().toLowerCase();
   if (q) lista = lista.filter(s => [s.nombre_cliente, s.codigo, s.dni, s.telefono].some(v => (v||'').toLowerCase().includes(q)));
   // Orden: lo más antiguo esperando primero en colas de trabajo
-  if (['analisis','verificar'].includes(S.tab)) lista.sort((a,b) => new Date(a.actualizado_en) - new Date(b.actualizado_en));
+  if (['analisis','verificar'].includes(S.tab)) lista.sort((a,b) => new Date(a.estado_desde || a.creado_en) - new Date(b.estado_desde || b.creado_en));
   $('#main').innerHTML = `
     <div class="search"><input id="q" placeholder="Buscar por nombre, código, DNI o teléfono" value="${esc(S.q)}">
       ${['solicitudes','revisadas','proceso'].includes(S.tab) ? `<div class="seg" style="flex:none;min-width:160px"><button data-sm="0" class="${S.soloMias?'':'on'}">Todas</button><button data-sm="1" class="${S.soloMias?'on':''}">Solo mías</button></div>` : ''}</div>
@@ -540,7 +541,7 @@ function pintar(){
 function cardSol(s){
   const monto = s.monto_aprobado ? L(s.monto_solicitado || s.monto_aprobado) : '';
   const c = S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : '';
-  const fecha = s.estado === 'en_analisis' ? `En cola ${hace(s.enviado_analisis_en)}` : hace(s.actualizado_en);
+  const fecha = CERRADAS.includes(s.estado) ? hace(s.cerrado_en || s.estado_desde || s.creado_en) : `En este paso ${hace(s.estado_desde || s.creado_en).replace(/^hace /,'')}`;
   let extra = '';
   if (s.estado === 'desembolso_pendiente' || s.forma_desembolso) extra = `<span>${s.forma_desembolso === 'transferencia' ? '🏦 Transferencia' : s.forma_desembolso === 'efectivo' ? '💵 Efectivo' : ''}</span>`;
   return `<div class="card sol" data-id="${s.id}" style="${rcVars(rolDe(s.estado))}">
@@ -727,7 +728,7 @@ function renderDetalle(){
       ${s.tipo !== 'nuevo' ? `<div class="res"><div class="box full"><div class="l">Promedio mensual</div><div class="v">${L(c.promedio)}</div>
         <div class="small muted">Promedio por pago ${L(c.promPago.toFixed(2))} × ${c.factor} ${c.nCom ? '+ promedio comisiones' : ''} → redondeado a ${S.params.redondeo}</div></div></div></div>` : `
       <div class="btns" style="margin-top:12px"><button class="btn sm ghost" id="nvCopiar">📋 Copiar resumen para WhatsApp</button></div>
-      <div style="margin-top:8px">${encabezadoCliente(s)}</div>
+      <div style="margin-top:8px">${encabezadoCliente(s)}${ingresosResumenHTML(ing)}</div>
       <div class="res" style="margin-top:0">
         <div class="box"><div class="l">Promedio mensual</div><div class="v">${L(c.promedio)}</div></div>
         ${s.dictamen_en && s.monto_aprobado ? `<div class="box"><div class="l">Límite aprobado</div><div class="v">${L(s.monto_aprobado)}</div>
@@ -738,7 +739,9 @@ function renderDetalle(){
         <div class="box"><div class="l">Próximo aumento</div><div class="v" style="font-size:15px">${c.aumento || 'N/A'}</div></div>
         <div class="box full"><div class="l">Techo aplicado</div><div style="font-weight:600">${c.motivo}</div>
           <div class="small muted">Promedio por pago ${L(c.promPago.toFixed(2))} × ${c.factor} ${c.nCom ? '+ promedio comisiones' : ''} → redondeado a ${S.params.redondeo}</div></div>
-      </div></div>`}`;
+      </div>
+      ${cuotasPlazoHTML(s.dictamen_en && s.monto_aprobado ? +s.monto_aprobado : (c.limite || 0), s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : c.tasaPref, s.tipo_pago, c.promedio)}
+      </div>`}`;
   }
   // Análisis de refinanciamiento / reingreso (antigüedad, comportamiento de pago, cuotas)
   if (s.tipo !== 'nuevo') h += refiHTML(s, c, editIng);
@@ -1314,6 +1317,29 @@ function resumenWhatsApp(s, r){
     `Disponible: ${L(r.disponible)}`, `Pagos tardíos >3/≥7: ${r.tard3}/${r.tard7} de ${r.total}`,
     `Tasa: ${pct(r.tasaNueva)} ${r.pref ? 'preferencial' : 'normal'}`, `Dictamen: ${s.dictamen_en ? (s.estado === 'denegada' ? 'DENEGADA' : 'APROBADA') + ' por ' + nombre(s.analista_id) : r.dictamen}`].join('\n');
 }
+const FREC = { Semanal: 4.33, Quincenal: 2, Mensual: 1 };
+function ingresosResumenHTML(ing){
+  if (!ing || !ing.length) return '';
+  const fs = [...ing].sort((a,b) => a.fecha < b.fecha ? -1 : 1);
+  return `<div class="card" style="margin:10px 0 0;padding:10px 12px;box-shadow:none"><div class="small" style="font-weight:700;color:var(--ink2);margin-bottom:4px">REGISTROS DE INGRESOS (${fs.length})</div>
+    <table class="t"><thead><tr><th>Fecha</th><th>Tipo</th><th class="num">Monto</th></tr></thead><tbody>
+    ${fs.map(i => `<tr><td>${i.fecha.split('-').reverse().join('/')}</td><td>${i.categoria === 'comision' ? 'Comisión / bono' : 'Planilla'}</td><td class="num">${L(i.monto)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+// Cuota nivelada (flat mensual) = monto/plazo + monto × tasa; por pago según la frecuencia del cliente
+function cuotasPlazoHTML(monto, pref, tipoPago, prom, plan){
+  if (!(monto > 0)) return '';
+  const tN = pref ? 0.105 : 0.14, tSI = pref ? 0.16 : 0.20, f = FREC[tipoPago] || 1;
+  const filas = [3,6,8,10,12].map(n => ({ plazo:`${n} meses`, mes: monto / n + monto * tN, pagos: Math.round(n * f) }));
+  filas.push({ plazo:'Solo interés', mes: monto * tSI, pagos: null });
+  const lblF = { Semanal:'semanal', Quincenal:'quincenal', Mensual:'mensual' }[tipoPago] || 'mensual';
+  return `<label class="f" style="margin-top:14px">Cuotas para ${L(monto)} · tasa ${pref ? 'preferencial' : 'normal'} (${(tN*100).toString().replace('.',',')}% nivelado / ${tSI*100}% solo interés)${plan ? ' · plan ' + (plan === 'solo_interes' ? 'solo interés' : 'nivelado') : ''}</label>
+    <div style="overflow-x:auto"><table class="t"><thead><tr><th>Plazo</th><th class="num">Cuota mensual</th>${tipoPago !== 'Mensual' ? `<th class="num">Cuota ${lblF}</th><th class="num"># pagos</th>` : `<th class="num"># pagos</th>`}<th class="num">% ingreso</th><th>Viabilidad</th></tr></thead><tbody>
+    ${filas.map(q => { const pct = prom ? q.mes / prom : null; return `<tr><td>${q.plazo}</td><td class="num">${L(q.mes.toFixed(2))}</td>${tipoPago !== 'Mensual' ? `<td class="num"><b>${L((q.mes / f).toFixed(2))}</b></td>` : ''}<td class="num">${q.pagos ?? '—'}</td>
+      <td class="num">${pct == null ? '—' : (pct * 100).toFixed(1) + '%'}</td><td>${pct == null ? '—' : pct <= 0.25 ? '<span class="dif-ok">Viable</span>' : '<span class="dif-b">Alto</span>'}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    <div class="small muted" style="margin-top:4px">Pago ${lblF}${tipoPago !== 'Mensual' ? ` = cuota mensual ÷ ${f}` : ''}. Viable si la cuota mensual es ≤ 25% del ingreso.</div>`;
+}
 function encabezadoCliente(s){
   return `<div class="rf-head">
       <div class="rf-nm">${esc(s.nombre_cliente)}</div>
@@ -1331,6 +1357,7 @@ function resumenNuevoWA(s, c){
 function refiResHTML(s, r){
   const antTxt = r.antig == null ? '—' : `${r.antig} días (${(r.antig / 30.4).toFixed(1)} meses)`;
   return `${encabezadoCliente(s)}
+    ${ingresosResumenHTML(S.detData && S.detData.s.id === s.id ? S.detData.ing : [])}
     ${r.sinFecha ? '<div class="alert warn small">Ingrese la fecha de ingreso del cliente para calcular la antigüedad.</div>' : ''}
     <div class="res">
       <div class="box"><div class="l">Antigüedad</div><div class="v" style="font-size:16px">${antTxt}</div></div>
@@ -1347,10 +1374,7 @@ function refiResHTML(s, r){
       <div class="box"><div class="l">Próximo límite</div><div class="v">${r.proxLim == null ? 'BLOQUEADO' : L(r.proxLim)}</div></div>
     </div>
     ${dictamenRefiHTML(r)}
-    <label class="f" style="margin-top:14px">Cuotas (${s.plan_pago === 'solo_interes' ? 'plan solo interés' : 'plan nivelado'})</label>
-    <div style="overflow-x:auto"><table class="t"><thead><tr><th>Plazo</th><th class="num">Cuota mensual</th><th class="num">% ingreso</th><th>Viabilidad</th></tr></thead><tbody>
-    ${r.cuotas.map(q => `<tr><td>${q.plazo}</td><td class="num">${L(q.cuota.toFixed(2))}</td><td class="num">${q.pct == null ? '—' : (q.pct * 100).toFixed(1) + '%'}</td><td>${q.pct == null ? '—' : q.pct <= 0.25 ? '<span class="dif-ok">Viable</span>' : '<span class="dif-b">Alto</span>'}</td></tr>`).join('')}
-    </tbody></table></div>`;
+    ${cuotasPlazoHTML(r.limAprob, r.pref, s.tipo_pago, r.prom, s.plan_pago)}`;
 }
 function refiHTML(s, c, edit){
   const r = calcRefi(s, c);
@@ -1632,6 +1656,8 @@ function pintarTablero(){
   const desDia = base.filter(s => s.estado === 'desembolsada' && diaHN(s.cerrado_en || s.desembolsado_en) === dia);
   const cicloProm = desDia.length ? desDia.reduce((a,s) => a + (s.duracion_total_habil_seg ?? segHabiles(s.creado_en, s.desembolsado_en)), 0) / desDia.length : null;
   const monto = desDia.reduce((a,s) => a + capitalColocado(s), 0);
+  const enColoc = base.filter(s => ['aprobada','por_verificar','desembolso_pendiente'].includes(s.estado));
+  const capProc = enColoc.reduce((a,s) => a + capitalColocado(s), 0);
   const fechaTxt = new Date(dia + 'T12:00').toLocaleDateString('es-HN', { weekday:'long', day:'numeric', month:'long' });
   $('#main').innerHTML = `
     <div class="bd-top">
@@ -1646,6 +1672,7 @@ function pintarTablero(){
       <div class="kpi"><div class="l">Nuevas del día</div><div class="v">${creadasDia.length}</div></div>
       <div class="kpi"><div class="l">Desembolsadas</div><div class="v">${desDia.length}</div><div class="s">Capital colocado ${L(monto)}</div></div>
       <div class="kpi"><div class="l">Ciclo promedio (hábil)</div><div class="v">${fmtDur(cicloProm)}</div><div class="s">meta ${fmtDur((S.params.meta_total_min||0)*60)}</div></div>
+      <div class="kpi" style="border-top:3px solid var(--accent)"><div class="l">Capital en proceso de colocación</div><div class="v">${L(capProc)}</div><div class="s">${enColoc.length} aprobada(s) por desembolsar</div></div>
       <div class="kpi"><div class="l">En proceso ahora</div><div class="v">${base.filter(abiertas).length}</div><div class="s">${base.filter(s => abiertas(s) && diaHN(s.creado_en) < hoy).length} de días anteriores</div></div>
     </div>
     ${leyendaHTML()}
@@ -1668,11 +1695,10 @@ function cardK(s, dia){
   let tm = '';
   if (ab){
     const pHab = segHabiles(desde, ahora), tHab = segHabiles(s.creado_en, ahora);
-    tm = `<span class="${clsMeta(pHab, S.params.meta_paso_min)}" data-live-paso="${desde}" title="Tiempo hábil en este paso">⏱ ${fmtDur(pHab)}</span>
-          <span class="${clsMeta(tHab, S.params.meta_total_min)}" data-live-tot="${s.creado_en}" title="Tiempo hábil total desde que se creó">Σ ${fmtDur(tHab)}</span>`;
+    tm = `<span class="${clsMeta(tHab, S.params.meta_total_min)}" data-live-tot="${s.creado_en}" title="Tiempo hábil total desde que se creó">⏱ ${fmtDur(tHab)}</span>`;
   } else {
     const t = s.duracion_total_habil_seg;
-    tm = `<span class="${s.estado === 'desembolsada' ? (t != null && t <= (S.params.meta_total_min||0)*60 ? 'good' : 'warn') : ''}" title="Tiempo hábil total">Σ ${fmtDur(t)}</span><span>${fDT(s.cerrado_en || s.actualizado_en).split(',').pop().trim()}</span>`;
+    tm = `<span class="${s.estado === 'desembolsada' ? (t != null && t <= (S.params.meta_total_min||0)*60 ? 'good' : 'warn') : ''}" title="Tiempo hábil total">⏱ ${fmtDur(t)}</span><span>${fDT(s.cerrado_en || s.actualizado_en).split(',').pop().trim()}</span>`;
   }
   const previo = ab && diaHN(s.creado_en) < dia ? `<span class="chip c-gray">desde ${fDate(s.creado_en).replace(/ de \d{4}$/,'')}</span>` : '';
   return `<div class="kc" data-id="${s.id}" style="${rcVars(rolDe(s.estado))}">
@@ -1680,7 +1706,7 @@ function cardK(s, dia){
     <div class="nm">${esc(s.nombre_cliente)}</div>
     <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}</div>
     <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab ? `<span>Espera: <b>${esc(responsable(s) || ESPERA[s.estado])}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
-    <div class="tm">${tm}</div>${pasosHTML(s)}</div>`;
+    <div class="tm">${tm}</div></div>`;
 }
 // Cronómetros en vivo (tablero y detalle)
 setInterval(() => {
@@ -1698,7 +1724,7 @@ setInterval(() => {
   });
   document.querySelectorAll('[data-live-tot]').forEach(el => {
     const v = segHabiles(el.dataset.liveTot, ahora);
-    if (el.closest('.kc')){ el.textContent = 'Σ ' + fmtDur(v); el.className = clsMeta(v, S.params.meta_total_min); }
+    if (el.closest('.kc')){ el.textContent = '⏱ ' + fmtDur(v); el.className = clsMeta(v, S.params.meta_total_min); }
     else el.textContent = fmtDur(v);
   });
 }, 30000);

@@ -726,10 +726,15 @@ function renderDetalle(){
           <button class="btn pri" id="iAdd">Agregar</button></div>` : ''}
       ${s.tipo !== 'nuevo' ? `<div class="res"><div class="box full"><div class="l">Promedio mensual</div><div class="v">${L(c.promedio)}</div>
         <div class="small muted">Promedio por pago ${L(c.promPago.toFixed(2))} × ${c.factor} ${c.nCom ? '+ promedio comisiones' : ''} → redondeado a ${S.params.redondeo}</div></div></div></div>` : `
-      <div class="res">
+      <div class="btns" style="margin-top:12px"><button class="btn sm ghost" id="nvCopiar">📋 Copiar resumen para WhatsApp</button></div>
+      <div style="margin-top:8px">${encabezadoCliente(s)}</div>
+      <div class="res" style="margin-top:0">
         <div class="box"><div class="l">Promedio mensual</div><div class="v">${L(c.promedio)}</div></div>
-        <div class="box" style="${c.insuficiente?'background:var(--red-bg)':''}"><div class="l">Límite aprobado</div><div class="v">${c.limite == null ? 'Insuficiente' : L(c.limite)}</div></div>
-        <div class="box"><div class="l">Tasa preferencial</div><div class="v">${c.tasaPref?'SÍ':'NO'}</div></div>
+        ${s.dictamen_en && s.monto_aprobado ? `<div class="box"><div class="l">Límite aprobado</div><div class="v">${L(s.monto_aprobado)}</div>
+          <div class="small" style="font-weight:600;color:var(--brand)">${autorizadoPor(s, 'ajuste_monto')}</div>${c.limite !== +s.monto_aprobado ? `<div class="small muted">Calculado: ${c.limite == null ? 'Insuficiente' : L(c.limite)}</div>` : ''}</div>`
+        : `<div class="box" style="${c.insuficiente?'background:var(--red-bg)':''}"><div class="l">Límite aprobado</div><div class="v">${c.limite == null ? 'Insuficiente' : L(c.limite)}</div></div>`}
+        <div class="box"><div class="l">Tasa preferencial</div><div class="v">${(s.dictamen_en && s.tasa_preferencial != null ? s.tasa_preferencial : c.tasaPref) ? 'SÍ' : 'NO'}</div>
+          ${s.dictamen_en && s.tasa_preferencial != null && !!s.tasa_preferencial !== c.tasaPref ? `<div class="small muted">Calculada: ${c.tasaPref ? 'SÍ' : 'NO'}</div>` : ''}</div>
         <div class="box"><div class="l">Próximo aumento</div><div class="v" style="font-size:15px">${c.aumento || 'N/A'}</div></div>
         <div class="box full"><div class="l">Techo aplicado</div><div style="font-weight:600">${c.motivo}</div>
           <div class="small muted">Promedio por pago ${L(c.promPago.toFixed(2))} × ${c.factor} ${c.nCom ? '+ promedio comisiones' : ''} → redondeado a ${S.params.redondeo}</div></div>
@@ -768,7 +773,7 @@ function tablaIng(cat, titulo, ing, edit){
   if (!rows.length && !edit) return '';
   return `<label class="f" style="margin-top:14px">${titulo}</label>
     ${rows.length ? `<table class="t"><thead><tr><th>Fecha</th><th class="num">Monto</th><th></th></tr></thead><tbody>
-    ${rows.map(i => `<tr><td>${fDate(i.fecha+'T12:00')}</td><td class="num">${L(i.monto)}</td><td style="width:30px">${edit?`<button class="x" data-del="${i.id}" title="Quitar">×</button>`:''}</td></tr>`).join('')}
+    ${rows.map(i => `<tr data-ing="${i.id}"><td>${fDate(i.fecha+'T12:00')}</td><td class="num">${L(i.monto)}</td><td style="width:64px;white-space:nowrap;text-align:right">${edit?`<button class="x" data-edi="${i.id}" title="Editar">✏️</button><button class="x" data-del="${i.id}" title="Quitar">×</button>`:''}</td></tr>`).join('')}
     </tbody></table>` : `<div class="small muted">Sin registros.</div>`}`;
 }
 function datosClienteHTML(s){
@@ -904,6 +909,22 @@ function enlazarDetalle(s, c){
     });
     add.onclick = go; $('#iMonto').onkeydown = e => { if (e.key === 'Enter') go(); };
   }
+  B.querySelectorAll('[data-edi]').forEach(b => b.onclick = () => {
+    const ing = S.detData.ing.find(x => x.id === +b.dataset.edi); if (!ing) return;
+    const tr = b.closest('tr');
+    tr.innerHTML = `<td colspan="3"><div class="addrow" style="margin:0">
+      <input type="date" data-e="fecha" value="${ing.fecha}"><input data-e="monto" inputmode="decimal" value="${+ing.monto}">
+      <select data-e="categoria"><option value="salario" ${ing.categoria==='salario'?'selected':''}>Salario</option><option value="comision" ${ing.categoria==='comision'?'selected':''}>Comisión</option></select>
+      <div class="row"><button class="btn sm pri" data-ok>Guardar</button><button class="btn sm ghost" data-no>✕</button></div></div></td>`;
+    tr.querySelector('[data-e="monto"]').focus();
+    tr.querySelector('[data-no]').onclick = () => renderDetalleParcial();
+    tr.querySelector('[data-ok]').onclick = e => run(e.target, async () => {
+      const m = num(tr.querySelector('[data-e="monto"]').value), f = tr.querySelector('[data-e="fecha"]').value;
+      if (!m || m <= 0) throw new Error('Monto inválido'); if (!f) throw new Error('Fecha requerida');
+      const { data, error } = await sb.from('ingresos').update({ fecha: f, monto: m, categoria: tr.querySelector('[data-e="categoria"]').value }).eq('id', ing.id).select('id');
+      if (error) throw error; if (!data || !data.length) throw new Error('No tiene permiso para editar ingresos en este estado'); toast('Ingreso actualizado'); await recargarIngresos();
+    });
+  });
   B.querySelectorAll('[data-del]').forEach(b => b.onclick = () => run(b, async () => {
     const { error } = await sb.from('ingresos').delete().eq('id', +b.dataset.del); if (error) throw error; await recargarIngresos();
   }));
@@ -914,6 +935,11 @@ function enlazarDetalle(s, c){
   if ($('#dPago') && !$('#dPago').disabled){ $('#dPago').onchange = updA; $('#dRubro').onchange = updA; }
 
   enlazarRefi(s);
+  if ($('#nvCopiar')) $('#nvCopiar').onclick = async () => {
+    const cs = S.detData.s, txt = resumenNuevoWA(cs, calcular(S.detData.ing, cs.tipo_pago, cs.rubro_especial));
+    try { await navigator.clipboard.writeText(txt); toast('Resumen copiado. Péguelo en el grupo.'); }
+    catch(e){ const w = dialogo(`<h3>Resumen</h3><textarea rows="10" readonly>${esc(txt)}</textarea><div class="btns"><button class="btn pri" data-close>Cerrar</button></div>`); w.querySelector('textarea').select(); }
+  };
   if ($('#rdAbrir')) $('#rdAbrir').onclick = () => abrirReconocimiento(S.detData.s);
   if ($('#dAsesor')) $('#dAsesor').onchange = e => run(e.target, async () => { await rpc('reasignar_asesor', { p_id: s.id, p_asesor: e.target.value }); toast('Asesor reasignado'); await refrescar(); });
   // Asesor: enviar
@@ -1288,13 +1314,23 @@ function resumenWhatsApp(s, r){
     `Disponible: ${L(r.disponible)}`, `Pagos tardíos >3/≥7: ${r.tard3}/${r.tard7} de ${r.total}`,
     `Tasa: ${pct(r.tasaNueva)} ${r.pref ? 'preferencial' : 'normal'}`, `Dictamen: ${s.dictamen_en ? (s.estado === 'denegada' ? 'DENEGADA' : 'APROBADA') + ' por ' + nombre(s.analista_id) : r.dictamen}`].join('\n');
 }
-function refiResHTML(s, r){
-  const antTxt = r.antig == null ? '—' : `${r.antig} días (${(r.antig / 30.4).toFixed(1)} meses)`;
+function encabezadoCliente(s){
   return `<div class="rf-head">
       <div class="rf-nm">${esc(s.nombre_cliente)}</div>
-      <div class="rf-sub">${esc(s.codigo)} · ${TIPO[s.tipo]} · Solicitud: ${fFechaHora(s.creado_en)}</div>
+      <div class="rf-sub">${esc(s.codigo)} · ${TIPO[s.tipo]} · Solicitud: ${fFechaHora(s.creado_en)}${s.dni ? ' · ID ' + esc(s.dni) : ''}</div>
       <div class="rf-sub">Asesor: ${esc(nombre(s.asesor_id))}${s.analista_id ? ' · Analista: ' + esc(nombre(s.analista_id)) : ''}</div>
-    </div>
+    </div>`;
+}
+function resumenNuevoWA(s, c){
+  const aut = s.dictamen_en && s.monto_aprobado;
+  return [`*${s.nombre_cliente}*`, `${s.codigo} · Nuevo`, `Solicitud: ${fFechaHora(s.creado_en)}`, `Asesor: ${nombre(s.asesor_id)}`, '',
+    `Promedio mensual: ${L(c.promedio)} (${s.tipo_pago})`, `Límite calculado: ${c.limite == null ? 'Ingresos insuficientes' : L(c.limite)}`,
+    aut ? `*Límite aprobado: ${L(s.monto_aprobado)}*` : null, `Tasa: ${(s.dictamen_en && s.tasa_preferencial != null ? s.tasa_preferencial : c.tasaPref) ? 'preferencial' : 'normal'}`,
+    `Dictamen: ${s.dictamen_en ? (s.estado === 'denegada' ? 'DENEGADA' : 'APROBADA') + ' por ' + nombre(s.analista_id) : 'en proceso'}`].filter(x => x != null).join('\n');
+}
+function refiResHTML(s, r){
+  const antTxt = r.antig == null ? '—' : `${r.antig} días (${(r.antig / 30.4).toFixed(1)} meses)`;
+  return `${encabezadoCliente(s)}
     ${r.sinFecha ? '<div class="alert warn small">Ingrese la fecha de ingreso del cliente para calcular la antigüedad.</div>' : ''}
     <div class="res">
       <div class="box"><div class="l">Antigüedad</div><div class="v" style="font-size:16px">${antTxt}</div></div>

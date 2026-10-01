@@ -740,7 +740,8 @@ function renderDetalle(){
         <div class="box full"><div class="l">Techo aplicado</div><div style="font-weight:600">${c.motivo}</div>
           <div class="small muted">Promedio por pago ${L(c.promPago.toFixed(2))} × ${c.factor} ${c.nCom ? '+ promedio comisiones' : ''} → redondeado a ${S.params.redondeo}</div></div>
       </div>
-      ${cuotasPlazoHTML(s.dictamen_en && s.monto_aprobado ? +s.monto_aprobado : (c.limite || 0), s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : c.tasaPref, s.tipo_pago, c.promedio)}
+      ${s.dictamen_en && s.monto_solicitado && +s.monto_solicitado !== +s.monto_aprobado ? `<div class="alert info small" style="margin-top:10px">El cliente toma <b>${L(s.monto_solicitado)}</b> de ${L(s.monto_aprobado)} aprobados.</div>` : ''}
+      ${cuotasPlazoHTML(s.dictamen_en && s.monto_aprobado ? +(s.monto_solicitado || s.monto_aprobado) : (c.limite || 0), s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : c.tasaPref, s.tipo_pago, c.promedio)}
       </div>`}`;
   }
   // Análisis de refinanciamiento / reingreso (antigüedad, comportamiento de pago, cuotas)
@@ -865,6 +866,11 @@ function completarHTML(s){
       <label class="chk"><input type="checkbox" id="cDom" ${s.actualizar_domicilio?'checked':''}> 🏠 Domicilio</label>
       <label class="chk"><input type="checkbox" id="cTrab" ${s.actualizar_trabajo?'checked':''}> 🏢 Trabajo</label>
     `}
+    <h4 class="sec">Monto que toma el cliente</h4>
+    <div class="grid2"><div><label class="f">Monto del préstamo (máx. ${L(s.monto_aprobado)})</label>
+      <input id="cMonto" inputmode="decimal" value="${+(s.monto_solicitado || s.monto_aprobado || 0) || ''}"></div>
+      <div><label class="f">${s.tipo === 'nuevo' ? 'Monto a entregar' : 'Monto libre a entregar'}</label><div id="cLibre" class="v" style="font:700 20px/1.2 Poppins,Inter,sans-serif;padding:8px 0"></div></div></div>
+    ${s.tipo !== 'nuevo' && (+s.saldo_capital || +s.saldo_intereses) ? `<div class="small muted">Se descuenta saldo capital ${L(+s.saldo_capital || 0)} + intereses ${L(+s.saldo_intereses || 0)}.</div>` : ''}
     <h4 class="sec">Forma de desembolso</h4>
     <div class="seg" id="cForma"><button type="button" data-v="efectivo" class="${s.forma_desembolso==='efectivo'?'on':''}">💵 Efectivo</button><button type="button" data-v="transferencia" class="${s.forma_desembolso==='transferencia'?'on':''}">🏦 Transferencia</button></div>
     <div id="cCtaF" class="${s.forma_desembolso==='transferencia'?'':'hidden'}"><label class="f">Banco y número de cuenta</label><input id="cCta" value="${esc(s.cuenta_banco||'')}" placeholder="Ej. BAC 7412..."></div>
@@ -1067,6 +1073,13 @@ function comprimir(file, max = 1280, q = 0.75){
 function enlazarCompletar(s, refrescar){
   const F = $('#cForm'); const nuevo = s.tipo === 'nuevo';
   let forma = s.forma_desembolso || null, verTrab = true;
+  const calcLibre = () => {
+    const m = num($('#cMonto').value) || 0, ap = +s.monto_aprobado || 0;
+    const libre = m - (nuevo ? 0 : (+s.saldo_capital || 0) + (+s.saldo_intereses || 0));
+    $('#cLibre').innerHTML = m > ap ? `<span style="color:var(--red);font-size:14px">Excede el aprobado (${L(ap)})</span>`
+      : `${L(libre)}${libre < 0 ? ' <span style="color:var(--red);font-size:13px">negativo</span>' : ''}`;
+  };
+  $('#cMonto').oninput = () => { S.dirty = true; calcLibre(); }; calcLibre();
   const destino = () => {
     const act = !nuevo && ($('#cDom').checked || $('#cTrab').checked);
     const directo = !nuevo && forma === 'transferencia' && !act;
@@ -1090,7 +1103,7 @@ function enlazarCompletar(s, refrescar){
     if (!forma) throw new Error('Seleccione la forma de desembolso');
     const r = await rpc('completar_solicitud', { p_id: s.id, p_datos: {}, p_forma: forma,
       p_act_domicilio: !nuevo && $('#cDom').checked, p_act_trabajo: nuevo ? verTrab : $('#cTrab').checked, p_act_foto: false,
-      p_verificador: $('#cVer').value || null, p_monto_solicitado: null, p_plazo: null, p_cuenta: $('#cCta').value || null });
+      p_verificador: $('#cVer').value || null, p_monto_solicitado: (() => { const m = num($('#cMonto').value); if (!m || m <= 0) throw new Error('Indique el monto que toma el cliente'); if (m > +s.monto_aprobado) throw new Error(`El monto excede el aprobado (${L(s.monto_aprobado)})`); return m; })(), p_plazo: null, p_cuenta: $('#cCta').value || null });
     S.dirty = false;
     toast(r === 'por_verificar' ? 'Enviada a verificación' : 'Enviada a desembolsos por transferencia');
     await refrescar();
@@ -1271,7 +1284,8 @@ function calcRefi(s, c){
   // Después del dictamen manda el monto autorizado (puede haberse ajustado manualmente)
   const autorizado = !!(s.dictamen_en && s.monto_aprobado);
   const limAprob = autorizado ? +s.monto_aprobado : limCalc;
-  const disponible = limAprob - (+s.saldo_capital || 0) - (+s.saldo_intereses || 0);
+  const elegido = autorizado && s.monto_solicitado ? +s.monto_solicitado : null;
+  const disponible = (elegido ?? limAprob) - (+s.saldo_capital || 0) - (+s.saldo_intereses || 0);
   const prefCalc = tard3 < 3 && tard7 === 0 && prom > (P.umbral_tasa_preferencial || 20000) && antig != null && antig > 120;
   // Después del dictamen manda lo que quedó autorizado (puede haberse ajustado manualmente)
   const pref = s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : prefCalc;
@@ -1294,7 +1308,7 @@ function calcRefi(s, c){
   const r2 = prom ? limAprob / prom : 0;
   const proxLim = tard3 > 5 ? null : Math.min(P.techo_refi || 30000, mround(prom * (r2 < 0.4 ? 0.5 : r2 < 0.7 ? 0.8 : 1), 1000));
   const peldano = (antig == null || antig < 90) ? '50% (menos de 90 días)' : diasAum < 90 ? 'Se mantiene (último aumento hace menos de 90 días)' : `${Math.round(factor * 100)}%`;
-  return { limCalc, autorizado, prefCalc, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob,
+  return { elegido, limCalc, autorizado, prefCalc, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob,
     limAprob, disponible, pref, tasaNueva, cuotas, dictamen, motivos, proxAum, proxLim, techo, sinFecha: !s.fecha_ingreso };
 }
 function dictamenRefiHTML(r){
@@ -1366,7 +1380,7 @@ function refiResHTML(s, r){
       <div class="box"><div class="l">% aprobado del sugerido</div><div class="v">${Math.round(r.pctAprob * 100)}%</div><div class="small muted">${r.manual ? 'manual' : 'por comportamiento'}</div></div>
       <div class="box"><div class="l">Límite aprobado</div><div class="v">${L(r.limAprob)}</div>
         ${r.autorizado ? `<div class="small" style="font-weight:600;color:var(--brand)">${autorizadoPor(s, 'ajuste_monto')}</div>${r.limCalc !== r.limAprob ? `<div class="small muted">Calculado: ${L(r.limCalc)}</div>` : ''}` : ''}</div>
-      <div class="box" style="${r.disponible < (S.params.disponible_minimo ?? 2000) ? 'background:var(--red-bg)' : ''}"><div class="l">Disponible (monto libre)</div><div class="v">${L(r.disponible)}</div></div>
+      <div class="box" style="${r.disponible < (S.params.disponible_minimo ?? 2000) ? 'background:var(--red-bg)' : ''}"><div class="l">Disponible (monto libre)</div><div class="v">${L(r.disponible)}</div>${r.elegido != null && r.elegido !== r.limAprob ? `<div class="small" style="font-weight:600;color:var(--brand)">Cliente toma ${L(r.elegido)}</div>` : ''}</div>
       <div class="box"><div class="l">Pagos tardíos &gt;3 / ≥7 días</div><div class="v">${r.tard3} / ${r.tard7}</div><div class="small muted">de ${r.total} pagos</div></div>
       <div class="box"><div class="l">Tasa ${r.pref ? 'preferencial' : 'nueva'}</div><div class="v">${(r.tasaNueva * 100).toFixed(1).replace('.0','')}%</div><div class="small muted">${s.tasa_actual != null ? 'actual ' + (+s.tasa_actual * 100).toFixed(1).replace('.0','') + '%' : ''}${r.pref ? ' · preferencial' : ' · normal'}</div>
         ${s.dictamen_en ? `<div class="small" style="font-weight:600;color:var(--brand)">${autorizadoPor(s, 'ajuste_tasa')}</div>${r.prefCalc !== r.pref ? `<div class="small muted">Calculada: ${r.prefCalc ? 'preferencial' : 'normal'}</div>` : ''}` : ''}</div>
@@ -1374,7 +1388,7 @@ function refiResHTML(s, r){
       <div class="box"><div class="l">Próximo límite</div><div class="v">${r.proxLim == null ? 'BLOQUEADO' : L(r.proxLim)}</div></div>
     </div>
     ${dictamenRefiHTML(r)}
-    ${cuotasPlazoHTML(r.limAprob, r.pref, s.tipo_pago, r.prom, s.plan_pago)}`;
+    ${cuotasPlazoHTML(r.elegido ?? r.limAprob, r.pref, s.tipo_pago, r.prom, s.plan_pago)}`;
 }
 function refiHTML(s, c, edit){
   const r = calcRefi(s, c);

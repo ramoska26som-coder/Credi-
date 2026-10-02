@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A2A66">
+<title>Planilla · Más Pisto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<style>
+:root{
+  --azul:#1877F2; --azul2:#0B5AD6; --amarillo:#FFD400; --tinta:#0A2A66; --fondo:#F7FAFF;
+  --blanco:#fff; --linea:#DCE6F5; --gris:#5B6B86; --gris2:#8A97AE; --suave:#EAF2FE;
+  --verde:#0E9F6E; --rojo:#D93838; --naranja:#E8890C; --morado:#7A4CD9;
+  --r-s:8px; --r-m:14px; --r-l:20px;
+  --sombra:0 1px 2px rgba(10,42,102,.06),0 6px 20px -8px rgba(10,42,102,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--fondo);color:var(--tinta);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:Poppins,Inter,sans-serif;margin:0;line-height:1.2;letter-spacing:-.01em}
+h1{font-size:24px;font-weight:700} h2{font-size:19px;font-weight:700} h3{font-size:16px;font-weight:600}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--azul2)}
+.hidden{display:none!important}
+.num{font-family:Poppins,sans-serif;font-variant-numeric:tabular-nums;font-weight:600}
+.muted{color:var(--gris)} .small{font-size:13px} .tiny{font-size:12px}
+:focus-visible{outline:3px solid var(--amarillo);outline-offset:2px}
+
+/* ---------- login ---------- */
+.login{min-height:100dvh;display:grid;grid-template-rows:1fr auto;background:var(--tinta);color:#fff}
+.login-in{display:flex;flex-direction:column;justify-content:center;padding:32px 20px;max-width:420px;width:100%;margin:0 auto}
+.marca{display:flex;align-items:baseline;gap:6px;font-family:Poppins;font-weight:800;font-size:30px;letter-spacing:-.03em}
+.marca .p{color:var(--amarillo)}
+.marca-sub{font-family:Poppins;font-weight:500;color:#AFC6F0;margin:4px 0 28px}
+.login form{background:#fff;color:var(--tinta);border-radius:var(--r-l);padding:22px;display:grid;gap:14px;box-shadow:0 20px 40px -20px rgba(0,0,0,.5)}
+.login-pie{text-align:center;color:#7F98C7;font-size:12px;padding:16px}
+.billetes{height:10px;background:repeating-linear-gradient(90deg,var(--amarillo) 0 28px,var(--azul) 28px 56px)}
+
+/* ---------- forms ---------- */
+label.f{display:grid;gap:5px;font-size:13px;font-weight:600;color:var(--gris)}
+.inp,select.inp,textarea.inp{width:100%;border:1.5px solid var(--linea);background:#fff;border-radius:var(--r-s);padding:10px 12px;font-size:15px;color:var(--tinta)}
+.inp:focus{border-color:var(--azul);outline:none;box-shadow:0 0 0 3px rgba(24,119,242,.15)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chk{display:flex;align-items:center;gap:8px;font-weight:500;color:var(--tinta);font-size:14px}
+.chk input{width:18px;height:18px;accent-color:var(--azul)}
+.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:10px 18px;font-weight:600;cursor:pointer;background:var(--suave);color:var(--azul2);white-space:nowrap;min-height:42px}
+.btn:hover{filter:brightness(.97)}
+.btn.pri{background:var(--azul);color:#fff}
+.btn.pri:hover{background:var(--azul2)}
+.btn.ama{background:var(--amarillo);color:var(--tinta)}
+.btn.rojo{background:#FDECEC;color:var(--rojo)}
+.btn.borde{background:#fff;border:1.5px solid var(--linea);color:var(--tinta)}
+.btn.sm{padding:6px 12px;min-height:34px;font-size:13px}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.btn svg{width:18px;height:18px}
+.err{background:#FDECEC;color:var(--rojo);border-radius:var(--r-s);padding:10px 12px;font-size:14px}
+
+/* ---------- shell ---------- */
+.shell{min-height:100dvh;display:grid;grid-template-columns:240px minmax(0,1fr)}
+.side{background:var(--tinta);color:#fff;padding:20px 14px;position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;gap:4px}
+.side .marca{font-size:22px;padding:0 10px 2px}
+.side .marca-sub{font-size:12px;margin:0 10px 20px}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#C9D8F5;text-decoration:none;font-weight:500}
+.nav a svg{width:20px;height:20px;flex:none}
+.nav a.on{background:rgba(255,255,255,.1);color:#fff}
+.nav a.on svg{color:var(--amarillo)}
+.side-pie{margin-top:auto;padding:10px;font-size:13px;color:#9FB5E0;display:grid;gap:8px}
+.side-pie button{background:none;border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:999px;padding:6px 12px;cursor:pointer}
+main{padding:24px 28px 100px;max-width:1180px;width:100%;min-width:0}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.top .acc{display:flex;gap:8px;flex-wrap:wrap}
+.miga{font-size:13px;color:var(--gris);margin-bottom:4px}
+.miga a{text-decoration:none}
+.bottom{display:none}
+@media (max-width:860px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  main{padding:16px 16px 96px}
+  .bottom{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--linea);z-index:30;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .bottom a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--gris);text-decoration:none;padding:4px 0;font-weight:500}
+  .bottom a svg{width:22px;height:22px}
+  .bottom a.on{color:var(--azul2)}
+  .mob-head{display:flex!important}
+  h1{font-size:21px}
+}
+.mob-head{display:none;align-items:center;justify-content:space-between;background:var(--tinta);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:25}
+.mob-head .marca{font-size:20px}
+.mob-head button{background:none;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:999px;padding:5px 12px;font-size:13px}
+
+/* ---------- surfaces ---------- */
+.panel{background:#fff;border:1px solid var(--linea);border-radius:var(--r-m);padding:16px}
+.lista{display:grid;gap:10px}
+.item{background:#fff;border:1px solid var(--linea);border-radius:var(--r-m);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none;color:inherit}
+.item:hover{border-color:#B9CDEE}
+.item .grow{flex:1;min-width:0}
+.item .t{font-weight:600}
+.item .s{font-size:13px;color:var(--gris)}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;background:var(--suave);color:var(--azul2)}
+.chip.ok{background:#E3F6EE;color:var(--verde)} .chip.warn{background:#FFF6CC;color:#8A6A00} .chip.red{background:#FDECEC;color:var(--rojo)} .chip.gris{background:#EEF1F6;color:var(--gris)}
+.vacio{text-align:center;padding:36px 16px;color:var(--gris);background:#fff;border:1.5px dashed var(--linea);border-radius:var(--r-m)}
+.vacio b{display:block;color:var(--tinta);font-family:Poppins;font-size:16px;margin-bottom:4px}
+
+/* KPI strip (planilla period) */
+.totales{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--linea);border:1px solid var(--linea);border-radius:var(--r-m);overflow:hidden;margin-bottom:16px}
+.totales>div{background:#fff;padding:12px 14px}
+.totales .k{font-size:12px;color:var(--gris);font-weight:500}
+.totales .v{font-family:Poppins;font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+.totales .neto{background:var(--amarillo)}
+.totales .neto .k{color:var(--tinta)}
+@media (max-width:640px){.totales{grid-template-columns:1fr 1fr}.totales .v{font-size:17px}}
+
+.tabs{display:flex;gap:4px;border-bottom:1.5px solid var(--linea);margin-bottom:16px;overflow-x:auto;scrollbar-width:none}
+.tabs a{padding:10px 14px;text-decoration:none;color:var(--gris);font-weight:600;border-bottom:3px solid transparent;margin-bottom:-1.5px;white-space:nowrap}
+.tabs a.on{color:var(--tinta);border-color:var(--azul)}
+
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{text-align:left;font-weight:600;color:var(--gris);font-size:12px;padding:8px 10px;border-bottom:1.5px solid var(--linea);white-space:nowrap}
+table.t td{padding:10px;border-bottom:1px solid #EEF2F8;vertical-align:middle}
+table.t tr.click{cursor:pointer} table.t tr.click:hover td{background:#F7FAFF}
+table.t .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bottom:0}
+.tscroll{overflow-x:auto;background:#fff;border:1px solid var(--linea);border-radius:var(--r-m)}
+
+/* ---------- attendance grid ---------- */
+.leyenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--gris);margin:0 0 12px}
+.leyenda span{display:inline-flex;align-items:center;gap:6px}
+.m{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;font-family:Poppins;font-weight:600;font-size:12px;border:0;cursor:pointer;position:relative}
+.m-T{background:#E6F0FE;color:var(--azul2)} .m-F{background:#FDE2E2;color:var(--rojo)} .m-V{background:#E3F6EE;color:var(--verde)}
+.m-I{background:#EFE7FD;color:var(--morado)} .m-P{background:#FFE9CC;color:#9A5A00} .m-L{background:#EEF1F6;color:var(--gris)} .m-N{background:#fff;color:#B5C0D3;border:1px dashed #C9D3E4}
+.m.parcial::after{content:"";position:absolute;right:3px;top:3px;width:6px;height:6px;border-radius:50%;background:var(--naranja)}
+.m.extra::before{content:"";position:absolute;left:3px;bottom:3px;width:6px;height:6px;border-radius:50%;background:var(--amarillo);box-shadow:0 0 0 1px var(--tinta)}
+.grid-asis{border-collapse:separate;border-spacing:0}
+.grid-asis th,.grid-asis td{padding:4px 3px;text-align:center}
+.grid-asis th{font-size:11px;color:var(--gris);font-weight:600;position:sticky;top:0;background:#fff}
+.grid-asis th.dom{color:var(--rojo)}
+.grid-asis td.n,.grid-asis th.n{text-align:left;position:sticky;left:0;background:#fff;z-index:2;padding-left:12px;min-width:150px;max-width:180px;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-right:1px solid var(--linea)}
+.grid-asis td.h{font-family:Poppins;font-weight:600;font-size:13px;padding:0 12px;white-space:nowrap}
+
+/* ---------- sheet / modal ---------- */
+.velo{position:fixed;inset:0;background:rgba(10,42,102,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+.hoja{background:#fff;border-radius:var(--r-l);width:100%;max-width:520px;max-height:92dvh;overflow:auto;padding:20px;box-shadow:0 30px 60px -20px rgba(10,42,102,.5)}
+.hoja.ancha{max-width:860px}
+.hoja-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.hoja-top .x{background:var(--suave);border:0;border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:18px;color:var(--tinta)}
+.hoja form{display:grid;gap:12px}
+.hoja .pie{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap}
+@media (max-width:640px){.velo{align-items:flex-end;padding:0}.hoja{border-radius:var(--r-l) var(--r-l) 0 0;max-height:94dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom))}}
+.marcas{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.marcas button{border:1.5px solid var(--linea);background:#fff;border-radius:10px;padding:8px 4px;cursor:pointer;display:grid;justify-items:center;gap:4px;font-size:12px;font-weight:500}
+.marcas button.on{border-color:var(--azul);box-shadow:0 0 0 3px rgba(24,119,242,.15)}
+
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--tinta);color:#fff;padding:10px 18px;border-radius:999px;z-index:80;font-weight:500;box-shadow:var(--sombra);max-width:90vw}
+.toast.mal{background:var(--rojo)}
+.cargando{padding:40px;text-align:center;color:var(--gris)}
+
+/* ---------- comprobante (pay stub) ---------- */
+.cp{background:#fff;border-radius:var(--r-m);overflow:hidden;box-shadow:var(--sombra);max-width:780px;margin:0 auto;border:1px solid var(--linea);position:relative}
+.cp-cab{background:var(--tinta);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.cp-cab .marca{font-size:24px}
+.cp-cab .tit{font-family:Poppins;font-weight:600;font-size:14px;color:#AFC6F0;margin-top:2px}
+.cp-cab .nro{text-align:right;font-size:12px;color:#AFC6F0}
+.cp-cab .nro b{display:block;font-family:Poppins;color:#fff;font-size:16px;white-space:nowrap}
+.cp-cab .nro .chip{margin-top:4px}
+.cp-quien{padding:16px 22px 6px;display:grid;grid-template-columns:1.4fr 1fr;gap:6px 24px}
+.cp-quien .nom{font-family:Poppins;font-weight:700;font-size:19px;grid-column:1/-1}
+.cp-dato{display:flex;justify-content:space-between;gap:12px;font-size:13px;border-bottom:1px dotted var(--linea);padding:4px 0}
+.cp-dato span:first-child{color:var(--gris)}
+.cp-dato span:last-child{font-weight:600;text-align:right}
+.cp-cols{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:12px;border-top:1px solid var(--linea)}
+.cp-col{padding:14px 22px}
+.cp-col+.cp-col{border-left:1px solid var(--linea)}
+.cp-col h4{font-size:13px;color:var(--gris);font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between}
+.cp-l{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:7px 0;border-bottom:1px solid #F0F3F9;font-size:14px}
+.cp-l .mt{font-family:Poppins;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.cp-l .dt{grid-column:1/-1;font-size:12px;color:var(--gris)}
+.cp-l .sal{grid-column:1/-1;font-size:12px;color:var(--azul2)}
+.cp-tot{display:flex;justify-content:space-between;font-weight:700;padding-top:10px;font-size:14px}
+.cp-neto{background:var(--amarillo);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;position:relative}
+.cp-neto::before{content:"";position:absolute;left:0;right:0;top:-6px;height:12px;background:radial-gradient(circle at 6px 6px,#fff 4.5px,transparent 5px) 0 0/16px 12px repeat-x}
+.cp-neto .k{font-family:Poppins;font-weight:600}
+.cp-neto .k small{display:block;font-family:Inter;font-weight:500;font-size:12px;color:#5C4A00}
+.cp-neto .v{font-family:Poppins;font-weight:800;font-size:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.cp-asis{padding:10px 22px;font-size:12px;color:var(--gris);display:flex;flex-wrap:wrap;gap:6px 16px;border-top:1px solid var(--linea)}
+.cp-firma{display:none;padding:34px 22px 18px;grid-template-columns:1fr 1fr;gap:40px;font-size:12px;color:var(--gris);text-align:center}
+.cp-firma div{border-top:1px solid var(--tinta);padding-top:6px}
+@media (max-width:640px){
+  .cp-quien{grid-template-columns:1fr}
+  .cp-cols{grid-template-columns:1fr}
+  .cp-col+.cp-col{border-left:0;border-top:1px solid var(--linea)}
+  .cp-neto .v{font-size:25px}
+}
+
+/* empleado home */
+.hola{background:var(--tinta);color:#fff;border-radius:var(--r-l);padding:20px;margin-bottom:16px;position:relative;overflow:hidden}
+.hola .k{color:#AFC6F0;font-size:13px}
+.hola .v{font-family:Poppins;font-weight:800;font-size:32px;color:var(--amarillo);font-variant-numeric:tabular-nums;line-height:1.1}
+.hola .s{font-size:13px;color:#C9D8F5;margin-top:4px}
+.pago{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px}
+.pago .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-family:Poppins;font-weight:700;font-size:13px}
+.pago .ic.s{background:#E6F0FE;color:var(--azul2)} .pago .ic.c{background:#FFF6CC;color:#8A6A00}
+.barra{height:8px;background:#EEF2F8;border-radius:99px;overflow:hidden;margin-top:8px}
+.barra i{display:block;height:100%;background:var(--azul);border-radius:99px}
+.segm{display:inline-flex;background:#fff;border:1px solid var(--linea);border-radius:999px;padding:3px;gap:2px}
+.segm button{border:0;background:none;border-radius:999px;padding:6px 14px;font-weight:600;color:var(--gris);cursor:pointer;font-size:13px}
+.segm button.on{background:var(--tinta);color:#fff}
+
+/* ---------- print ---------- */
+#imprimir{display:none}
+@media print{
+  @page{size:letter;margin:12mm}
+  body{background:#fff}
+  body>*:not(#imprimir){display:none!important}
+  #imprimir{display:block!important}
+  .cp{box-shadow:none;border:1px solid #999;page-break-inside:avoid;break-inside:avoid;margin-bottom:10mm}
+  .cp-firma{display:grid!important}
+  .cp-neto,.cp-cab,.totales .neto{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .cp + .cp{page-break-before:always}
+}
+@media (prefers-reduced-motion:no-preference){
+  .hoja{animation:sube .18s ease-out}
+  @keyframes sube{from{transform:translateY(12px);opacity:.6}to{transform:none;opacity:1}}
+}
+</style>
+</head>
+<body>
+<div id="app"><div class="cargando">Cargando…</div></div>
+<div id="imprimir"></div>
+
+<script>
+/* ===================== configuración ===================== */
+const SB_URL = 'https://edmvfqelxsxevpmxgbav.supabase.co';
+const SB_KEY = 'sb_publishable_lgTmmLtUESDDyX2sff6ArQ_z65Ti9d6';
+const DOMINIO = 'planilla.maspisto.hn';
+const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+
+const S = { user: null, admin: false, yo: null, conceptos: null };
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const app = $('#app');
+
+/* ===================== utilidades ===================== */
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const L = n => 'L ' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const N = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DIAS = ['D','L','M','M','J','V','S'];
+const pf = s => { if (!s) return null; const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const fc = s => { const d = pf(s); return d ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` : '—'; };
+const fl = s => { const d = pf(s); return d ? `${d.getDate()} de ${MESES[d.getMonth()]} ${d.getFullYear()}` : '—'; };
+const rango = (a, b) => { const x = pf(a), y = pf(b); if (!x || !y) return ''; const same = x.getMonth() === y.getMonth(); return same ? `${x.getDate()} al ${y.getDate()} de ${MESES[y.getMonth()]} ${y.getFullYear()}` : `${x.getDate()} ${MESES[x.getMonth()].slice(0, 3)} al ${y.getDate()} ${MESES[y.getMonth()].slice(0, 3)} ${y.getFullYear()}`; };
+const hoyHN = () => { const d = new Date(Date.now() - 6 * 3600e3); return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); };
+const corto = n => { const p = String(n || '').trim().split(/\s+/); return p.length >= 3 ? `${p[0]} ${p[p.length - 2]}` : p.join(' '); };
+
+function toast(msg, mal = false) {
+  const t = document.createElement('div'); t.className = 'toast' + (mal ? ' mal' : ''); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), mal ? 4500 : 2600);
+}
+function errMsg(e) {
+  const m = e?.message || String(e);
+  if (/duplicate key.*codigo/i.test(m)) return 'Ya existe un período con ese código.';
+  if (/Invalid login/i.test(m)) return 'Usuario o contraseña incorrectos.';
+  return m;
+}
+async function q(p) { const { data, error } = await p; if (error) throw error; return data; }
+
+const ICON = {
+  planilla: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3M15 15h2"/></svg>',
+  gente: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.5 3.5 5.2"/></svg>',
+  prestamo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></svg>',
+  adelanto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>',
+  ajustes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
+  yo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M4 9h16M8 14h4"/></svg>',
+  print: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>',
+  wa: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9s.7-2.1 1-2.4c.3-.3.6-.3.8-.3h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.6.3.1.2.1.7-.1 1.3z"/></svg>',
+  excel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 13l4 5M13 13l-4 5"/></svg>',
+  mas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+};
+
+/* ===================== modal ===================== */
+function hoja(titulo, html, { ancha = false } = {}) {
+  const v = document.createElement('div'); v.className = 'velo';
+  v.innerHTML = `<div class="hoja ${ancha ? 'ancha' : ''}" role="dialog" aria-modal="true"><div class="hoja-top"><h2>${esc(titulo)}</h2><button class="x" aria-label="Cerrar">×</button></div><div class="hoja-c">${html}</div></div>`;
+  const cerrar = () => { v.remove(); document.removeEventListener('keydown', k); };
+  const k = e => { if (e.key === 'Escape') cerrar(); };
+  document.addEventListener('keydown', k);
+  v.addEventListener('click', e => { if (e.target === v) cerrar(); });
+  $('.x', v).onclick = cerrar;
+  document.body.appendChild(v);
+  setTimeout(() => $('input:not([type=hidden]),select', v)?.focus(), 30);
+  return { el: v, cerrar };
+}
+function confirmar(titulo, texto, ok = 'Confirmar', peligro = false) {
+  return new Promise(res => {
+    const h = hoja(titulo, `<p class="muted" style="margin:0 0 16px">${texto}</p><div class="pie"><button class="btn borde" data-n>Cancelar</button><button class="btn ${peligro ? 'rojo' : 'pri'}" data-s>${esc(ok)}</button></div>`);
+    $('[data-n]', h.el).onclick = () => { h.cerrar(); res(false); };
+    $('[data-s]', h.el).onclick = () => { h.cerrar(); res(true); };
+  });
+}
+const formData = f => Object.fromEntries(new FormData(f).entries());
+
+/* ===================== sesión ===================== */
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return pintarLogin();
+  S.user = session.user;
+  try {
+    S.admin = !!(await q(sb.rpc('pl_es_admin')));
+    const yo = await q(sb.from('pl_empleados').select('*').eq('user_id', S.user.id).maybeSingle());
+    S.yo = yo;
+  } catch (e) { toast(errMsg(e), true); }
+  if (!S.admin && !S.yo) {
+    app.innerHTML = `<div class="login"><div class="login-in"><div class="marca">más<span class="p">pisto</span></div><p class="marca-sub">Planilla</p>
+      <div class="err" style="background:#fff">Tu cuenta no está vinculada a ningún empleado. Pide al administrador que la vincule.</div>
+      <button class="btn ama" style="margin-top:16px" onclick="salir()">Cerrar sesión</button></div></div>`;
+    return;
+  }
+  if (!location.hash || location.hash === '#/') { location.hash = S.admin ? '#/planillas' : '#/mis-pagos'; return; }
+  ruta();
+}
+async function salir() { await sb.auth.signOut(); S.user = null; S.admin = false; S.yo = null; location.hash = ''; pintarLogin(); }
+window.salir = salir;
+
+function pintarLogin() {
+  app.innerHTML = `<div class="login"><div class="login-in">
+    <div class="marca">más<span class="p">pisto</span></div>
+    <p class="marca-sub">Planilla y comprobantes de pago</p>
+    <form id="flog">
+      <h2>Ingresar</h2>
+      <label class="f">Usuario o correo<input class="inp" name="u" autocomplete="username" required autocapitalize="none"></label>
+      <label class="f">Contraseña<input class="inp" name="p" type="password" autocomplete="current-password" required></label>
+      <div class="err hidden" id="lerr"></div>
+      <button class="btn pri" type="submit">Ingresar</button>
+    </form></div>
+    <div><div class="billetes"></div><div class="login-pie">Más Pisto Financiera · Honduras</div></div></div>`;
+  $('#flog').onsubmit = async e => {
+    e.preventDefault();
+    const { u, p } = formData(e.target); const b = $('button', e.target); b.disabled = true;
+    const email = u.includes('@') ? u.trim().toLowerCase() : `${u.trim().toLowerCase()}@${DOMINIO}`;
+    const { error } = await sb.auth.signInWithPassword({ email, password: p });
+    b.disabled = false;
+    if (error) { const el = $('#lerr'); el.textContent = errMsg(error); el.classList.remove('hidden'); return; }
+    location.hash = ''; iniciar();
+  };
+}
+
+/* ===================== shell + router ===================== */
+function navItems() {
+  const it = [];
+  if (S.admin) it.push(['#/planillas', 'Planillas', ICON.planilla], ['#/empleados', 'Empleados', ICON.gente], ['#/prestamos', 'Préstamos', ICON.prestamo], ['#/adelantos', 'Adelantos', ICON.adelanto]);
+  if (S.yo) it.push(['#/mis-pagos', S.admin ? 'Mis pagos' : 'Mis pagos', ICON.yo]);
+  if (S.yo && !S.admin) it.push(['#/mis-prestamos', 'Mis préstamos', ICON.prestamo]);
+  if (S.admin) it.push(['#/ajustes', 'Ajustes', ICON.ajustes]);
+  return it;
+}
+function shell(html) {
+  const h = location.hash;
+  const items = navItems();
+  const on = href => h.startsWith(href.replace(/s$/, '')) ? 'on' : '';
+  const nom = S.yo ? corto(S.yo.nombre) : (S.user?.email || '');
+  app.innerHTML = `
+  <div class="mob-head"><div class="marca">más<span class="p">pisto</span></div><button onclick="salir()">Salir</button></div>
+  <div class="shell">
+    <aside class="side"><div class="marca">más<span class="p">pisto</span></div><div class="marca-sub">Planilla</div>
+      <nav class="nav">${items.map(([href, t, ic]) => `<a href="${href}" class="${on(href)}">${ic}<span>${t}</span></a>`).join('')}</nav>
+      <div class="side-pie"><span>${esc(nom)}</span><button onclick="cambiarMiClave()">Cambiar contraseña</button><button onclick="salir()">Cerrar sesión</button></div>
+    </aside>
+    <main id="main">${html}</main>
+  </div>
+  <nav class="bottom">${items.slice(0, 5).map(([href, t, ic]) => `<a href="${href}" class="${on(href)}">${ic}<span>${t}</span></a>`).join('')}</nav>`;
+  return $('#main');
+}
+const cargando = () => shell('<div class="cargando">Cargando…</div>');
+
+window.addEventListener('hashchange', ruta);
+async function ruta() {
+  if (!S.user) return;
+  const p = location.hash.replace(/^#\//, '').split('/');
+  try {
+    if (S.admin) {
+      if (p[0] === 'planillas') return vPlanillas();
+      if (p[0] === 'planilla') return vPeriodo(p[1], p[2] || 'resumen');
+      if (p[0] === 'empleados') return vEmpleados();
+      if (p[0] === 'empleado') return vEmpleado(p[1]);
+      if (p[0] === 'prestamos') return vPrestamos();
+      if (p[0] === 'adelantos') return vAdelantos();
+      if (p[0] === 'ajustes') return vAjustes();
+      if (p[0] === 'comp') return vComprobanteAdmin(p[1], p[2]);
+    }
+    if (S.yo) {
+      if (p[0] === 'mis-pagos') return vMisPagos();
+      if (p[0] === 'mis-prestamos') return vMisPrestamos();
+      if (p[0] === 'mi-comprobante') return vMiComprobante(p[1]);
+    }
+    location.hash = S.admin ? '#/planillas' : '#/mis-pagos';
+  } catch (e) { console.error(e); shell(`<div class="err">${esc(errMsg(e))}</div>`); }
+}
+
+async function cambiarMiClave() {
+  const h = hoja('Cambiar mi contraseña', `<form><label class="f">Nueva contraseña<input class="inp" name="p" type="password" minlength="6" required autocomplete="new-password"></label>
+    <label class="f">Repetir contraseña<input class="inp" name="p2" type="password" minlength="6" required autocomplete="new-password"></label>
+    <div class="pie"><button class="btn pri">Guardar contraseña</button></div></form>`);
+  $('form', h.el).onsubmit = async e => {
+    e.preventDefault(); const { p, p2 } = formData(e.target);
+    if (p !== p2) return toast('Las contraseñas no coinciden', true);
+    const { error } = await sb.auth.updateUser({ password: p });
+    if (error) return toast(errMsg(error), true);
+    h.cerrar(); toast('Contraseña actualizada');
+  };
+}
+window.cambiarMiClave = cambiarMiClave;
+
+/* ===================== datos comunes ===================== */
+async function empleadosActivos() { return q(sb.from('pl_empleados').select('id,nombre,activo,recibe_salario,recibe_comisiones').order('nombre')); }
+async function periodosAbiertos() { return q(sb.from('pl_periodos').select('*').eq('estado', 'abierta').order('fecha_inicio', { ascending: false })); }
+async function conceptos() { if (!S.conceptos) S.conceptos = await q(sb.from('pl_conceptos').select('*').eq('activo', true).order('orden')); return S.conceptos; }
+
+function resumenFila(c) {
+  const ded = c.deducciones || [];
+  const adel = ded.filter(d => /^Adelanto|^Vales \/ adelantos/.test(d.concepto)).reduce((a, d) => a + +d.monto, 0);
+  const pres = ded.filter(d => d.prestamo_id).reduce((a, d) => a + +d.monto, 0);
+  const otras = +c.total_deducciones - adel - pres;
+  return { adel, pres, otras };
+}
+
+/* ===================== PLANILLAS (períodos) ===================== */
+async function vPlanillas() {
+  cargando();
+  const per = await q(sb.from('pl_periodos').select('*').order('fecha_inicio', { ascending: false }));
+  const comp = await q(sb.from('pl_comprobantes').select('periodo_id,neto').eq('anulado', false));
+  const tot = {}; comp.forEach(c => tot[c.periodo_id] = (tot[c.periodo_id] || 0) + +c.neto);
+  const m = shell(`
+    <div class="top"><div><h1>Planillas</h1><div class="muted small">Quincenas de salario y meses de comisiones</div></div>
+      <div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Nueva planilla</button></div></div>
+    ${per.length ? `<div class="lista">${per.map(p => `
+      <a class="item" href="#/planilla/${p.id}">
+        <div class="pago" style="flex:1"><div class="ic ${p.tipo === 'salario' ? 's' : 'c'}">${p.tipo === 'salario' ? 'Q' : '%'}</div>
+          <div class="grow"><div class="t">${esc(p.nombre)}</div><div class="s">${rango(p.fecha_inicio, p.fecha_fin)} · pago ${fc(p.fecha_pago)} · ${esc(p.codigo)}</div></div>
+          <div style="text-align:right">${p.estado === 'cerrada' ? `<span class="chip ok">Cerrada</span><div class="num small" style="margin-top:4px">${L(tot[p.id])}</div>` : '<span class="chip warn">Abierta</span>'}</div></div>
+      </a>`).join('')}</div>` : `<div class="vacio"><b>Aún no hay planillas</b>Crea la primera quincena o mes de comisiones.</div>`}`);
+  $('#nuevo', m).onclick = () => nuevaPlanilla(per);
+}
+
+function sugerencia(tipo, per) {
+  if (tipo === 'salario') {
+    const ult = per.filter(p => p.tipo === 'salario').sort((a, b) => b.fecha_fin.localeCompare(a.fecha_fin))[0];
+    let ini = ult ? pf(ult.fecha_fin) : hoyHN(); if (ult) ini.setDate(ini.getDate() + 1);
+    else { const h = hoyHN(); ini = h.getDate() >= 4 && h.getDate() <= 18 ? new Date(h.getFullYear(), h.getMonth(), 4) : (h.getDate() > 18 ? new Date(h.getFullYear(), h.getMonth(), 19) : new Date(h.getFullYear(), h.getMonth() - 1, 19)); }
+    const primera = ini.getDate() === 4;
+    const fin = primera ? new Date(ini.getFullYear(), ini.getMonth(), 18) : new Date(ini.getFullYear(), ini.getMonth() + 1, 3);
+    const codigo = `${ini.getFullYear()}${String(ini.getMonth() + 1).padStart(2, '0')}${primera ? '01' : '02'}`;
+    const nombre = `${primera ? '1ª' : '2ª'} quincena de ${MESES[ini.getMonth()]} ${ini.getFullYear()}`;
+    return { codigo, nombre, ini: iso(ini), fin: iso(fin), pago: iso(fin) };
+  }
+  const ult = per.filter(p => p.tipo === 'comisiones').sort((a, b) => b.fecha_fin.localeCompare(a.fecha_fin))[0];
+  let ini;
+  if (ult) { ini = pf(ult.fecha_fin); ini.setDate(ini.getDate() + 1); }
+  else { const h = hoyHN(); ini = new Date(h.getFullYear(), h.getMonth() - (h.getDate() >= 9 ? 1 : 2), 9); }
+  const fin = new Date(ini.getFullYear(), ini.getMonth() + 1, 8);
+  const pago = new Date(ini.getFullYear(), ini.getMonth() + 1, 15);
+  return { codigo: `C${ini.getFullYear()}${String(ini.getMonth() + 1).padStart(2, '0')}`, nombre: `Comisiones ${MESES[ini.getMonth()]} ${ini.getFullYear()}`, ini: iso(ini), fin: iso(fin), pago: iso(pago) };
+}
+
+function nuevaPlanilla(per) {
+  const h = hoja('Nueva planilla', `<form>
+    <div class="segm" role="tablist"><button type="button" class="on" data-t="salario">Salario (quincena)</button><button type="button" data-t="comisiones">Comisiones (mes)</button></div>
+    <input type="hidden" name="tipo" value="salario">
+    <label class="f">Nombre<input class="inp" name="nombre" required></label>
+    <div class="row2"><label class="f">Código<input class="inp" name="codigo" required></label><label class="f">Fecha de pago<input class="inp" type="date" name="fecha_pago"></label></div>
+    <div class="row2"><label class="f">Desde<input class="inp" type="date" name="fecha_inicio" required></label><label class="f">Hasta<input class="inp" type="date" name="fecha_fin" required></label></div>
+    <p class="small muted" id="nota" style="margin:0">Se generará la asistencia con 8 horas diarias para todos los empleados con salario. Luego marcas faltas, vacaciones, horas extra, etc.</p>
+    <div class="pie"><button class="btn pri">Crear planilla</button></div></form>`);
+  const f = $('form', h.el);
+  const llenar = t => { const s = sugerencia(t, per); f.tipo.value = t; f.nombre.value = s.nombre; f.codigo.value = s.codigo; f.fecha_inicio.value = s.ini; f.fecha_fin.value = s.fin; f.fecha_pago.value = s.pago; $('#nota', h.el).classList.toggle('hidden', t !== 'salario'); };
+  $$('.segm button', h.el).forEach(b => b.onclick = () => { $$('.segm button', h.el).forEach(x => x.classList.toggle('on', x === b)); llenar(b.dataset.t); });
+  llenar('salario');
+  f.onsubmit = async e => {
+    e.preventDefault(); const d = formData(f); if (!d.fecha_pago) d.fecha_pago = null;
+    try {
+      const p = await q(sb.from('pl_periodos').insert(d).select().single());
+      if (p.tipo === 'salario') await q(sb.rpc('pl_generar_asistencia', { p_periodo: p.id }));
+      h.cerrar(); toast('Planilla creada'); location.hash = `#/planilla/${p.id}/${p.tipo === 'salario' ? 'asistencia' : 'movimientos'}`;
+    } catch (er) { toast(errMsg(er), true); }
+  };
+}
+
+/* ---------- detalle de período ---------- */
+async function vPeriodo(id, tab) {
+  cargando();
+  const [per, calc] = await Promise.all([q(sb.from('pl_periodos').select('*').eq('id', id).single()), q(sb.rpc('pl_calcular', { p_periodo: id }))]);
+  const abierta = per.estado === 'abierta';
+  const T = calc.reduce((a, c) => ({ ing: a.ing + +c.total_ingresos, ded: a.ded + +c.total_deducciones, neto: a.neto + +c.neto }), { ing: 0, ded: 0, neto: 0 });
+  const tabs = [['resumen', 'Planilla general'], ...(per.tipo === 'salario' ? [['asistencia', 'Asistencia']] : []), ['movimientos', per.tipo === 'salario' ? 'Otros ingresos y deducciones' : 'Comisiones y deducciones'], ['adelantos', 'Adelantos'], ['comprobantes', 'Comprobantes']];
+  const m = shell(`
+    <div class="miga"><a href="#/planillas">Planillas</a></div>
+    <div class="top"><div><h1>${esc(per.nombre)}</h1><div class="muted small">${rango(per.fecha_inicio, per.fecha_fin)} · pago ${fc(per.fecha_pago)} · ${esc(per.codigo)} · ${abierta ? '<span class="chip warn">Abierta · vista previa</span>' : `<span class="chip ok">Cerrada ${per.cerrado_en ? 'el ' + fc(per.cerrado_en.slice(0, 10)) : ''}</span>`}</div></div>
+      <div class="acc">${abierta ? `<button class="btn borde" id="editp">Editar</button><button class="btn ama" id="cerrar">Cerrar y generar comprobantes</button>` : `<button class="btn borde" id="reabrir">Reabrir</button>`}</div></div>
+    <div class="totales"><div><div class="k">Empleados</div><div class="v">${calc.length}</div></div><div><div class="k">Total ingresos</div><div class="v">${L(T.ing)}</div></div><div><div class="k">Deducciones</div><div class="v">${L(T.ded)}</div></div><div class="neto"><div class="k">Total a pagar</div><div class="v">${L(T.neto)}</div></div></div>
+    <div class="tabs">${tabs.map(([k, t]) => `<a href="#/planilla/${id}/${k}" class="${tab === k ? 'on' : ''}">${t}</a>`).join('')}</div>
+    <div id="tab"></div>`);
+  const cont = $('#tab', m);
+  $('#cerrar', m) && ($('#cerrar', m).onclick = async () => {
+    if (!await confirmar('Cerrar planilla', `Se generarán ${calc.length} comprobantes por ${L(T.neto)}, se aplicarán las cuotas de préstamos y los empleados podrán ver su pago. Podrás reabrirla si hace falta corregir algo.`, 'Cerrar planilla')) return;
+    try { const n = await q(sb.rpc('pl_cerrar_periodo', { p_periodo: id })); toast(`${n} comprobantes generados`); vPeriodo(id, 'comprobantes'); } catch (e) { toast(errMsg(e), true); }
+  });
+  $('#reabrir', m) && ($('#reabrir', m).onclick = async () => {
+    if (!await confirmar('Reabrir planilla', 'Los comprobantes quedarán anulados y se revertirán los abonos a préstamos de esta planilla. Al cerrarla de nuevo se vuelven a generar.', 'Reabrir', true)) return;
+    try { await q(sb.rpc('pl_reabrir_periodo', { p_periodo: id })); toast('Planilla reabierta'); vPeriodo(id, tab); } catch (e) { toast(errMsg(e), true); }
+  });
+  $('#editp', m) && ($('#editp', m).onclick = () => editarPeriodo(per));
+  if (tab === 'resumen') return tabResumen(cont, per, calc, T);
+  if (tab === 'asistencia') return tabAsistencia(cont, per);
+  if (tab === 'movimientos') return tabMovimientos(cont, per, calc);
+  if (tab === 'adelantos') return tabAdelantosPeriodo(cont, per);
+  if (tab === 'comprobantes') return tabComprobantes(cont, per, calc);
+}
+
+function editarPeriodo(per) {
+  const h = hoja('Editar planilla', `<form>
+    <label class="f">Nombre<input class="inp" name="nombre" value="${esc(per.nombre)}" required></label>
+    <div class="row2"><label class="f">Desde<input class="inp" type="date" name="fecha_inicio" value="${per.fecha_inicio}" required></label><label class="f">Hasta<input class="inp" type="date" name="fecha_fin" value="${per.fecha_fin}" required></label></div>
+    <label class="f">Fecha de pago<input class="inp" type="date" name="fecha_pago" value="${per.fecha_pago || ''}"></label>
+    <div class="pie"><button type="button" class="btn rojo" id="borrar">Eliminar planilla</button><button class="btn pri">Guardar cambios</button></div></form>`);
+  $('form', h.el).onsubmit = async e => {
+    e.preventDefault(); const d = formData(e.target); if (!d.fecha_pago) d.fecha_pago = null;
+    try { await q(sb.from('pl_periodos').update(d).eq('id', per.id)); if (per.tipo === 'salario') await q(sb.rpc('pl_generar_asistencia', { p_periodo: per.id })); h.cerrar(); toast('Cambios guardados'); ruta(); } catch (er) { toast(errMsg(er), true); }
+  };
+  $('#borrar', h.el).onclick = async () => {
+    h.cerrar();
+    if (!await confirmar('Eliminar planilla', 'Se borrarán su asistencia y sus movimientos. Los adelantos quedarán sin planilla asignada.', 'Eliminar', true)) return;
+    try { await q(sb.from('pl_periodos').delete().eq('id', per.id)); toast('Planilla eliminada'); location.hash = '#/planillas'; } catch (er) { toast(errMsg(er), true); }
+  };
+}
+
+function tabResumen(cont, per, calc, T) {
+  if (!calc.length) { cont.innerHTML = `<div class="vacio"><b>Sin empleados en esta planilla</b>${per.tipo === 'comisiones' ? 'Agrega comisiones en la pestaña de comisiones o marca empleados como “recibe comisiones”.' : 'Marca empleados como “recibe salario”.'}</div>`; return; }
+  const filas = calc.map((c, i) => ({ c, i, ...resumenFila(c) }));
+  const ef = calc.filter(c => c.metodo_pago === 'EFECTIVO').reduce((a, c) => a + +c.neto, 0);
+  const bancos = {}; calc.filter(c => c.metodo_pago !== 'EFECTIVO').forEach(c => { const b = c.banco || 'Sin banco'; bancos[b] = (bancos[b] || 0) + +c.neto; });
+  cont.innerHTML = `
+    <div class="tscroll"><table class="t">
+      <thead><tr><th>#</th><th>Empleado</th><th class="r">Planilla</th><th class="r">Adelantos</th><th class="r">Préstamos</th><th class="r">Otras ded.</th><th class="r">A pagar</th><th>Pago</th></tr></thead>
+      <tbody>${filas.map(({ c, i, adel, pres, otras }) => `<tr class="click" data-e="${c.empleado_id}"><td class="muted">${i + 1}</td><td><b>${esc(c.nombre)}</b>${c.asistencia && c.asistencia.registros === 0 ? ' <span class="chip red">sin asistencia</span>' : ''}</td><td class="r">${L(c.total_ingresos)}</td><td class="r">${adel ? L(adel) : '—'}</td><td class="r">${pres ? L(pres) : '—'}</td><td class="r">${otras > 0.004 ? L(otras) : '—'}</td><td class="r num">${L(c.neto)}</td><td class="small">${esc(c.metodo_pago === 'EFECTIVO' ? 'Efectivo' : (c.banco || 'Transferencia'))}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td></td><td>Total</td><td class="r">${L(T.ing)}</td><td class="r">${L(filas.reduce((a, f) => a + f.adel, 0))}</td><td class="r">${L(filas.reduce((a, f) => a + f.pres, 0))}</td><td class="r">${L(filas.reduce((a, f) => a + Math.max(0, f.otras), 0))}</td><td class="r">${L(T.neto)}</td><td></td></tr></tfoot>
+    </table></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px">
+      <div class="panel"><h3 style="margin-bottom:8px">Forma de pago</h3>
+        <div class="cp-dato"><span>Efectivo</span><span>${L(ef)}</span></div>
+        ${Object.entries(bancos).map(([b, v]) => `<div class="cp-dato"><span>Transferencia ${esc(b)}</span><span>${L(v)}</span></div>`).join('')}
+        <div class="cp-dato" style="border:0"><span><b>Total transferencias</b></span><span>${L(T.neto - ef)}</span></div></div>
+      <div class="panel" style="display:flex;flex-direction:column;gap:8px;justify-content:center">
+        <button class="btn borde" id="xls">${ICON.excel}Descargar Excel</button>
+        <button class="btn borde" id="imp">${ICON.print}Imprimir todos los comprobantes</button></div>
+    </div>`;
+  $$('tr[data-e]', cont).forEach(tr => tr.onclick = () => location.hash = `#/comp/${per.id}/${tr.dataset.e}`);
+  $('#imp', cont).onclick = () => imprimir(calc.map(c => ({ c, numero: c.numero })), per);
+  $('#xls', cont).onclick = () => excelPlanilla(per, calc);
+}
+
+function excelPlanilla(per, calc) {
+  if (!window.XLSX) return toast('Cargando librería de Excel, intenta de nuevo', true);
+  const filas = calc.map((c, i) => { const r = resumenFila(c); return { '#': i + 1, 'Nombre': c.nombre, 'Planilla (ingresos)': +c.total_ingresos, 'Adelantos': r.adel, 'Préstamos': r.pres, 'Otras deducciones': +r.otras.toFixed(2), 'Deducciones': +c.total_deducciones, 'Monto a pagar': +c.neto, 'Método de pago': c.metodo_pago, 'Banco': c.banco || '', 'Cuenta': c.cuenta || '' }; });
+  const det = [];
+  calc.forEach(c => {
+    (c.ingresos || []).forEach(x => det.push({ Nombre: c.nombre, Tipo: 'Ingreso', Concepto: x.concepto, Tiempo: x.tiempo ?? '', Tarifa: x.tarifa ?? '', Monto: +x.monto, Saldo: '', Detalle: x.detalle || '' }));
+    (c.deducciones || []).forEach(x => det.push({ Nombre: c.nombre, Tipo: 'Deducción', Concepto: x.concepto, Tiempo: '', Tarifa: '', Monto: +x.monto, Saldo: x.saldo ?? '', Detalle: x.detalle || '' }));
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(filas); ws['!cols'] = [{ wch: 4 }, { wch: 34 }, ...Array(6).fill({ wch: 14 }), { wch: 15 }, { wch: 12 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Planilla');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(det), 'Detalle');
+  XLSX.writeFile(wb, `Planilla_${per.codigo}.xlsx`);
+}
+
+/* ---------- asistencia ---------- */
+const MARCAS = { T: 'Trabajado', F: 'Falta', V: 'Vacaciones', I: 'Incapacidad', P: 'Permiso sin goce', L: 'Libre / descanso', N: 'No laboraba aún' };
+const HORAS_MARCA = { T: 8, F: 0, V: 8, I: 8, P: 0, L: 8, N: 0 };
+async function tabAsistencia(cont, per) {
+  const abierta = per.estado === 'abierta';
+  const [rows, emps] = await Promise.all([
+    q(sb.from('pl_asistencia').select('*').eq('periodo_id', per.id)),
+    q(sb.from('pl_empleados').select('id,nombre,salario_mensual').order('nombre'))]);
+  const dias = []; for (let d = pf(per.fecha_inicio); d <= pf(per.fecha_fin); d.setDate(d.getDate() + 1)) dias.push(new Date(d));
+  const map = {}; rows.forEach(r => map[r.empleado_id + '|' + r.fecha] = r);
+  const ids = [...new Set(rows.map(r => r.empleado_id))];
+  const lista = emps.filter(e => ids.includes(e.id));
+  const horasPag = id => { const rs = rows.filter(r => r.empleado_id === id); return Math.max(0, 120 - rs.reduce((a, r) => a + Math.max(0, 8 - +r.horas), 0)); };
+  cont.innerHTML = `
+    <div class="leyenda">${Object.entries(MARCAS).map(([k, t]) => `<span><i class="m m-${k}" style="width:22px;height:22px;cursor:default">${k}</i>${t}</span>`).join('')}
+      <span><i class="m m-T parcial" style="width:22px;height:22px;cursor:default"></i>Horas parciales / llegada tarde</span><span><i class="m m-T extra" style="width:22px;height:22px;cursor:default"></i>Horas extra / feriado</span></div>
+    ${lista.length ? `<div class="tscroll"><table class="grid-asis">
+      <thead><tr><th class="n">Empleado</th>${dias.map(d => `<th class="${d.getDay() === 0 ? 'dom' : ''}">${DIAS[d.getDay()]}<br>${d.getDate()}</th>`).join('')}<th>Horas</th></tr></thead>
+      <tbody>${lista.map(e => `<tr><td class="n" title="${esc(e.nombre)}">${esc(corto(e.nombre))}</td>${dias.map(d => { const r = map[e.id + '|' + iso(d)]; if (!r) return `<td><button class="m m-N" data-e="${e.id}" data-f="${iso(d)}" ${abierta ? '' : 'disabled'}>·</button></td>`; const parcial = (r.marca === 'T' && +r.horas < 8) || r.minutos_tarde > 0; const extra = +r.horas_extra > 0 || r.feriado; return `<td><button class="m m-${r.marca} ${parcial ? 'parcial' : ''} ${extra ? 'extra' : ''}" data-e="${e.id}" data-f="${r.fecha}" title="${esc(MARCAS[r.marca])} · ${N(r.horas)} h${r.minutos_tarde ? ' · ' + r.minutos_tarde + ' min tarde' : ''}${+r.horas_extra ? ' · ' + N(r.horas_extra) + ' h extra' : ''}${r.nota ? ' · ' + r.nota : ''}" ${abierta ? '' : 'disabled'}>${r.marca === 'T' && +r.horas < 8 ? N(r.horas) : r.marca}</button></td>`; }).join('')}<td class="h">${N(horasPag(e.id))}</td></tr>`).join('')}</tbody>
+    </table></div>` : `<div class="vacio"><b>No hay asistencia generada</b>Genera 8 horas diarias para los empleados con salario.</div>`}
+    ${abierta ? `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn borde sm" id="gen">Agregar empleados faltantes</button><span class="small muted" style="align-self:center">Toca un día para marcar falta, vacaciones, horas extra o llegada tarde. La quincena se paga sobre 120 horas.</span></div>` : ''}`;
+  $('#gen', cont) && ($('#gen', cont).onclick = async () => { try { const n = await q(sb.rpc('pl_generar_asistencia', { p_periodo: per.id })); toast(n ? `${n} días agregados` : 'No faltaba nadie'); vPeriodo(per.id, 'asistencia'); } catch (e) { toast(errMsg(e), true); } });
+  if (!abierta) return;
+  $$('button.m[data-e]', cont).forEach(b => b.onclick = () => editarDia(per, lista.find(e => e.id === b.dataset.e), b.dataset.f, map[b.dataset.e + '|' + b.dataset.f]));
+}
+
+function editarDia(per, emp, fecha, r) {
+  r = r || { marca: 'T', horas: 8, minutos_tarde: 0, horas_extra: 0, feriado: false, nota: '' };
+  const d = pf(fecha);
+  const h = hoja(`${corto(emp.nombre)} · ${['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d.getDay()]} ${d.getDate()}`, `<form>
+    <div class="marcas">${Object.entries(MARCAS).map(([k, t]) => `<button type="button" data-m="${k}" class="${r.marca === k ? 'on' : ''}"><i class="m m-${k}" style="cursor:inherit">${k}</i>${t}</button>`).join('')}</div>
+    <input type="hidden" name="marca" value="${r.marca}">
+    <div class="row2"><label class="f">Horas pagadas del día<input class="inp" type="number" step="0.5" min="0" max="8" name="horas" value="${+r.horas}"></label>
+      <label class="f">Minutos tarde<input class="inp" type="number" min="0" step="1" name="minutos_tarde" value="${r.minutos_tarde || 0}"></label></div>
+    <div class="row2"><label class="f">Horas extra<input class="inp" type="number" min="0" step="0.5" name="horas_extra" value="${+r.horas_extra || 0}"></label>
+      <label class="chk" style="align-self:end;padding-bottom:10px"><input type="checkbox" name="feriado" ${r.feriado ? 'checked' : ''}>Feriado trabajado (pago doble)</label></div>
+    <label class="f">Nota<input class="inp" name="nota" value="${esc(r.nota || '')}" placeholder="Ej.: cita médica, entró a trabajar este día"></label>
+    <div class="pie"><button class="btn pri">Guardar día</button></div></form>`);
+  const f = $('form', h.el);
+  $$('[data-m]', h.el).forEach(b => b.onclick = () => { $$('[data-m]', h.el).forEach(x => x.classList.toggle('on', x === b)); f.marca.value = b.dataset.m; f.horas.value = HORAS_MARCA[b.dataset.m]; });
+  f.onsubmit = async e => {
+    e.preventDefault(); const x = formData(f);
+    const row = { periodo_id: per.id, empleado_id: emp.id, fecha, marca: x.marca, horas: +x.horas || 0, minutos_tarde: +x.minutos_tarde || 0, horas_extra: +x.horas_extra || 0, feriado: !!x.feriado, nota: x.nota || null };
+    try { await q(sb.from('pl_asistencia').upsert(row, { onConflict: 'periodo_id,empleado_id,fecha' })); h.cerrar(); vPeriodo(per.id, 'asistencia'); } catch (er) { toast(errMsg(er), true); }
+  };
+}
+
+/* ---------- movimientos (comisiones / otros) ---------- */
+async function tabMovimientos(cont, per, calc) {
+  const abierta = per.estado === 'abierta';
+  const movs = await q(sb.from('pl_movimientos').select('*').eq('periodo_id', per.id).order('orden').order('creado_en'));
+  const emps = await empleadosActivos();
+  const porEmp = {}; movs.forEach(mv => (porEmp[mv.empleado_id] = porEmp[mv.empleado_id] || []).push(mv));
+  const ids = [...new Set([...calc.map(c => c.empleado_id), ...Object.keys(porEmp)])];
+  const nombre = id => emps.find(e => e.id === id)?.nombre || '';
+  ids.sort((a, b) => nombre(a).localeCompare(nombre(b)));
+  cont.innerHTML = `
+    ${abierta ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap"><span class="small muted">${per.tipo === 'comisiones' ? 'Registra comisiones, bonos y deducciones de cada colaborador. Los préstamos marcados “en comisiones” y los vales/adelantos se agregan solos.' : 'Vacaciones, décimo tercer/cuarto mes, combustible u otras deducciones. El salario, seguro y préstamos se calculan solos.'}</span><button class="btn pri" id="add">${ICON.mas}Agregar línea</button></div>` : ''}
+    ${ids.length ? `<div class="lista">${ids.map(id => { const c = calc.find(x => x.empleado_id === id); const ls = porEmp[id] || []; return `
+      <div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><h3>${esc(nombre(id))}</h3>${c ? `<span class="num">${L(c.neto)}</span>` : ''}</div>
+      ${ls.length ? `<table class="t"><tbody>${ls.map(mv => `<tr class="${abierta ? 'click' : ''}" data-m="${mv.id}"><td style="width:28px"><span class="chip ${mv.tipo === 'ingreso' ? 'ok' : 'red'}" style="padding:0 7px">${mv.tipo === 'ingreso' ? '+' : '−'}</span></td><td>${esc(mv.concepto)}${mv.detalle ? `<div class="tiny muted">${esc(mv.detalle)}</div>` : ''}</td><td class="r num">${L(mv.monto)}</td></tr>`).join('')}</tbody></table>` : '<div class="small muted">Sin líneas manuales</div>'}
+      ${abierta ? `<button class="btn sm" style="margin-top:8px" data-add="${id}">${ICON.mas}Agregar a ${esc(corto(nombre(id)))}</button>` : ''}</div>`; }).join('')}</div>`
+      : `<div class="vacio"><b>Sin líneas todavía</b>Agrega la primera comisión o ajuste.</div>`}`;
+  if (!abierta) return;
+  $('#add', cont).onclick = () => editarMov(per, null, null, emps);
+  $$('[data-add]', cont).forEach(b => b.onclick = () => editarMov(per, null, b.dataset.add, emps));
+  $$('tr[data-m]', cont).forEach(tr => tr.onclick = () => editarMov(per, movs.find(x => x.id === tr.dataset.m), null, emps));
+}
+
+async function editarMov(per, mv, empId, emps) {
+  const cs = (await conceptos()).filter(c => c.aplica === 'ambos' || c.aplica === per.tipo);
+  mv = mv || { tipo: 'ingreso', concepto: '', monto: '', detalle: '', empleado_id: empId };
+  const h = hoja(mv.id ? 'Editar línea' : 'Agregar línea', `<form>
+    <label class="f">Empleado<select class="inp" name="empleado_id" required><option value="">Elegir…</option>${emps.filter(e => e.activo || e.id === mv.empleado_id).map(e => `<option value="${e.id}" ${e.id === mv.empleado_id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></label>
+    <div class="segm"><button type="button" data-t="ingreso" class="${mv.tipo === 'ingreso' ? 'on' : ''}">Ingreso</button><button type="button" data-t="deduccion" class="${mv.tipo === 'deduccion' ? 'on' : ''}">Deducción</button></div>
+    <input type="hidden" name="tipo" value="${mv.tipo}">
+    <label class="f">Concepto<input class="inp" name="concepto" list="dl-con" value="${esc(mv.concepto)}" required placeholder="Escribe o elige"></label>
+    <datalist id="dl-con"></datalist>
+    <div class="row2"><label class="f">Base (opcional)<input class="inp" type="number" step="0.01" name="base" placeholder="Ej. 344996.11"></label><label class="f">% (opcional)<input class="inp" type="number" step="0.01" name="pct" placeholder="Ej. 5"></label></div>
+    <label class="f">Monto (L)<input class="inp" type="number" step="0.01" min="0" name="monto" value="${mv.monto}" required></label>
+    <label class="f">Detalle del cálculo<input class="inp" name="detalle" value="${esc(mv.detalle || '')}" placeholder="Aparece en el comprobante, ej.: 2 cuentas × L 300"></label>
+    <div class="pie">${mv.id ? '<button type="button" class="btn rojo" id="del">Eliminar</button>' : ''}<button class="btn pri">${mv.id ? 'Guardar cambios' : 'Agregar línea'}</button></div></form>`);
+  const f = $('form', h.el);
+  const dl = () => { $('#dl-con', h.el).innerHTML = cs.filter(c => c.tipo === f.tipo.value).map(c => `<option value="${esc(c.nombre)}">`).join(''); };
+  dl();
+  $$('.segm button', h.el).forEach(b => b.onclick = () => { $$('.segm button', h.el).forEach(x => x.classList.toggle('on', x === b)); f.tipo.value = b.dataset.t; dl(); });
+  const calc = () => { const b = +f.base.value, p = +f.pct.value; if (b && p) { f.monto.value = (b * p / 100).toFixed(2); f.detalle.value = `${N(b)} × ${p}%`; } };
+  f.base.oninput = calc; f.pct.oninput = calc;
+  f.onsubmit = async e => {
+    e.preventDefault(); const x = formData(f);
+    const row = { periodo_id: per.id, empleado_id: x.empleado_id, tipo: x.tipo, concepto: x.concepto.trim(), monto: +x.monto, detalle: x.detalle || null };
+    const orden = cs.find(c => c.nombre === row.concepto)?.orden; if (orden) row.orden = orden;
+    try { if (mv.id) await q(sb.from('pl_movimientos').update(row).eq('id', mv.id)); else await q(sb.from('pl_movimientos').insert(row)); h.cerrar(); toast(mv.id ? 'Cambios guardados' : 'Línea agregada'); vPeriodo(per.id, 'movimientos'); } catch (er) { toast(errMsg(er), true); }
+  };
+  $('#del', h.el) && ($('#del', h.el).onclick = async () => { try { await q(sb.from('pl_movimientos').delete().eq('id', mv.id)); h.cerrar(); toast('Línea eliminada'); vPeriodo(per.id, 'movimientos'); } catch (er) { toast(errMsg(er), true); } });
+}
+
+/* ---------- adelantos dentro del período ---------- */
+async function tabAdelantosPeriodo(cont, per) {
+  const ad = await q(sb.from('pl_adelantos').select('*, pl_empleados(nombre)').eq('periodo_id', per.id).order('fecha'));
+  const abierta = per.estado === 'abierta';
+  cont.innerHTML = `${abierta ? `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn pri" id="add">${ICON.mas}Registrar adelanto</button></div>` : ''}
+    ${ad.length ? `<div class="tscroll"><table class="t"><thead><tr><th>Fecha</th><th>Empleado</th><th>Descripción</th><th class="r">Monto</th></tr></thead><tbody>
+      ${ad.map(a => `<tr class="${abierta ? 'click' : ''}" data-a="${a.id}"><td>${fc(a.fecha)}</td><td><b>${esc(a.pl_empleados?.nombre)}</b></td><td class="muted">${esc(a.descripcion || '')}</td><td class="r num">${L(a.monto)}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td></td><td>Total</td><td></td><td class="r">${L(ad.reduce((s, a) => s + +a.monto, 0))}</td></tr></tfoot></table></div>`
+      : `<div class="vacio"><b>Sin adelantos en esta planilla</b>Los adelantos registrados aquí se descuentan en el comprobante.</div>`}`;
+  if (!abierta) return;
+  const recargar = () => vPeriodo(per.id, 'adelantos');
+  $('#add', cont).onclick = () => editarAdelanto(null, per, recargar);
+  $$('tr[data-a]', cont).forEach(tr => tr.onclick = () => editarAdelanto(ad.find(a => a.id === tr.dataset.a), per, recargar));
+}
+
+async function editarAdelanto(a, perFijo, despues) {
+  const [emps, abiertos] = await Promise.all([empleadosActivos(), periodosAbiertos()]);
+  a = a || { fecha: iso(hoyHN()), monto: '', descripcion: 'Adelanto de salario', empleado_id: '', periodo_id: perFijo?.id || '' };
+  if (!a.periodo_id && !perFijo) { const hoy = iso(hoyHN()); const p = abiertos.find(p => p.tipo === 'salario' && p.fecha_inicio <= hoy && p.fecha_fin >= hoy) || abiertos.find(p => p.tipo === 'salario'); a.periodo_id = p?.id || ''; }
+  const h = hoja(a.id ? 'Editar adelanto' : 'Registrar adelanto', `<form>
+    <label class="f">Empleado<select class="inp" name="empleado_id" required><option value="">Elegir…</option>${emps.filter(e => e.activo || e.id === a.empleado_id).map(e => `<option value="${e.id}" ${e.id === a.empleado_id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></label>
+    <div class="row2"><label class="f">Fecha<input class="inp" type="date" name="fecha" value="${a.fecha}" required></label><label class="f">Monto (L)<input class="inp" type="number" step="0.01" min="0.01" name="monto" value="${a.monto}" required></label></div>
+    <label class="f">Se descuenta en<select class="inp" name="periodo_id"><option value="">Pendiente (sin planilla)</option>${abiertos.map(p => `<option value="${p.id}" ${p.id === a.periodo_id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
+    <label class="f">Descripción<input class="inp" name="descripcion" value="${esc(a.descripcion || '')}"></label>
+    <div class="pie">${a.id ? '<button type="button" class="btn rojo" id="del">Eliminar</button>' : ''}<button class="btn pri">${a.id ? 'Guardar cambios' : 'Registrar adelanto'}</button></div></form>`);
+  $('form', h.el).onsubmit = async e => {
+    e.preventDefault(); const x = formData(e.target);
+    const row = { empleado_id: x.empleado_id, fecha: x.fecha, monto: +x.monto, periodo_id: x.periodo_id || null, descripcion: x.descripcion || null };
+    try { if (a.id) await q(sb.from('pl_adelantos').update(row).eq('id', a.id)); else await q(sb.from('pl_adelantos').insert(row)); h.cerrar(); toast(a.id ? 'Cambios guardados' : 'Adelanto registrado'); despues(); } catch (er) { toast(errMsg(er), true); }
+  };
+  $('#del', h.el) && ($('#del', h.el).onclick = async () => { try { await q(sb.from('pl_adelantos').delete().eq('id', a.id)); h.cerrar(); toast('Adelanto eliminado'); despues(); } catch (er) { toast(errMsg(er), true); } });
+}
+
+/* ---------- comprobantes ---------- */
+function tabComprobantes(cont, per, calc) {
+  cont.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap"><span class="small muted">${per.estado === 'abierta' ? 'Vista previa: los comprobantes se guardan y los empleados los ven cuando cierras la planilla.' : 'Comprobantes emitidos. Cada empleado los ve con su usuario.'}</span><button class="btn borde" id="imp">${ICON.print}Imprimir todos</button></div>
+    <div class="lista">${calc.map(c => `<a class="item" href="#/comp/${per.id}/${c.empleado_id}"><div class="grow"><div class="t">${esc(c.nombre)}</div><div class="s">${c.numero ? 'No. ' + esc(c.numero) + ' · ' : ''}${esc(c.metodo_pago === 'EFECTIVO' ? 'Efectivo' : 'Transferencia ' + (c.banco || ''))}</div></div><div class="num">${L(c.neto)}</div></a>`).join('')}</div>`;
+  $('#imp', cont).onclick = () => imprimir(calc.map(c => ({ c, numero: c.numero })), per);
+}
+
+async function vComprobanteAdmin(perId, empId) {
+  cargando();
+  const [per, calc, emp] = await Promise.all([q(sb.from('pl_periodos').select('*').eq('id', perId).single()), q(sb.rpc('pl_calcular', { p_periodo: perId, p_empleado: empId })), q(sb.from('pl_empleados').select('telefono').eq('id', empId).single())]);
+  const c = calc[0];
+  if (!c) return shell(`<div class="vacio"><b>Sin comprobante</b>Este empleado no está en la planilla.</div>`);
+  const m = shell(`<div class="miga"><a href="#/planilla/${perId}/comprobantes">${esc(per.nombre)}</a></div>
+    <div class="top"><h1>Comprobante</h1><div class="acc"><button class="btn borde" id="wa">${ICON.wa}WhatsApp</button><button class="btn pri" id="imp">${ICON.print}Imprimir / PDF</button></div></div>
+    ${htmlComprobante(c, { numero: c.numero, borrador: per.estado === 'abierta' })}`);
+  $('#imp', m).onclick = () => imprimir([{ c, numero: c.numero }], per);
+  $('#wa', m).onclick = () => compartirWA(c, emp.telefono);
+}
+
+function htmlComprobante(c, { numero, borrador } = {}) {
+  const p = c.periodo || {};
+  const ing = c.ingresos || [], ded = c.deducciones || [];
+  const a = c.asistencia;
+  const marcas = a?.marcas || {};
+  const asis = a ? [
+    ['Días trabajados', marcas.T], ['Faltas', marcas.F], ['Vacaciones', marcas.V], ['Incapacidad', marcas.I], ['Permisos sin goce', marcas.P], ['Libres', marcas.L],
+    ['Horas extra', a.horas_extra > 0 ? N(a.horas_extra) : 0], ['Feriados trabajados', a.feriados], ['Minutos tarde', a.minutos_tarde > 0 ? a.minutos_tarde : 0]
+  ].filter(([, v]) => v && v != 0) : [];
+  return `<article class="cp">
+    <header class="cp-cab"><div><div class="marca">más<span class="p">pisto</span></div><div class="tit">Comprobante de pago · ${p.tipo === 'comisiones' ? 'Comisiones' : 'Planilla de salario'}</div></div>
+      <div class="nro">No.<b>${esc(numero || p.codigo)}</b>${fc(p.fecha_pago)}${borrador ? '<div><span class="chip warn">Vista previa</span></div>' : ''}</div></header>
+    <section class="cp-quien"><div class="nom">${esc(c.nombre)}</div>
+      <div class="cp-dato"><span>Período</span><span>${esc(p.nombre)}</span></div>
+      <div class="cp-dato"><span>Fechas</span><span>${fc(p.fecha_inicio)} al ${fc(p.fecha_fin)}</span></div>
+      ${c.cargo ? `<div class="cp-dato"><span>Cargo</span><span>${esc(c.cargo)}</span></div>` : ''}
+      ${+c.salario_mensual ? `<div class="cp-dato"><span>Salario mensual</span><span>${L(c.salario_mensual)}</span></div>` : ''}
+      ${c.fecha_ingreso ? `<div class="cp-dato"><span>Fecha de ingreso</span><span>${fc(c.fecha_ingreso)}</span></div>` : ''}
+      <div class="cp-dato"><span>Forma de pago</span><span>${c.metodo_pago === 'EFECTIVO' ? 'Efectivo' : 'Transferencia ' + esc(c.banco || '')}${c.cuenta ? ' · ' + esc(c.cuenta) : ''}</span></div>
+    </section>
+    <section class="cp-cols">
+      <div class="cp-col"><h4><span>Ingresos</span></h4>
+        ${ing.map(x => `<div class="cp-l"><span>${esc(x.concepto)}</span><span class="mt">${L(x.monto)}</span>${x.tiempo != null ? `<span class="dt">${N(x.tiempo)} h × ${L(x.tarifa)}</span>` : ''}${x.detalle ? `<span class="dt">${esc(x.detalle)}</span>` : ''}</div>`).join('') || '<div class="small muted">Sin ingresos</div>'}
+        <div class="cp-tot"><span>Total ingresos</span><span class="num">${L(c.total_ingresos)}</span></div></div>
+      <div class="cp-col"><h4><span>Deducciones</span></h4>
+        ${ded.map(x => `<div class="cp-l"><span>${esc(x.concepto)}</span><span class="mt">${L(x.monto)}</span>${x.detalle && !x.prestamo_id ? `<span class="dt">${esc(x.detalle)}</span>` : ''}${x.saldo != null ? `<span class="sal">Saldo después de este pago: ${L(x.saldo)}</span>` : ''}</div>`).join('') || '<div class="small muted">Sin deducciones</div>'}
+        <div class="cp-tot"><span>Total deducciones</span><span class="num">${L(c.total_deducciones)}</span></div></div>
+    </section>
+    ${asis.length ? `<div class="cp-asis">${asis.map(([k, v]) => `<span>${k}: <b>${v}</b></span>`).join('')}</div>` : ''}
+    <div class="cp-neto"><div class="k">Total a pagar<small>${c.metodo_pago === 'EFECTIVO' ? 'En efectivo' : 'Por transferencia'}</small></div><div class="v">${L(c.neto)}</div></div>
+    <div class="cp-firma"><div>Entregado por</div><div>Recibí conforme · ${esc(c.nombre)}</div></div>
+  </article>`;
+}
+
+function imprimir(items, per) {
+  $('#imprimir').innerHTML = items.map(({ c, numero }) => htmlComprobante(c, { numero, borrador: per?.estado === 'abierta' })).join('');
+  setTimeout(() => window.print(), 60);
+}
+
+function textoWA(c) {
+  const p = c.periodo || {};
+  const l = [`*Más Pisto · Comprobante de pago*`, `${c.nombre}`, `${p.nombre} (${fc(p.fecha_inicio)} al ${fc(p.fecha_fin)})`, '', '*Ingresos*'];
+  (c.ingresos || []).forEach(x => l.push(`• ${x.concepto}: ${L(x.monto)}`));
+  l.push(`Total: ${L(c.total_ingresos)}`, '', '*Deducciones*');
+  (c.deducciones || []).forEach(x => l.push(`• ${x.concepto}: ${L(x.monto)}${x.saldo != null ? ` (saldo ${L(x.saldo)})` : ''}`));
+  l.push(`Total: ${L(c.total_deducciones)}`, '', `*Total a pagar: ${L(c.neto)}*`);
+  return l.join('\n');
+}
+function compartirWA(c, tel) {
+  const t = encodeURIComponent(textoWA(c));
+  const n = (tel || '').replace(/\D/g, '');
+  window.open(n ? `https://wa.me/${n.length === 8 ? '504' + n : n}?text=${t}` : `https://wa.me/?text=${t}`, '_blank');
+}
+
+/* ===================== EMPLEADOS ===================== */
+async function vEmpleados() {
+  cargando();
+  const emps = await q(sb.from('pl_empleados').select('*').order('activo', { ascending: false }).order('nombre'));
+  const m = shell(`<div class="top"><div><h1>Empleados</h1><div class="muted small">${emps.filter(e => e.activo).length} activos</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Agregar empleado</button></div></div>
+    <div class="tscroll"><table class="t"><thead><tr><th>#</th><th>Nombre</th><th>Cargo</th><th class="r">Salario mensual</th><th>Recibe</th><th>Usuario</th></tr></thead><tbody>
+    ${emps.map(e => `<tr class="click" data-e="${e.id}" style="${e.activo ? '' : 'opacity:.5'}"><td class="muted">${e.numero}</td><td><b>${esc(e.nombre)}</b>${e.activo ? '' : ' <span class="chip gris">inactivo</span>'}</td><td class="muted">${esc(e.cargo || '')}</td><td class="r">${+e.salario_mensual ? L(e.salario_mensual) : '—'}</td><td>${e.recibe_salario ? '<span class="chip">Salario</span> ' : ''}${e.recibe_comisiones ? '<span class="chip warn">Comisiones</span>' : ''}</td><td class="small">${e.user_id ? `<span class="chip ok">${esc(e.usuario || 'vinculado')}</span>` : '<span class="muted">Sin usuario</span>'}</td></tr>`).join('')}
+    </tbody></table></div>`);
+  $$('tr[data-e]', m).forEach(tr => tr.onclick = () => location.hash = `#/empleado/${tr.dataset.e}`);
+  $('#nuevo', m).onclick = () => editarEmpleado(null);
+}
+
+function editarEmpleado(e) {
+  e = e || { nombre: '', identidad: '', cargo: '', area: '', telefono: '', salario_mensual: '', seguro_medico: 400, fecha_ingreso: '', recibe_salario: true, recibe_comisiones: false, metodo_pago: 'TRANSFERENCIA', banco: 'BAC', cuenta: '', activo: true };
+  const h = hoja(e.id ? 'Editar empleado' : 'Agregar empleado', `<form>
+    <label class="f">Nombre completo<input class="inp" name="nombre" value="${esc(e.nombre)}" required></label>
+    <div class="row2"><label class="f">Identidad<input class="inp" name="identidad" value="${esc(e.identidad || '')}" inputmode="numeric"></label><label class="f">Teléfono (WhatsApp)<input class="inp" name="telefono" value="${esc(e.telefono || '')}" inputmode="tel"></label></div>
+    <div class="row2"><label class="f">Cargo<input class="inp" name="cargo" value="${esc(e.cargo || '')}"></label><label class="f">Área<input class="inp" name="area" value="${esc(e.area || '')}"></label></div>
+    <div class="row2"><label class="f">Salario mensual (L)<input class="inp" type="number" step="0.01" min="0" name="salario_mensual" value="${e.salario_mensual}"></label><label class="f">Seguro médico por quincena (L)<input class="inp" type="number" step="0.01" min="0" name="seguro_medico" value="${e.seguro_medico}"></label></div>
+    <label class="f">Fecha de ingreso<input class="inp" type="date" name="fecha_ingreso" value="${e.fecha_ingreso || ''}"></label>
+    <div style="display:flex;gap:18px;flex-wrap:wrap"><label class="chk"><input type="checkbox" name="recibe_salario" ${e.recibe_salario ? 'checked' : ''}>Recibe salario</label><label class="chk"><input type="checkbox" name="recibe_comisiones" ${e.recibe_comisiones ? 'checked' : ''}>Recibe comisiones</label><label class="chk"><input type="checkbox" name="activo" ${e.activo ? 'checked' : ''}>Activo</label></div>
+    <div class="row2"><label class="f">Forma de pago<select class="inp" name="metodo_pago"><option ${e.metodo_pago === 'TRANSFERENCIA' ? 'selected' : ''}>TRANSFERENCIA</option><option ${e.metodo_pago === 'EFECTIVO' ? 'selected' : ''}>EFECTIVO</option></select></label><label class="f">Banco<input class="inp" name="banco" list="dl-banco" value="${esc(e.banco || '')}"></label></div>
+    <datalist id="dl-banco"><option value="BAC"><option value="BANPAIS"><option value="ATLANTIDA"><option value="FICOHSA"><option value="OCCIDENTE"><option value="DAVIVIENDA"><option value="BANRURAL"></datalist>
+    <label class="f">Número de cuenta<input class="inp" name="cuenta" value="${esc(e.cuenta || '')}"></label>
+    <div class="pie"><button class="btn pri">${e.id ? 'Guardar cambios' : 'Agregar empleado'}</button></div></form>`);
+  $('form', h.el).onsubmit = async ev => {
+    ev.preventDefault(); const x = formData(ev.target);
+    const row = { nombre: x.nombre.trim(), identidad: x.identidad || null, cargo: x.cargo || null, area: x.area || null, telefono: x.telefono || null, salario_mensual: +x.salario_mensual || 0, seguro_medico: +x.seguro_medico || 0, fecha_ingreso: x.fecha_ingreso || null, recibe_salario: !!x.recibe_salario, recibe_comisiones: !!x.recibe_comisiones, activo: !!x.activo, metodo_pago: x.metodo_pago, banco: x.banco || null, cuenta: x.cuenta || null };
+    try {
+      if (e.id) { await q(sb.from('pl_empleados').update(row).eq('id', e.id)); h.cerrar(); toast('Cambios guardados'); ruta(); }
+      else { const n = await q(sb.from('pl_empleados').insert(row).select().single()); h.cerrar(); toast('Empleado agregado'); location.hash = `#/empleado/${n.id}`; }
+    } catch (er) { toast(errMsg(er), true); }
+  };
+}
+
+async function fnUsuarios(body) {
+  const { data, error } = await sb.functions.invoke('planilla-usuarios', { body });
+  if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch (_) { } throw new Error(m); }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+async function vEmpleado(id) {
+  cargando();
+  const [e, pres, comps, ad] = await Promise.all([
+    q(sb.from('pl_empleados').select('*').eq('id', id).single()),
+    q(sb.from('pl_prestamos_saldo').select('*').eq('empleado_id', id).order('creado_en')),
+    q(sb.from('pl_comprobantes').select('*, pl_periodos(nombre,tipo,fecha_inicio)').eq('empleado_id', id).eq('anulado', false).order('generado_en', { ascending: false })),
+    q(sb.from('pl_adelantos').select('*, pl_periodos(nombre)').eq('empleado_id', id).order('fecha', { ascending: false }).limit(20))]);
+  const m = shell(`<div class="miga"><a href="#/empleados">Empleados</a></div>
+    <div class="top"><div><h1>${esc(e.nombre)}</h1><div class="muted small">${esc(e.cargo || 'Sin cargo')} · ingreso ${fc(e.fecha_ingreso)}${e.activo ? '' : ' · <span class="chip gris">inactivo</span>'}</div></div><div class="acc"><button class="btn borde" id="edit">Editar datos</button></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+      <div class="panel"><h3 style="margin-bottom:8px">Datos de pago</h3>
+        <div class="cp-dato"><span>Salario mensual</span><span>${L(e.salario_mensual)}</span></div>
+        <div class="cp-dato"><span>Salario por hora</span><span>${L(e.salario_mensual / 240)}</span></div>
+        <div class="cp-dato"><span>Seguro médico</span><span>${L(e.seguro_medico)}</span></div>
+        <div class="cp-dato"><span>Recibe</span><span>${[e.recibe_salario && 'Salario', e.recibe_comisiones && 'Comisiones'].filter(Boolean).join(' y ') || '—'}</span></div>
+        <div class="cp-dato"><span>Forma de pago</span><span>${e.metodo_pago === 'EFECTIVO' ? 'Efectivo' : 'Transferencia ' + esc(e.banco || '')}</span></div>
+        ${e.cuenta ? `<div class="cp-dato"><span>Cuenta</span><span>${esc(e.cuenta)}</span></div>` : ''}
+        ${e.identidad ? `<div class="cp-dato"><span>Identidad</span><span>${esc(e.identidad)}</span></div>` : ''}
+        ${e.telefono ? `<div class="cp-dato"><span>Teléfono</span><span>${esc(e.telefono)}</span></div>` : ''}</div>
+      <div class="panel"><h3 style="margin-bottom:8px">Acceso del empleado</h3>
+        ${e.user_id ? `<p class="small" style="margin:0 0 12px">Ingresa con <b>${esc(e.usuario || '')}</b> y ve sus comprobantes de salario y comisiones, préstamos y adelantos.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" id="clave">Cambiar contraseña</button><button class="btn sm rojo" id="desv">Quitar acceso</button></div>`
+        : `<p class="small muted" style="margin:0 0 12px">Crea un usuario para que el empleado consulte sus pagos desde su teléfono.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm pri" id="crear">Crear usuario</button><button class="btn sm" id="vinc">Vincular cuenta existente</button></div>`}</div>
+    </div>
+    <h2 style="margin:22px 0 10px">Préstamos</h2>
+    <div style="display:flex;justify-content:flex-end;margin:-38px 0 10px"><button class="btn sm" id="npres">${ICON.mas}Nuevo préstamo</button></div>
+    ${pres.length ? `<div class="lista">${pres.map(p => itemPrestamo(p, true)).join('')}</div>` : '<div class="vacio">Sin préstamos</div>'}
+    <h2 style="margin:22px 0 10px">Comprobantes emitidos</h2>
+    ${comps.length ? `<div class="lista">${comps.map(c => `<a class="item" href="#/comp/${c.periodo_id}/${id}"><div class="pago" style="flex:1"><div class="ic ${c.pl_periodos?.tipo === 'comisiones' ? 'c' : 's'}">${c.pl_periodos?.tipo === 'comisiones' ? '%' : 'Q'}</div><div class="grow"><div class="t">${esc(c.pl_periodos?.nombre)}</div><div class="s">No. ${esc(c.numero)}</div></div><div class="num">${L(c.neto)}</div></div></a>`).join('')}</div>` : '<div class="vacio">Aún sin comprobantes</div>'}
+    <h2 style="margin:22px 0 10px">Adelantos recientes</h2>
+    ${ad.length ? `<div class="tscroll"><table class="t"><tbody>${ad.map(a => `<tr><td>${fc(a.fecha)}</td><td class="muted">${esc(a.pl_periodos?.nombre || 'Pendiente de descontar')}</td><td class="r num">${L(a.monto)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Sin adelantos</div>'}`);
+  $('#edit', m).onclick = () => editarEmpleado(e);
+  $('#npres', m).onclick = () => editarPrestamo(null, id);
+  $$('[data-p]', m).forEach(b => b.onclick = () => detallePrestamo(pres.find(p => p.id === b.dataset.p)));
+  const rec = () => vEmpleado(id);
+  $('#crear', m) && ($('#crear', m).onclick = () => {
+    const sug = e.nombre.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/\s+/);
+    const h = hoja('Crear usuario', `<form><label class="f">Usuario<input class="inp" name="usuario" value="${esc((sug[0] || '') + '.' + (sug.length >= 3 ? sug[sug.length - 2] : sug[1] || ''))}" required autocapitalize="none"></label>
+      <label class="f">Contraseña inicial<input class="inp" name="password" minlength="6" required value="${String(Math.floor(100000 + Math.random() * 900000))}"></label>
+      <p class="small muted" style="margin:0">El empleado ingresa con este usuario (sin @) y puede cambiar la contraseña después.</p>
+      <div class="pie"><button class="btn pri">Crear usuario</button></div></form>`);
+    $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { const r = await fnUsuarios({ accion: 'crear', empleado_id: id, ...x }); h.cerrar(); await navigator.clipboard?.writeText(`Usuario: ${r.usuario}\nContraseña: ${x.password}`).catch(() => { }); toast('Usuario creado · datos copiados'); rec(); } catch (er) { toast(errMsg(er), true); } };
+  });
+  $('#vinc', m) && ($('#vinc', m).onclick = () => {
+    const h = hoja('Vincular cuenta existente', `<form><label class="f">Correo de la cuenta (por ejemplo, su usuario de VerifiCrédito)<input class="inp" name="email" type="email" required autocapitalize="none"></label><div class="pie"><button class="btn pri">Vincular cuenta</button></div></form>`);
+    $('form', h.el).onsubmit = async ev => { ev.preventDefault(); try { await fnUsuarios({ accion: 'vincular', empleado_id: id, email: formData(ev.target).email }); h.cerrar(); toast('Cuenta vinculada'); rec(); } catch (er) { toast(errMsg(er), true); } };
+  });
+  $('#clave', m) && ($('#clave', m).onclick = () => {
+    const h = hoja('Cambiar contraseña', `<form><label class="f">Nueva contraseña<input class="inp" name="password" minlength="6" required></label><div class="pie"><button class="btn pri">Guardar contraseña</button></div></form>`);
+    $('form', h.el).onsubmit = async ev => { ev.preventDefault(); try { await fnUsuarios({ accion: 'password', empleado_id: id, password: formData(ev.target).password }); h.cerrar(); toast('Contraseña actualizada'); } catch (er) { toast(errMsg(er), true); } };
+  });
+  $('#desv', m) && ($('#desv', m).onclick = async () => { if (!await confirmar('Quitar acceso', 'El empleado ya no podrá ver sus pagos. Si la cuenta se creó solo para planilla, se elimina; una cuenta de VerifiCrédito solo se desvincula.', 'Quitar acceso', true)) return; try { await fnUsuarios({ accion: 'desvincular', empleado_id: id }); toast('Acceso quitado'); rec(); } catch (er) { toast(errMsg(er), true); } });
+}
+
+/* ===================== PRÉSTAMOS ===================== */
+function itemPrestamo(p, conBoton) {
+  const pct = Math.min(100, Math.max(0, (+p.pagado / +p.monto_total) * 100));
+  const cuotas = +p.saldo > 0 ? Math.ceil(+p.saldo / +p.cuota) : 0;
+  return `<div class="item" ${conBoton ? `data-p="${p.id}"` : ''} style="display:block">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div class="t">${esc(p.codigo)} ${p.pl_empleados ? '· ' + esc(p.pl_empleados.nombre) : ''}</div><div class="s">Cuota ${L(p.cuota)} por ${p.aplica_en === 'comisiones' ? 'pago de comisiones' : 'quincena'}${cuotas ? ` · faltan ${cuotas} cuota${cuotas > 1 ? 's' : ''}` : ''}</div></div>
+      <div style="text-align:right">${+p.saldo <= 0.004 ? '<span class="chip ok">Pagado</span>' : (p.activo ? `<div class="num">${L(p.saldo)}</div><div class="tiny muted">saldo</div>` : '<span class="chip gris">Pausado</span>')}</div></div>
+    <div class="barra"><i style="width:${pct}%"></i></div>
+    <div class="tiny muted" style="margin-top:4px">Pagado ${L(p.pagado)} de ${L(p.monto_total)}</div></div>`;
+}
+
+async function vPrestamos() {
+  cargando();
+  const [pres0, emps] = await Promise.all([q(sb.from('pl_prestamos_saldo').select('*').order('creado_en')), q(sb.from('pl_empleados').select('id,nombre'))]);
+  const pres = pres0.map(p => ({ ...p, pl_empleados: { nombre: emps.find(e => e.id === p.empleado_id)?.nombre || '' } }));
+  const act = pres.filter(p => +p.saldo > 0.004);
+  const m = shell(`<div class="top"><div><h1>Préstamos a empleados</h1><div class="muted small">${act.length} con saldo · ${L(act.reduce((a, p) => a + +p.saldo, 0))} por recuperar · ${L(act.filter(p => p.activo && p.aplica_en === 'salario').reduce((a, p) => a + Math.min(+p.cuota, +p.saldo), 0))} por quincena</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Nuevo préstamo</button></div></div>
+    <div class="segm" style="margin-bottom:12px"><button class="on" data-f="act">Con saldo</button><button data-f="todos">Todos</button></div>
+    <div id="lp"></div>`);
+  const pintar = f => { const l = f === 'act' ? act : pres; $('#lp', m).innerHTML = l.length ? `<div class="lista">${l.sort((a, b) => a.pl_empleados.nombre.localeCompare(b.pl_empleados.nombre)).map(p => itemPrestamo(p, true)).join('')}</div>` : '<div class="vacio"><b>Sin préstamos</b>Registra el préstamo y su cuota; se descuenta solo en cada planilla.</div>'; $$('[data-p]', m).forEach(b => b.onclick = () => detallePrestamo(pres.find(p => p.id === b.dataset.p))); };
+  $$('.segm button', m).forEach(b => b.onclick = () => { $$('.segm button', m).forEach(x => x.classList.toggle('on', x === b)); pintar(b.dataset.f); });
+  pintar('act');
+  $('#nuevo', m).onclick = () => editarPrestamo(null);
+}
+
+async function editarPrestamo(p, empId) {
+  const emps = await empleadosActivos();
+  p = p || { empleado_id: empId || '', codigo: '', descripcion: '', fecha: iso(hoyHN()), monto_total: '', cuota: '', aplica_en: 'salario', activo: true };
+  const h = hoja(p.id ? 'Editar préstamo' : 'Nuevo préstamo', `<form>
+    <label class="f">Empleado<select class="inp" name="empleado_id" required><option value="">Elegir…</option>${emps.filter(e => e.activo || e.id === p.empleado_id).map(e => `<option value="${e.id}" ${e.id === p.empleado_id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></label>
+    <div class="row2"><label class="f">Código del préstamo<input class="inp" name="codigo" value="${esc(p.codigo)}" required placeholder="NP-000000"></label><label class="f">Fecha<input class="inp" type="date" name="fecha" value="${p.fecha || ''}"></label></div>
+    <div class="row2"><label class="f">Deuda total (L)<input class="inp" type="number" step="0.01" min="0.01" name="monto_total" value="${p.monto_total}" required></label><label class="f">Cuota por pago (L)<input class="inp" type="number" step="0.01" min="0.01" name="cuota" value="${p.cuota}" required></label></div>
+    <label class="f">Se descuenta en<select class="inp" name="aplica_en"><option value="salario" ${p.aplica_en === 'salario' ? 'selected' : ''}>Planilla de salario (cada quincena)</option><option value="comisiones" ${p.aplica_en === 'comisiones' ? 'selected' : ''}>Pago de comisiones (mensual)</option></select></label>
+    <label class="f">Descripción<input class="inp" name="descripcion" value="${esc(p.descripcion || '')}" placeholder="Ej.: préstamo nivelado"></label>
+    <label class="chk"><input type="checkbox" name="activo" ${p.activo ? 'checked' : ''}>Descontar en planilla (desmarca para pausar)</label>
+    <div class="pie">${p.id ? '<button type="button" class="btn rojo" id="del">Eliminar</button>' : ''}<button class="btn pri">${p.id ? 'Guardar cambios' : 'Registrar préstamo'}</button></div></form>`);
+  $('form', h.el).onsubmit = async ev => {
+    ev.preventDefault(); const x = formData(ev.target);
+    const row = { empleado_id: x.empleado_id, codigo: x.codigo.trim(), fecha: x.fecha || null, monto_total: +x.monto_total, cuota: +x.cuota, aplica_en: x.aplica_en, descripcion: x.descripcion || null, activo: !!x.activo };
+    try { if (p.id) await q(sb.from('pl_prestamos').update(row).eq('id', p.id)); else await q(sb.from('pl_prestamos').insert(row)); h.cerrar(); toast(p.id ? 'Cambios guardados' : 'Préstamo registrado'); ruta(); } catch (er) { toast(errMsg(er), true); }
+  };
+  $('#del', h.el) && ($('#del', h.el).onclick = async () => { h.cerrar(); if (!await confirmar('Eliminar préstamo', 'Se borrará el préstamo y su historial de abonos.', 'Eliminar', true)) return; try { await q(sb.from('pl_prestamos').delete().eq('id', p.id)); toast('Préstamo eliminado'); ruta(); } catch (er) { toast(errMsg(er), true); } });
+}
+
+async function detallePrestamo(p) {
+  const pagos = await q(sb.from('pl_prestamo_pagos').select('*, pl_periodos(nombre)').eq('prestamo_id', p.id).eq('anulado', false).order('fecha'));
+  const h = hoja(`Préstamo ${p.codigo}`, `${itemPrestamo(p, false)}
+    <h3 style="margin:16px 0 6px">Abonos</h3>
+    ${pagos.length ? `<table class="t"><tbody>${pagos.map(g => `<tr><td>${fc(g.fecha)}</td><td class="muted small">${esc(g.pl_periodos?.nombre || g.nota || 'Abono directo')}</td><td class="r num">${L(g.monto)}</td><td style="width:30px">${g.periodo_id ? '' : `<button class="btn sm rojo" data-del="${g.id}" aria-label="Eliminar abono">×</button>`}</td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Sin abonos todavía. Se registran solos al cerrar cada planilla.</p>'}
+    <div class="pie" style="margin-top:14px"><button class="btn" id="abono">Registrar abono directo</button><button class="btn borde" id="edit">Editar préstamo</button></div>`);
+  $('#edit', h.el).onclick = () => { h.cerrar(); editarPrestamo(p); };
+  $$('[data-del]', h.el).forEach(b => b.onclick = async () => { try { await q(sb.from('pl_prestamo_pagos').delete().eq('id', b.dataset.del)); h.cerrar(); toast('Abono eliminado'); ruta(); } catch (er) { toast(errMsg(er), true); } });
+  $('#abono', h.el).onclick = () => {
+    h.cerrar();
+    const h2 = hoja('Abono directo', `<form><p class="small muted" style="margin:0">Pago hecho fuera de planilla (en caja o depósito).</p><div class="row2"><label class="f">Fecha<input class="inp" type="date" name="fecha" value="${iso(hoyHN())}" required></label><label class="f">Monto (L)<input class="inp" type="number" step="0.01" min="0.01" max="${+p.saldo}" name="monto" required></label></div><label class="f">Nota<input class="inp" name="nota" placeholder="Ej.: pago en caja"></label><div class="pie"><button class="btn pri">Registrar abono</button></div></form>`);
+    $('form', h2.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { await q(sb.from('pl_prestamo_pagos').insert({ prestamo_id: p.id, fecha: x.fecha, monto: +x.monto, nota: x.nota || 'Abono directo' })); h2.cerrar(); toast('Abono registrado'); ruta(); } catch (er) { toast(errMsg(er), true); } };
+  };
+}
+
+/* ===================== ADELANTOS ===================== */
+async function vAdelantos() {
+  cargando();
+  const ad = await q(sb.from('pl_adelantos').select('*, pl_empleados(nombre), pl_periodos(nombre,estado)').order('fecha', { ascending: false }).limit(300));
+  const pend = ad.filter(a => !a.periodo_id);
+  const m = shell(`<div class="top"><div><h1>Adelantos de salario</h1><div class="muted small">Se descuentan en la planilla asignada</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Registrar adelanto</button></div></div>
+    ${pend.length ? `<div class="err" style="background:#FFF6CC;color:#6B5200;margin-bottom:12px">${pend.length} adelanto${pend.length > 1 ? 's' : ''} sin planilla asignada (${L(pend.reduce((s, a) => s + +a.monto, 0))}). Asígnalos para que se descuenten.</div>` : ''}
+    ${ad.length ? `<div class="tscroll"><table class="t"><thead><tr><th>Fecha</th><th>Empleado</th><th>Se descuenta en</th><th class="r">Monto</th></tr></thead><tbody>
+      ${ad.map(a => `<tr class="click" data-a="${a.id}"><td>${fc(a.fecha)}</td><td><b>${esc(a.pl_empleados?.nombre)}</b>${a.descripcion && a.descripcion !== 'Adelanto de salario' ? `<div class="tiny muted">${esc(a.descripcion)}</div>` : ''}</td><td>${a.pl_periodos ? `${esc(a.pl_periodos.nombre)} ${a.pl_periodos.estado === 'cerrada' ? '<span class="chip ok">descontado</span>' : ''}` : '<span class="chip warn">Pendiente</span>'}</td><td class="r num">${L(a.monto)}</td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="vacio"><b>Sin adelantos</b>Registra los adelantos a medida que se entregan.</div>'}`);
+  $('#nuevo', m).onclick = () => editarAdelanto(null, null, vAdelantos);
+  $$('tr[data-a]', m).forEach(tr => tr.onclick = () => { const a = ad.find(x => x.id === tr.dataset.a); if (a.pl_periodos?.estado === 'cerrada') return toast('Ya se descontó en una planilla cerrada', true); editarAdelanto(a, null, vAdelantos); });
+}
+
+/* ===================== AJUSTES ===================== */
+async function vAjustes() {
+  cargando();
+  const cs = await q(sb.from('pl_conceptos').select('*').order('tipo').order('orden'));
+  S.conceptos = null;
+  const grupo = (t, titulo) => `<div class="panel"><h3 style="margin-bottom:8px">${titulo}</h3><table class="t"><tbody>${cs.filter(c => c.tipo === t).map(c => `<tr class="click" data-c="${c.id}" style="${c.activo ? '' : 'opacity:.45'}"><td>${esc(c.nombre)}</td><td class="small muted">${{ salario: 'Salario', comisiones: 'Comisiones', ambos: 'Ambas' }[c.aplica]}</td></tr>`).join('')}</tbody></table></div>`;
+  const m = shell(`<div class="top"><div><h1>Ajustes</h1><div class="muted small">Catálogo de conceptos para ingresos y deducciones</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Nuevo concepto</button></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">${grupo('ingreso', 'Ingresos')}${grupo('deduccion', 'Deducciones')}</div>
+    <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:6px">Cómo se calcula la quincena</h3><p class="small muted" style="margin:0">Salario por hora = salario mensual ÷ 240. La quincena paga 120 horas menos las horas no laboradas (faltas y permisos sin goce). Horas extra × 1.25. Feriado trabajado = 8 horas adicionales. Llegadas tarde: minutos × salario mensual ÷ 14,400. Se suma el seguro médico y se restan adelantos, cuotas de préstamos y otras deducciones.</p></div>`);
+  const edit = c => {
+    c = c || { nombre: '', tipo: 'ingreso', aplica: 'ambos', orden: 100, activo: true };
+    const h = hoja(c.id ? 'Editar concepto' : 'Nuevo concepto', `<form><label class="f">Nombre<input class="inp" name="nombre" value="${esc(c.nombre)}" required></label>
+      <div class="row2"><label class="f">Tipo<select class="inp" name="tipo"><option value="ingreso" ${c.tipo === 'ingreso' ? 'selected' : ''}>Ingreso</option><option value="deduccion" ${c.tipo === 'deduccion' ? 'selected' : ''}>Deducción</option></select></label>
+      <label class="f">Aplica en<select class="inp" name="aplica"><option value="ambos" ${c.aplica === 'ambos' ? 'selected' : ''}>Ambas</option><option value="salario" ${c.aplica === 'salario' ? 'selected' : ''}>Salario</option><option value="comisiones" ${c.aplica === 'comisiones' ? 'selected' : ''}>Comisiones</option></select></label></div>
+      <label class="f">Orden en el comprobante<input class="inp" type="number" name="orden" value="${c.orden}"></label>
+      <label class="chk"><input type="checkbox" name="activo" ${c.activo ? 'checked' : ''}>Activo</label>
+      <div class="pie"><button class="btn pri">Guardar concepto</button></div></form>`);
+    $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); const row = { nombre: x.nombre.trim(), tipo: x.tipo, aplica: x.aplica, orden: +x.orden || 100, activo: !!x.activo }; try { if (c.id) await q(sb.from('pl_conceptos').update(row).eq('id', c.id)); else await q(sb.from('pl_conceptos').insert(row)); h.cerrar(); toast('Concepto guardado'); vAjustes(); } catch (er) { toast(errMsg(er), true); } };
+  };
+  $('#nuevo', m).onclick = () => edit(null);
+  $$('tr[data-c]', m).forEach(tr => tr.onclick = () => edit(cs.find(c => c.id === tr.dataset.c)));
+}
+
+/* ===================== VISTA EMPLEADO ===================== */
+async function vMisPagos() {
+  cargando();
+  const comps = await q(sb.from('pl_comprobantes').select('id,numero,neto,total_ingresos,total_deducciones,generado_en,periodo_id,datos->periodo').eq('empleado_id', S.yo.id).eq('anulado', false));
+  comps.sort((a, b) => String(b.periodo?.fecha_pago || b.periodo?.fecha_fin).localeCompare(String(a.periodo?.fecha_pago || a.periodo?.fecha_fin)));
+  const ult = comps[0];
+  const anio = String(hoyHN().getFullYear());
+  const delAnio = comps.filter(c => String(c.periodo?.fecha_pago || c.periodo?.fecha_fin).startsWith(anio));
+  const sumT = t => delAnio.filter(c => c.periodo?.tipo === t).reduce((a, c) => a + +c.neto, 0);
+  const m = shell(`
+    <div class="hola">${ult ? `<div class="k">Último pago · ${esc(ult.periodo?.nombre)}</div><div class="v">${L(ult.neto)}</div><div class="s">Pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)}</div>` : `<div class="k">Hola, ${esc(corto(S.yo.nombre))}</div><div class="v" style="font-size:22px">Aún no tienes comprobantes</div><div class="s">Aparecerán aquí cuando se cierre la planilla.</div>`}</div>
+    ${delAnio.length ? `<div class="totales" style="grid-template-columns:1fr 1fr"><div><div class="k">Salario recibido ${anio}</div><div class="v">${L(sumT('salario'))}</div></div><div><div class="k">Comisiones recibidas ${anio}</div><div class="v">${L(sumT('comisiones'))}</div></div></div>` : ''}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:6px 0 12px;flex-wrap:wrap"><h2>Mis comprobantes</h2>
+      <div class="segm"><button class="on" data-f="">Todos</button><button data-f="salario">Salario</button><button data-f="comisiones">Comisiones</button></div></div>
+    <div id="lc"></div>
+    ${S.admin ? '' : `<div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn borde" href="#/mis-prestamos">${ICON.prestamo}Mis préstamos y adelantos</a><button class="btn borde" onclick="cambiarMiClave()">Cambiar contraseña</button></div>`}`);
+  const pintar = f => { const l = comps.filter(c => !f || c.periodo?.tipo === f); $('#lc', m).innerHTML = l.length ? `<div class="lista">${l.map(c => `<a class="item" href="#/mi-comprobante/${c.id}"><div class="pago" style="flex:1"><div class="ic ${c.periodo?.tipo === 'comisiones' ? 'c' : 's'}">${c.periodo?.tipo === 'comisiones' ? '%' : 'Q'}</div><div class="grow"><div class="t">${esc(c.periodo?.nombre)}</div><div class="s">${fc(c.periodo?.fecha_pago || c.periodo?.fecha_fin)} · deducciones ${L(c.total_deducciones)}</div></div><div class="num">${L(c.neto)}</div></div></a>`).join('')}</div>` : '<div class="vacio">No hay comprobantes de este tipo.</div>'; };
+  $$('.segm button', m).forEach(b => b.onclick = () => { $$('.segm button', m).forEach(x => x.classList.toggle('on', x === b)); pintar(b.dataset.f); });
+  pintar('');
+}
+
+async function vMiComprobante(id) {
+  cargando();
+  const c = await q(sb.from('pl_comprobantes').select('*').eq('id', id).single());
+  const m = shell(`<div class="miga"><a href="#/mis-pagos">Mis pagos</a></div>
+    <div class="top"><h1>Comprobante</h1><div class="acc"><button class="btn pri" id="imp">${ICON.print}Descargar PDF</button></div></div>
+    ${htmlComprobante(c.datos, { numero: c.numero })}`);
+  $('#imp', m).onclick = () => imprimir([{ c: c.datos, numero: c.numero }], { estado: 'cerrada' });
+}
+
+async function vMisPrestamos() {
+  cargando();
+  const [pres, ad, pagos] = await Promise.all([
+    q(sb.from('pl_prestamos_saldo').select('*').eq('empleado_id', S.yo.id).order('creado_en')),
+    q(sb.from('pl_adelantos').select('*').eq('empleado_id', S.yo.id).order('fecha', { ascending: false }).limit(30)),
+    q(sb.from('pl_prestamo_pagos').select('*, pl_prestamos!inner(codigo,empleado_id)').eq('pl_prestamos.empleado_id', S.yo.id).eq('anulado', false).order('fecha', { ascending: false }).limit(40))]);
+  const saldo = pres.reduce((a, p) => a + Math.max(0, +p.saldo), 0);
+  shell(`<div class="hola"><div class="k">Saldo total de mis préstamos</div><div class="v">${L(saldo)}</div><div class="s">${pres.filter(p => +p.saldo > 0.004).length} préstamo(s) activos</div></div>
+    <h2 style="margin-bottom:10px">Préstamos</h2>
+    ${pres.length ? `<div class="lista">${pres.map(p => itemPrestamo(p, false)).join('')}</div>` : '<div class="vacio">No tienes préstamos.</div>'}
+    <h2 style="margin:22px 0 10px">Abonos descontados</h2>
+    ${pagos.length ? `<div class="tscroll"><table class="t"><tbody>${pagos.map(g => `<tr><td>${fc(g.fecha)}</td><td>${esc(g.pl_prestamos.codigo)}</td><td class="muted small">${esc(g.nota || '')}</td><td class="r num">${L(g.monto)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Sin abonos todavía.</div>'}
+    <h2 style="margin:22px 0 10px">Adelantos de salario</h2>
+    ${ad.length ? `<div class="tscroll"><table class="t"><tbody>${ad.map(a => `<tr><td>${fc(a.fecha)}</td><td class="muted small">${esc(a.descripcion || '')}</td><td class="r num">${L(a.monto)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Sin adelantos.</div>'}`);
+}
+
+/* ===================== arranque ===================== */
+sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') { S.user = null; } });
+iniciar();
+</script>
+</body>
+</html>

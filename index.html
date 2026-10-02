@@ -1319,8 +1319,10 @@ function calcRefi(s, c){
   const qsi = limAprob * tasaSI; cuotas.push({ plazo: 'Solo interés', cuota: qsi, pct: prom ? qsi / prom : null });
   const motivos = [];
   if (tard3 > 5) motivos.push('más de 5 pagos tardíos');
-  const minPct = Math.min(cuotas[0].pct ?? 0, cuotas[1].pct ?? 0);
-  if (minPct > 0.25) motivos.push('cuota mayor al 25% del ingreso');
+  // Se rechaza solo si NINGÚN plazo nivelado (3 a 12 meses) queda dentro del 25% del ingreso
+  const viables = cuotas.slice(0, 5).filter(q => q.pct != null && q.pct <= 0.25);
+  const plazoMin = prom ? (viables[0]?.plazo || null) : null;
+  if (prom && !viables.length) motivos.push('ningún plazo deja la cuota dentro del 25% del ingreso');
   if (disponible < (P.disponible_minimo ?? 2000)) motivos.push(`disponible menor a ${L(P.disponible_minimo ?? 2000)}`);
   let dictamen;
   if (motivos.length) dictamen = 'RECHAZADO';
@@ -1333,11 +1335,11 @@ function calcRefi(s, c){
   const proxLim = tard3 > 5 ? null : Math.min(P.techo_refi || 30000, mround(prom * (r2 < 0.4 ? 0.5 : r2 < 0.7 ? 0.8 : 1), 1000));
   const peldano = (antig == null || antig < 90) ? '50% (menos de 90 días)' : diasAum < 90 ? 'Se mantiene (último aumento hace menos de 90 días)' : `${Math.round(factor * 100)}%`;
   return { elegido, limCalc, autorizado, prefCalc, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob,
-    limAprob, disponible, pref, tasaNueva, cuotas, dictamen, motivos, proxAum, proxLim, techo, sinFecha: !s.fecha_ingreso };
+    limAprob, disponible, pref, tasaNueva, cuotas, plazoMin, dictamen, motivos, proxAum, proxLim, techo, sinFecha: !s.fecha_ingreso };
 }
 function dictamenRefiHTML(r){
   const col = r.dictamen === 'RECHAZADO' ? 'cerrada' : r.dictamen === 'APROBADO AUTOMÁTICO' ? 'finalizada' : 'desembolso';
-  return `<div class="dict" style="background:var(--r-${col}-bg);color:var(--r-${col})">${r.dictamen}${r.motivos.length ? `<div class="small" style="font-family:Inter,sans-serif;font-weight:600">${esc(r.motivos.join(' · '))}</div>` : ''}</div>`;
+  return `<div class="dict" style="background:var(--r-${col}-bg);color:var(--r-${col})">${r.dictamen}${r.motivos.length ? `<div class="small" style="font-family:Inter,sans-serif;font-weight:600">${esc(r.motivos.join(' · '))}</div>` : ''}${r.plazoMin ? `<div class="small" style="font-family:Inter,sans-serif;font-weight:600">Plazo mínimo viable: ${r.plazoMin}</div>` : ''}</div>`;
 }
 // Quién autorizó el monto / la tasa (último ajuste o el analista del dictamen)
 function autorizadoPor(s, accion){
@@ -1371,7 +1373,7 @@ function cuotasPlazoHTML(monto, pref, tipoPago, prom, plan){
   const filas = [3,6,8,10,12].map(n => ({ plazo:`${n} meses`, mes: monto / n + monto * tN, pagos: Math.round(n * f) }));
   filas.push({ plazo:'Solo interés', mes: monto * tSI, pagos: null });
   const lblF = { Semanal:'semanal', Quincenal:'quincenal', Mensual:'mensual' }[tipoPago] || 'mensual';
-  return `<label class="f" style="margin-top:14px">Cuotas para ${L(monto)} · tasa ${pref ? 'preferencial' : 'normal'} (${(tN*100).toString().replace('.',',')}% nivelado / ${tSI*100}% solo interés)${plan ? ' · plan ' + (plan === 'solo_interes' ? 'solo interés' : 'nivelado') : ''}</label>
+  return `<label class="f" style="margin-top:14px">Cuotas para ${L(monto)} · tasa ${pref ? 'preferencial' : 'normal'} (${+(tN*100).toFixed(2)}% nivelado / ${+(tSI*100).toFixed(2)}% solo interés)${plan ? ' · plan ' + (plan === 'solo_interes' ? 'solo interés' : 'nivelado') : ''}</label>
     <div style="overflow-x:auto"><table class="t"><thead><tr><th>Plazo</th><th class="num">Cuota mensual</th>${tipoPago !== 'Mensual' ? `<th class="num">Cuota ${lblF}</th><th class="num"># pagos</th>` : `<th class="num"># pagos</th>`}<th class="num">% ingreso</th><th>Viabilidad</th></tr></thead><tbody>
     ${filas.map(q => { const pct = prom ? q.mes / prom : null; return `<tr><td>${q.plazo}</td><td class="num">${L(q.mes.toFixed(2))}</td>${tipoPago !== 'Mensual' ? `<td class="num"><b>${L((q.mes / f).toFixed(2))}</b></td>` : ''}<td class="num">${q.pagos ?? '—'}</td>
       <td class="num">${pct == null ? '—' : (pct * 100).toFixed(1) + '%'}</td><td>${pct == null ? '—' : pct <= 0.25 ? '<span class="dif-ok">Viable</span>' : '<span class="dif-b">Alto</span>'}</td></tr>`; }).join('')}

@@ -418,7 +418,8 @@ async function empleadosActivos() { return q(sb.from('pl_empleados').select('id,
 async function periodosAbiertos() { return q(sb.from('pl_periodos').select('*').eq('estado', 'abierta').order('fecha_inicio', { ascending: false })); }
 async function conceptos() { if (!S.conceptos) S.conceptos = await q(sb.from('pl_conceptos').select('*').eq('activo', true).order('orden')); return S.conceptos; }
 
-const esAnticipo = d => !d.prestamo_id && /^(adelanto|vales?\b|vale comisiones)/i.test(String(d.concepto || '').trim());
+// En "Mis pagos" no se restan adelantos, vales ni cuotas de préstamos: es dinero que el empleado ya recibió
+const esAnticipo = d => !!d.prestamo_id || /^(adelanto|vales?\b|vale comisiones|préstamo|prestamo)/i.test(String(d.concepto || '').trim());
 const anticipado = c => (c?.deducciones || []).filter(esAnticipo).reduce((a, d) => a + +d.monto, 0);
 function resumenFila(c) {
   const ded = c.deducciones || [];
@@ -663,7 +664,7 @@ async function editarMov(per, mv, empId, emps) {
   const dl = () => { $('#dl-con', h.el).innerHTML = cs.filter(c => c.tipo === f.tipo.value).map(c => `<option value="${esc(c.nombre)}">`).join(''); };
   dl();
   $$('.segm button', h.el).forEach(b => b.onclick = () => { $$('.segm button', h.el).forEach(x => x.classList.toggle('on', x === b)); f.tipo.value = b.dataset.t; dl(); });
-  const calc = () => { const b = +f.base.value, p = +f.pct.value; if (b && p) { f.monto.value = (b * p / 100).toFixed(2); f.detalle.value = `${N(b)} × ${p}%`; } };
+  const calc = () => { const b = +f.base.value, p = +f.pct.value; if (b && p) { f.monto.value = Math.round(b * p / 100); f.detalle.value = `${N(b)} × ${p}%`; } };
   f.base.oninput = calc; f.pct.oninput = calc;
   f.onsubmit = async e => {
     e.preventDefault(); const x = formData(f);
@@ -971,7 +972,7 @@ async function vAjustes() {
     <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Administradores de planilla</h3>
       <p class="small muted" style="margin:0 0 10px">Pueden ver y editar todo: planillas, empleados, préstamos, adelantos y comprobantes de todos. El administrador de VerifiCrédito siempre tiene este acceso. Solo aparecen empleados que ya tienen usuario.</p>
       ${conCuenta.length ? `<table class="t"><tbody>${conCuenta.map(e => `<tr><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.usuario || '')}</div></td><td class="r">${e.user_id === S.user.id ? '<span class="chip ok">Tú</span>' : `<label class="chk" style="justify-content:flex-end"><input type="checkbox" data-adm="${e.user_id}" ${esAdm.has(e.user_id) ? 'checked' : ''}>Administrador</label>`}</td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Ningún empleado tiene usuario todavía.</p>'}</div>
-    <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:6px">Cómo se calcula la quincena</h3><p class="small muted" style="margin:0">Salario por hora = salario mensual ÷ 240. La quincena paga 120 horas menos las horas no laboradas (faltas y permisos sin goce). Horas extra × 1.25. Feriado trabajado = 8 horas adicionales. Llegadas tarde: minutos × salario mensual ÷ 14,400. Se suma el seguro médico y se restan adelantos, cuotas de préstamos y otras deducciones.</p></div>`);
+    <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:6px">Cómo se calcula la quincena</h3><p class="small muted" style="margin:0">Todos los montos de ingresos y deducciones se redondean a lempiras enteros (0.50 o más sube). Salario por hora = salario mensual ÷ 240. La quincena paga 120 horas menos las horas no laboradas (faltas y permisos sin goce). Horas extra × 1.25. Feriado trabajado = 8 horas adicionales. Llegadas tarde: minutos × salario mensual ÷ 14,400. Se suma el seguro médico y se restan adelantos, cuotas de préstamos y otras deducciones.</p></div>`);
   const edit = c => {
     c = c || { nombre: '', tipo: 'ingreso', aplica: 'ambos', orden: 100, activo: true };
     const h = hoja(c.id ? 'Editar concepto' : 'Nuevo concepto', `<form><label class="f">Nombre<input class="inp" name="nombre" value="${esc(c.nombre)}" required></label>
@@ -1005,13 +1006,13 @@ async function vMisPagos() {
   const delAnio = comps.filter(c => String(c.periodo?.fecha_pago || c.periodo?.fecha_fin).startsWith(anio));
   const sumT = t => delAnio.filter(c => c.periodo?.tipo === t).reduce((a, c) => a + c.recibido, 0);
   const m = shell(`
-    <div class="hola">${ult ? `<div class="k">Último pago · ${esc(ult.periodo?.nombre)}</div><div class="v">${L(ult.recibido)}</div><div class="s">${ult.adel > 0 ? `${L(ult.neto)} pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)} + ${L(ult.adel)} recibidos antes en adelantos/vales` : `Pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)}`}</div>` : `<div class="k">Hola, ${esc(corto(S.yo.nombre))}</div><div class="v" style="font-size:22px">Aún no tienes comprobantes</div><div class="s">Aparecerán aquí cuando se cierre la planilla.</div>`}</div>
+    <div class="hola">${ult ? `<div class="k">Último pago · ${esc(ult.periodo?.nombre)}</div><div class="v">${L(ult.recibido)}</div><div class="s">${ult.adel > 0 ? `${L(ult.neto)} pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)} + ${L(ult.adel)} en adelantos, vales y préstamos` : `Pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)}`}</div>` : `<div class="k">Hola, ${esc(corto(S.yo.nombre))}</div><div class="v" style="font-size:22px">Aún no tienes comprobantes</div><div class="s">Aparecerán aquí cuando se cierre la planilla.</div>`}</div>
     ${delAnio.length ? `<div class="totales" style="grid-template-columns:1fr 1fr"><div><div class="k">Salario ganado ${anio}</div><div class="v">${L(sumT('salario'))}</div></div><div><div class="k">Comisiones ganadas ${anio}</div><div class="v">${L(sumT('comisiones'))}</div></div></div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:6px 0 12px;flex-wrap:wrap"><h2>Mis comprobantes</h2>
       <div class="segm"><button class="on" data-f="">Todos</button><button data-f="salario">Salario</button><button data-f="comisiones">Comisiones</button></div></div>
     <div id="lc"></div>
     ${S.admin ? '' : `<div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn borde" href="#/mis-prestamos">${ICON.prestamo}Mis préstamos y adelantos</a><button class="btn borde" onclick="cambiarMiClave()">Cambiar contraseña</button></div>`}`);
-  const pintar = f => { const l = comps.filter(c => !f || c.periodo?.tipo === f); $('#lc', m).innerHTML = l.length ? `<div class="lista">${l.map(c => `<a class="item" href="#/mi-comprobante/${c.id}"><div class="pago" style="flex:1"><div class="ic ${c.periodo?.tipo === 'comisiones' ? 'c' : 's'}">${c.periodo?.tipo === 'comisiones' ? '%' : 'Q'}</div><div class="grow"><div class="t">${esc(c.periodo?.nombre)}</div><div class="s">${fc(c.periodo?.fecha_pago || c.periodo?.fecha_fin)} · ${c.adel > 0 ? `ganado ${L(c.recibido)}, menos ${L(c.adel)} en adelantos/vales` : `deducciones ${L(c.total_deducciones)}`}</div></div><div class="num">${L(c.neto)}</div></div></a>`).join('')}</div>` : '<div class="vacio">No hay comprobantes de este tipo.</div>'; };
+  const pintar = f => { const l = comps.filter(c => !f || c.periodo?.tipo === f); $('#lc', m).innerHTML = l.length ? `<div class="lista">${l.map(c => `<a class="item" href="#/mi-comprobante/${c.id}"><div class="pago" style="flex:1"><div class="ic ${c.periodo?.tipo === 'comisiones' ? 'c' : 's'}">${c.periodo?.tipo === 'comisiones' ? '%' : 'Q'}</div><div class="grow"><div class="t">${esc(c.periodo?.nombre)}</div><div class="s">${fc(c.periodo?.fecha_pago || c.periodo?.fecha_fin)} · ${c.adel > 0 ? `ganado ${L(c.recibido)}, menos ${L(c.adel)} en adelantos, vales y préstamos` : `deducciones ${L(c.total_deducciones)}`}</div></div><div class="num">${L(c.neto)}</div></div></a>`).join('')}</div>` : '<div class="vacio">No hay comprobantes de este tipo.</div>'; };
   $$('.segm button', m).forEach(b => b.onclick = () => { $$('.segm button', m).forEach(x => x.classList.toggle('on', x === b)); pintar(b.dataset.f); });
   pintar('');
 }

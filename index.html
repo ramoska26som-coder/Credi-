@@ -11,6 +11,7 @@
 <style>
 :root{
   /* Código de color por rol (dónde está la solicitud) */
+  --r-completar:#0E8A7B; --r-completar-bg:#DDF5F1;
   --r-asesor:#B98300; --r-asesor-bg:#FFF4C2; --r-analista:#1877F2; --r-analista-bg:#E3EEFF;
   --r-verificador:#7C3AED; --r-verificador-bg:#F0E8FF; --r-desembolso:#E4630B; --r-desembolso-bg:#FFEBD9;
   --r-finalizada:#1F9D57; --r-finalizada-bg:#E3F6EA; --r-cerrada:#D63B3B; --r-cerrada-bg:#FDE8E8;
@@ -23,6 +24,7 @@
   --shadow:0 1px 2px rgba(10,42,102,.06),0 4px 14px rgba(11,90,214,.06);
 }
 @media (prefers-color-scheme: dark){ :root{
+  --r-completar:#4FD1BE; --r-completar-bg:#12322E;
   --r-asesor:#F2C94C; --r-asesor-bg:#3A3212; --r-analista:#6AAEFF; --r-analista-bg:#15294D;
   --r-verificador:#B79BFF; --r-verificador-bg:#2B1F4A; --r-desembolso:#FF9A52; --r-desembolso-bg:#3D2410;
   --r-finalizada:#5CD68C; --r-finalizada-bg:#143222; --r-cerrada:#FF8A8A; --r-cerrada-bg:#3D1717;
@@ -185,6 +187,7 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
   .board .col{flex:0 0 84vw;max-width:360px;scroll-snap-align:start}}
 .col{background:var(--brand2);border-radius:16px;padding:8px;min-height:120px}
 .col-h{display:flex;align-items:center;gap:8px;padding:6px 6px 10px;border-bottom:3px solid var(--cc);margin-bottom:8px}
+.col-h > div{flex:1;min-width:0}
 .col-h b{font-size:14.5px;flex:1}
 .col-h .cnt{background:var(--card);border-radius:999px;padding:1px 9px;font-weight:700;font-size:13px}
 .col-body{display:flex;flex-direction:column;gap:8px;max-height:calc(100dvh - 300px);overflow-y:auto}
@@ -553,7 +556,7 @@ function cardSol(s){
   const fecha = CERRADAS.includes(s.estado) ? hace(s.cerrado_en || s.estado_desde || s.creado_en) : s.en_espera ? `En espera ${hace(s.espera_desde).replace(/^hace /,'')}` : `En este paso ${hace(s.estado_desde || s.creado_en).replace(/^hace /,'')}`;
   let extra = '';
   if (s.estado === 'desembolso_pendiente' || s.forma_desembolso) extra = `<span>${s.forma_desembolso === 'transferencia' ? '🏦 Transferencia' : s.forma_desembolso === 'efectivo' ? '💵 Efectivo' : ''}</span>`;
-  return `<div class="card sol${s.en_espera ? ' espera' : ''}" data-id="${s.id}" style="${rcVars(rolDe(s.estado))}">
+  return `<div class="card sol${s.en_espera ? ' espera' : ''}" data-id="${s.id}" style="${rcVars(colorDe(s.estado))}">
     <div class="main">
       <div style="margin-bottom:4px">${rolPill(s)}</div>
       <div class="name">${esc(s.nombre_cliente)}</div>
@@ -1612,11 +1615,13 @@ const ESPERA = { borrador:'Asesor', en_analisis:'Analista', aprobada:'Asesor', p
 // Código de color por rol y nombre de cada paso
 const RC = {
   asesor:{ t:'Asesor' }, analista:{ t:'Analista' }, verificador:{ t:'Verificador' },
-  desembolso:{ t:'Pendiente de desembolso' }, finalizada:{ t:'Finalizada' }, cerrada:{ t:'Cancelada / rechazada' } };
-const PASO = { borrador:{ t:'Captura', r:'asesor' }, en_analisis:{ t:'Análisis', r:'analista' }, aprobada:{ t:'Completar datos', r:'asesor' },
-  por_verificar:{ t:'Verificación', r:'verificador' }, desembolso_pendiente:{ t:'Desembolso', r:'desembolso' } };
+  desembolso:{ t:'Pendiente de desembolso' }, finalizada:{ t:'Finalizada' }, cerrada:{ t:'Cancelada / rechazada' }, completar:{ t:'Asesor' } };
+// c = color con el que se identifica cada paso en tarjetas y tablero
+const PASO = { borrador:{ t:'Captura', r:'asesor', c:'asesor' }, en_analisis:{ t:'Análisis', r:'analista', c:'analista' }, aprobada:{ t:'Completar datos', r:'asesor', c:'completar' },
+  por_verificar:{ t:'Verificación', r:'verificador', c:'verificador' }, desembolso_pendiente:{ t:'Desembolso', r:'desembolso', c:'desembolso' } };
 const ORDEN_PASOS = ['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'];
 const rolDe = est => PASO[est]?.r || (est === 'desembolsada' ? 'finalizada' : 'cerrada');
+const colorDe = est => PASO[est]?.c || rolDe(est);
 const rcVars = r => `--rc:var(--r-${r});--rb:var(--r-${r}-bg)`;
 // Persona que tiene la solicitud ahora (asesor creador, verificador asignado)
 const responsable = s => { const r = rolDe(s.estado);
@@ -1624,8 +1629,8 @@ const responsable = s => { const r = rolDe(s.estado);
   if (r === 'verificador' && s.verificador_id) return nombre(s.verificador_id);
   return null; };
 const rolPill = (s) => { const r = rolDe(s.estado), who = responsable(s);
-  return `<span class="rol" style="${rcVars(r)}">${who ? esc(who.split(' ').slice(0,2).join(' ')) : RC[r].t}${PASO[s.estado] ? ' · ' + PASO[s.estado].t : ''}</span>`; };
-const leyendaHTML = () => `<div class="leyenda">${['asesor','analista','verificador','desembolso','finalizada','cerrada'].map(r => `<span class="rol" style="${rcVars(r)}">${RC[r].t}</span>`).join('')}<span class="rol" style="--rc:var(--gray);--rb:var(--gray-bg)">En espera</span></div>`;
+  return `<span class="rol" style="${rcVars(colorDe(s.estado))}">${who ? esc(who.split(' ').slice(0,2).join(' ')) : (s.estado === 'desembolso_pendiente' ? 'Analista' : RC[r].t)}${PASO[s.estado] ? ' · ' + PASO[s.estado].t : ''}</span>`; };
+const leyendaHTML = () => `<div class="leyenda">${[['asesor','Asesor · Captura'],['analista','Analista · Análisis'],['completar','Asesor · Completar datos'],['verificador','Verificador'],['desembolso','Desembolso'],['finalizada','Finalizada'],['cerrada','Cancelada / rechazada']].map(([r,t]) => `<span class="rol" style="${rcVars(r)}">${t}</span>`).join('')}<span class="rol" style="--rc:var(--gray);--rb:var(--gray-bg)">En espera</span></div>`;
 // Tiempo acumulado por paso (no por rol) de una solicitud, a partir de sus eventos
 function pasosDe(s){
   const evs = S.evs[s.id] || [], acc = {};
@@ -1640,7 +1645,7 @@ function pasosHTML(s){
     if (!a && !cur) return '';
     const seg = (a?.seg || 0) + (cur ? segHabiles(desde, ahora) : 0);
     const late = cur && clsMeta(segHabiles(desde, ahora), S.params.meta_paso_min) === 'late';
-    return `<span class="${cur ? 'cur' : ''} ${late ? 'late' : ''}" style="${rcVars(PASO[k].r)}" title="${PASO[k].t} (${RC[PASO[k].r].t})${a?.n > 1 ? ' · ' + a.n + ' veces' : ''}" ${cur ? `data-live-acc="${a?.seg || 0}" data-desde="${desde}" data-lbl="${PASO[k].t}"` : ''}>${PASO[k].t}${a?.n > 1 ? ' ×' + a.n : ''} ${cur ? '⏱ ' : ''}${fmtDur(seg)}</span>`;
+    return `<span class="${cur ? 'cur' : ''} ${late ? 'late' : ''}" style="${rcVars(PASO[k].c)}" title="${PASO[k].t} (${RC[PASO[k].r].t})${a?.n > 1 ? ' · ' + a.n + ' veces' : ''}" ${cur ? `data-live-acc="${a?.seg || 0}" data-desde="${desde}" data-lbl="${PASO[k].t}"` : ''}>${PASO[k].t}${a?.n > 1 ? ' ×' + a.n : ''} ${cur ? '⏱ ' : ''}${fmtDur(seg)}</span>`;
   }).join('')}</div>`;
 }
 function clsMeta(segHab, metaMin){ if (!metaMin) return ''; const r = segHab / (metaMin * 60); return r >= 1 ? 'late' : r >= .75 ? 'warn' : ''; }
@@ -1660,12 +1665,12 @@ function tiemposHTML(s, evs){
     <div class="stp" style="${rcVars('asesor')}"><i></i><div><b>${esc(nombre(creada?.usuario_id || s.asesor_id))}</b> creó la solicitud<br><small class="muted">${fDT(s.creado_en)}</small></div><div class="d"></div></div>`;
   pasos.forEach(e => {
     const pr = PASO[e.de_estado];
-    h += `<div class="stp" style="${rcVars(pr ? pr.r : 'cerrada')}"><i></i><div><span class="pn">${pr ? pr.t + ' · ' + RC[pr.r].t : (EST[e.de_estado]?.t || e.de_estado)}</span><br><b>${esc(nombre(e.usuario_id))}</b> ${esc((ACC[e.accion]||e.accion).toLowerCase())}${e.nota ? `: <span class="nota">${esc(e.nota)}</span>` : ''}<br><small class="muted">${fDT(e.creado_en)}</small></div>
+    h += `<div class="stp" style="${rcVars(pr ? pr.c : 'cerrada')}"><i></i><div><span class="pn">${pr ? pr.t + ' · ' + RC[pr.r].t : (EST[e.de_estado]?.t || e.de_estado)}</span><br><b>${esc(nombre(e.usuario_id))}</b> ${esc((ACC[e.accion]||e.accion).toLowerCase())}${e.nota ? `: <span class="nota">${esc(e.nota)}</span>` : ''}<br><small class="muted">${fDT(e.creado_en)}</small></div>
       <div class="d">${fmtDur(e.duracion_habil_seg)}<small>${fmtDur(e.duracion_seg)} cal.</small></div></div>`;
   });
   if (!cerrada){
     const desde = s.estado_desde || s.actualizado_en;
-    h += `<div class="stp now" style="${rcVars(rolDe(s.estado))}"><i></i><div><span class="pn">${PASO[s.estado].t} · ${RC[rolDe(s.estado)].t}</span> <b>en curso</b><br><small class="muted">desde ${fDT(desde)}</small></div>
+    h += `<div class="stp now" style="${rcVars(colorDe(s.estado))}"><i></i><div><span class="pn">${PASO[s.estado].t} · ${RC[rolDe(s.estado)].t}</span> <b>en curso</b><br><small class="muted">desde ${fDT(desde)}</small></div>
       <div class="d" data-live-paso="${desde}">${fmtDur(segHabiles(desde, ahora))}<small>en curso</small></div></div>`;
   }
   return h + `</div><div class="small muted" style="margin-top:8px">Tiempos hábiles: L–V ${hh(S.params.hora_inicio)}–${hh(S.params.hora_cierre_lv)}, sáb ${hh(S.params.hora_inicio)}–${hh(S.params.hora_cierre_sab)}, sin domingos ni feriados.</div></div>`;
@@ -1674,11 +1679,11 @@ function hh(x){ if (x == null) return '—'; const h = Math.floor(x), m = Math.r
 
 // ================== Tablero kanban ==================
 const COLS = [
-  { k:'pend',  t:'Pendientes',              est:['borrador','en_analisis'], c:'var(--brand)' },
-  { k:'curso', t:'En curso',                est:['aprobada','por_verificar','desembolso_pendiente'], c:'var(--accent)' },
-  { k:'esp',   t:'En espera',               est:['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'], c:'var(--gray)', espera:true },
-  { k:'fin',   t:'Finalizadas',             est:['desembolsada'], c:'var(--green)' },
-  { k:'cerr',  t:'Canceladas / Rechazadas', est:['denegada','rechazada_verificacion','desistida'], c:'var(--red)' }
+  { k:'ase', t:'Asesor',      sub:'Captura · completar datos', est:['borrador','aprobada'], c:'var(--r-asesor)' },
+  { k:'ana', t:'Analista',    sub:'Análisis',                  est:['en_analisis'], c:'var(--r-analista)' },
+  { k:'ver', t:'Verificador', sub:'Verificación en campo',     est:['por_verificar'], c:'var(--r-verificador)' },
+  { k:'des', t:'Desembolso',  sub:'Transferencia pendiente',   est:['desembolso_pendiente'], c:'var(--r-desembolso)' },
+  { k:'fin', t:'Finalizadas / Canceladas / Rechazadas', sub:'Cerradas del día', est:['desembolsada','denegada','rechazada_verificacion','desistida'], c:'var(--r-finalizada)' }
 ];
 const diaHN = d => d ? new Date(d).toLocaleDateString('en-CA', { timeZone: TZ }) : null;
 // Capital nuevo colocado: en refinanciamiento/reingreso = monto del préstamo − saldo de capital anterior
@@ -1690,9 +1695,9 @@ function pintarTablero(){
   const q = S.q.trim().toLowerCase();
   const match = s => !q || [s.nombre_cliente, s.codigo, s.dni, s.telefono].some(v => (v||'').toLowerCase().includes(q));
   const abiertas = s => !CERRADAS.includes(s.estado);
-  const enCol = c => base.filter(match).filter(s => c.est.includes(s.estado) && (CERRADAS.includes(s.estado) || !!s.en_espera === !!c.espera)).filter(s =>
+  const enCol = c => base.filter(match).filter(s => c.est.includes(s.estado)).filter(s =>
     abiertas(s) ? (esHoy ? diaHN(s.creado_en) <= dia : diaHN(s.creado_en) === dia) : diaHN(s.cerrado_en || s.actualizado_en) === dia)
-    .sort((a,b) => abiertas(a) ? new Date(a.estado_desde || a.actualizado_en) - new Date(b.estado_desde || b.actualizado_en)
+    .sort((a,b) => abiertas(a) ? ((a.en_espera ? 1 : 0) - (b.en_espera ? 1 : 0)) || (ORDEN_PASOS.indexOf(a.estado) - ORDEN_PASOS.indexOf(b.estado)) || (new Date(a.estado_desde || a.actualizado_en) - new Date(b.estado_desde || b.actualizado_en))
                                 : new Date(b.cerrado_en || b.actualizado_en) - new Date(a.cerrado_en || a.actualizado_en));
   const creadasDia = base.filter(s => diaHN(s.creado_en) === dia);
   const desDia = base.filter(s => s.estado === 'desembolsada' && diaHN(s.cerrado_en || s.desembolsado_en) === dia);
@@ -1719,7 +1724,7 @@ function pintarTablero(){
     </div>
     ${leyendaHTML()}
     <div class="board">${COLS.map(c => { const l = enCol(c); return `
-      <section class="col"><div class="col-h" style="--cc:${c.c}"><b>${c.t}</b><span class="cnt">${l.length}</span></div>
+      <section class="col"><div class="col-h" style="--cc:${c.c}"><div><b>${c.t}</b><div class="small muted" style="font-weight:500">${c.sub}${l.filter(s => s.en_espera).length ? ` · ${l.filter(s => s.en_espera).length} en espera` : ''}</div></div><span class="cnt">${l.length}</span></div>
       <div class="col-body">${l.length ? l.map(s => cardK(s, dia)).join('') : '<div class="empty">Sin solicitudes</div>'}</div></section>`; }).join('')}
     </div>`;
   $('#main').querySelectorAll('[data-dd]').forEach(b => b.onclick = () => {
@@ -1743,7 +1748,7 @@ function cardK(s, dia){
     tm = `<span class="${s.estado === 'desembolsada' ? (t != null && t <= (S.params.meta_total_min||0)*60 ? 'good' : 'warn') : ''}" title="Tiempo hábil total">⏱ ${fmtDur(t)}</span><span>${fDT(s.cerrado_en || s.actualizado_en).split(',').pop().trim()}</span>`;
   }
   const previo = ab && diaHN(s.creado_en) < dia ? `<span class="chip c-gray">desde ${fDate(s.creado_en).replace(/ de \d{4}$/,'')}</span>` : '';
-  return `<div class="kc${s.en_espera ? ' espera' : ''}" data-id="${s.id}" style="${rcVars(rolDe(s.estado))}">
+  return `<div class="kc${s.en_espera ? ' espera' : ''}" data-id="${s.id}" style="${rcVars(colorDe(s.estado))}">
     <div class="rolbar">${rolPill(s)}${previo}</div>
     <div class="nm">${esc(s.nombre_cliente)}</div>
     <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}${esperaChip(s)}</div>
@@ -1830,7 +1835,7 @@ async function pintarStats(){
   <h4 class="sec">Cartera en proceso ahora</h4>
   <div class="pipe">${['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'].map(k => `<div class="st"><b>${pe[k]||0}</b><span class="small">${EST[k].t}</span></div>`).join('')}</div>
   <h4 class="sec">Tiempo promedio por paso (hábil)</h4>
-  <div class="card">${rt.por_paso.length ? leyendaHTML().replace(/<span class="rol" style="--rc:var\(--r-(finalizada|cerrada)\)[^<]*<\/span>/g,'') + barras(rt.por_paso.map(x => [`${PASO[x.estado]?.t || x.estado} (${RC[PASO[x.estado]?.r]?.t || ''})`, x.prom_habil_seg || 0, `${fmtDur(x.prom_habil_seg)} · ${x.n}`, `var(--r-${PASO[x.estado]?.r})`])) + `<div class="small muted" style="margin-top:6px">Tiempo que cada solicitud pasa en cada etapa antes de avanzar (promedio · cantidad de pasos).</div>` : '<div class="muted small">Sin datos</div>'}</div>
+  <div class="card">${rt.por_paso.length ? leyendaHTML().replace(/<span class="rol" style="--rc:var\(--r-(finalizada|cerrada)\)[^<]*<\/span>/g,'').replace(/<span class="rol" style="--rc:var\(--gray\)[^<]*<\/span>/,'') + barras(rt.por_paso.map(x => [`${PASO[x.estado]?.t || x.estado} (${RC[PASO[x.estado]?.r]?.t || ''})`, x.prom_habil_seg || 0, `${fmtDur(x.prom_habil_seg)} · ${x.n}`, `var(--r-${PASO[x.estado]?.c})`])) + `<div class="small muted" style="margin-top:6px">Tiempo que cada solicitud pasa en cada etapa antes de avanzar (promedio · cantidad de pasos).</div>` : '<div class="muted small">Sin datos</div>'}</div>
   <h4 class="sec">Gestiones por persona</h4>
   <div class="card" style="overflow-x:auto">${rt.por_gestor.length ? `<table class="t"><thead><tr><th>Gestor</th><th>Rol</th><th class="num">Gestiones</th><th class="num">Prom. hábil</th></tr></thead><tbody>
     ${rt.por_gestor.map(g => `<tr><td>${esc(g.nombre)}</td><td>${ROL[g.rol]||g.rol}</td><td class="num">${g.n}</td><td class="num">${fmtDur(g.prom_habil_seg)}</td></tr>`).join('')}</tbody></table>

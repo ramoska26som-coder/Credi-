@@ -951,11 +951,18 @@ async function vAdelantos() {
 /* ===================== AJUSTES ===================== */
 async function vAjustes() {
   cargando();
-  const cs = await q(sb.from('pl_conceptos').select('*').order('tipo').order('orden'));
+  const [cs, adms, conCuenta] = await Promise.all([
+    q(sb.from('pl_conceptos').select('*').order('tipo').order('orden')),
+    q(sb.from('pl_admins').select('user_id')),
+    q(sb.from('pl_empleados').select('id,nombre,user_id,usuario').not('user_id', 'is', null).order('nombre'))]);
+  const esAdm = new Set(adms.map(a => a.user_id));
   S.conceptos = null;
   const grupo = (t, titulo) => `<div class="panel"><h3 style="margin-bottom:8px">${titulo}</h3><table class="t"><tbody>${cs.filter(c => c.tipo === t).map(c => `<tr class="click" data-c="${c.id}" style="${c.activo ? '' : 'opacity:.45'}"><td>${esc(c.nombre)}</td><td class="small muted">${{ salario: 'Salario', comisiones: 'Comisiones', ambos: 'Ambas' }[c.aplica]}</td></tr>`).join('')}</tbody></table></div>`;
   const m = shell(`<div class="top"><div><h1>Ajustes</h1><div class="muted small">Catálogo de conceptos para ingresos y deducciones</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Nuevo concepto</button></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">${grupo('ingreso', 'Ingresos')}${grupo('deduccion', 'Deducciones')}</div>
+    <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Administradores de planilla</h3>
+      <p class="small muted" style="margin:0 0 10px">Pueden ver y editar todo: planillas, empleados, préstamos, adelantos y comprobantes de todos. El administrador de VerifiCrédito siempre tiene este acceso. Solo aparecen empleados que ya tienen usuario.</p>
+      ${conCuenta.length ? `<table class="t"><tbody>${conCuenta.map(e => `<tr><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.usuario || '')}</div></td><td class="r">${e.user_id === S.user.id ? '<span class="chip ok">Tú</span>' : `<label class="chk" style="justify-content:flex-end"><input type="checkbox" data-adm="${e.user_id}" ${esAdm.has(e.user_id) ? 'checked' : ''}>Administrador</label>`}</td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Ningún empleado tiene usuario todavía.</p>'}</div>
     <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:6px">Cómo se calcula la quincena</h3><p class="small muted" style="margin:0">Salario por hora = salario mensual ÷ 240. La quincena paga 120 horas menos las horas no laboradas (faltas y permisos sin goce). Horas extra × 1.25. Feriado trabajado = 8 horas adicionales. Llegadas tarde: minutos × salario mensual ÷ 14,400. Se suma el seguro médico y se restan adelantos, cuotas de préstamos y otras deducciones.</p></div>`);
   const edit = c => {
     c = c || { nombre: '', tipo: 'ingreso', aplica: 'ambos', orden: 100, activo: true };
@@ -969,6 +976,13 @@ async function vAjustes() {
   };
   $('#nuevo', m).onclick = () => edit(null);
   $$('tr[data-c]', m).forEach(tr => tr.onclick = () => edit(cs.find(c => c.id === tr.dataset.c)));
+  $$('[data-adm]', m).forEach(ch => ch.onchange = async () => {
+    try {
+      if (ch.checked) await q(sb.from('pl_admins').insert({ user_id: ch.dataset.adm }));
+      else await q(sb.from('pl_admins').delete().eq('user_id', ch.dataset.adm));
+      toast(ch.checked ? 'Acceso de administrador dado' : 'Acceso de administrador quitado');
+    } catch (er) { ch.checked = !ch.checked; toast(errMsg(er), true); }
+  });
 }
 
 /* ===================== VISTA EMPLEADO ===================== */

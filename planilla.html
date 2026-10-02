@@ -418,6 +418,8 @@ async function empleadosActivos() { return q(sb.from('pl_empleados').select('id,
 async function periodosAbiertos() { return q(sb.from('pl_periodos').select('*').eq('estado', 'abierta').order('fecha_inicio', { ascending: false })); }
 async function conceptos() { if (!S.conceptos) S.conceptos = await q(sb.from('pl_conceptos').select('*').eq('activo', true).order('orden')); return S.conceptos; }
 
+const esAnticipo = d => !d.prestamo_id && /^(adelanto|vales?\b|vale comisiones)/i.test(String(d.concepto || '').trim());
+const anticipado = c => (c?.deducciones || []).filter(esAnticipo).reduce((a, d) => a + +d.monto, 0);
 function resumenFila(c) {
   const ded = c.deducciones || [];
   const adel = ded.filter(d => /^Adelanto|^Vales \/ adelantos/.test(d.concepto)).reduce((a, d) => a + +d.monto, 0);
@@ -994,20 +996,22 @@ async function vAjustes() {
 /* ===================== VISTA EMPLEADO ===================== */
 async function vMisPagos() {
   cargando();
-  const comps = await q(sb.from('pl_comprobantes').select('id,numero,neto,total_ingresos,total_deducciones,generado_en,periodo_id,datos->periodo').eq('empleado_id', S.yo.id).eq('anulado', false));
+  const comps0 = await q(sb.from('pl_comprobantes').select('id,numero,neto,total_ingresos,total_deducciones,generado_en,periodo_id,datos').eq('empleado_id', S.yo.id).eq('anulado', false));
+  // Lo recibido = neto + lo que ya se le entregó antes como adelanto o vale (no es un descuento real del ingreso)
+  const comps = comps0.map(c => { const adel = anticipado(c.datos); return { ...c, periodo: c.datos?.periodo, adel, recibido: +c.neto + adel }; });
   comps.sort((a, b) => String(b.periodo?.fecha_pago || b.periodo?.fecha_fin).localeCompare(String(a.periodo?.fecha_pago || a.periodo?.fecha_fin)));
   const ult = comps[0];
   const anio = String(hoyHN().getFullYear());
   const delAnio = comps.filter(c => String(c.periodo?.fecha_pago || c.periodo?.fecha_fin).startsWith(anio));
-  const sumT = t => delAnio.filter(c => c.periodo?.tipo === t).reduce((a, c) => a + +c.neto, 0);
+  const sumT = t => delAnio.filter(c => c.periodo?.tipo === t).reduce((a, c) => a + c.recibido, 0);
   const m = shell(`
-    <div class="hola">${ult ? `<div class="k">Último pago · ${esc(ult.periodo?.nombre)}</div><div class="v">${L(ult.neto)}</div><div class="s">Pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)}</div>` : `<div class="k">Hola, ${esc(corto(S.yo.nombre))}</div><div class="v" style="font-size:22px">Aún no tienes comprobantes</div><div class="s">Aparecerán aquí cuando se cierre la planilla.</div>`}</div>
-    ${delAnio.length ? `<div class="totales" style="grid-template-columns:1fr 1fr"><div><div class="k">Salario recibido ${anio}</div><div class="v">${L(sumT('salario'))}</div></div><div><div class="k">Comisiones recibidas ${anio}</div><div class="v">${L(sumT('comisiones'))}</div></div></div>` : ''}
+    <div class="hola">${ult ? `<div class="k">Último pago · ${esc(ult.periodo?.nombre)}</div><div class="v">${L(ult.recibido)}</div><div class="s">${ult.adel > 0 ? `${L(ult.neto)} pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)} + ${L(ult.adel)} recibidos antes en adelantos/vales` : `Pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)}`}</div>` : `<div class="k">Hola, ${esc(corto(S.yo.nombre))}</div><div class="v" style="font-size:22px">Aún no tienes comprobantes</div><div class="s">Aparecerán aquí cuando se cierre la planilla.</div>`}</div>
+    ${delAnio.length ? `<div class="totales" style="grid-template-columns:1fr 1fr"><div><div class="k">Salario ganado ${anio}</div><div class="v">${L(sumT('salario'))}</div></div><div><div class="k">Comisiones ganadas ${anio}</div><div class="v">${L(sumT('comisiones'))}</div></div></div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:6px 0 12px;flex-wrap:wrap"><h2>Mis comprobantes</h2>
       <div class="segm"><button class="on" data-f="">Todos</button><button data-f="salario">Salario</button><button data-f="comisiones">Comisiones</button></div></div>
     <div id="lc"></div>
     ${S.admin ? '' : `<div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn borde" href="#/mis-prestamos">${ICON.prestamo}Mis préstamos y adelantos</a><button class="btn borde" onclick="cambiarMiClave()">Cambiar contraseña</button></div>`}`);
-  const pintar = f => { const l = comps.filter(c => !f || c.periodo?.tipo === f); $('#lc', m).innerHTML = l.length ? `<div class="lista">${l.map(c => `<a class="item" href="#/mi-comprobante/${c.id}"><div class="pago" style="flex:1"><div class="ic ${c.periodo?.tipo === 'comisiones' ? 'c' : 's'}">${c.periodo?.tipo === 'comisiones' ? '%' : 'Q'}</div><div class="grow"><div class="t">${esc(c.periodo?.nombre)}</div><div class="s">${fc(c.periodo?.fecha_pago || c.periodo?.fecha_fin)} · deducciones ${L(c.total_deducciones)}</div></div><div class="num">${L(c.neto)}</div></div></a>`).join('')}</div>` : '<div class="vacio">No hay comprobantes de este tipo.</div>'; };
+  const pintar = f => { const l = comps.filter(c => !f || c.periodo?.tipo === f); $('#lc', m).innerHTML = l.length ? `<div class="lista">${l.map(c => `<a class="item" href="#/mi-comprobante/${c.id}"><div class="pago" style="flex:1"><div class="ic ${c.periodo?.tipo === 'comisiones' ? 'c' : 's'}">${c.periodo?.tipo === 'comisiones' ? '%' : 'Q'}</div><div class="grow"><div class="t">${esc(c.periodo?.nombre)}</div><div class="s">${fc(c.periodo?.fecha_pago || c.periodo?.fecha_fin)} · ${c.adel > 0 ? `ganado ${L(c.recibido)}, menos ${L(c.adel)} en adelantos/vales` : `deducciones ${L(c.total_deducciones)}`}</div></div><div class="num">${L(c.neto)}</div></div></a>`).join('')}</div>` : '<div class="vacio">No hay comprobantes de este tipo.</div>'; };
   $$('.segm button', m).forEach(b => b.onclick = () => { $$('.segm button', m).forEach(x => x.classList.toggle('on', x === b)); pintar(b.dataset.f); });
   pintar('');
 }

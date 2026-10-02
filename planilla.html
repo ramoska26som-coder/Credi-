@@ -802,7 +802,13 @@ function editarEmpleado(e) {
     <div class="row2"><label class="f">Forma de pago<select class="inp" name="metodo_pago"><option ${e.metodo_pago === 'TRANSFERENCIA' ? 'selected' : ''}>TRANSFERENCIA</option><option ${e.metodo_pago === 'EFECTIVO' ? 'selected' : ''}>EFECTIVO</option></select></label><label class="f">Banco<input class="inp" name="banco" list="dl-banco" value="${esc(e.banco || '')}"></label></div>
     <datalist id="dl-banco"><option value="BAC"><option value="BANPAIS"><option value="ATLANTIDA"><option value="FICOHSA"><option value="OCCIDENTE"><option value="DAVIVIENDA"><option value="BANRURAL"></datalist>
     <label class="f">Número de cuenta<input class="inp" name="cuenta" value="${esc(e.cuenta || '')}"></label>
-    <div class="pie"><button class="btn pri">${e.id ? 'Guardar cambios' : 'Agregar empleado'}</button></div></form>`);
+    <div class="pie">${e.id ? '<button type="button" class="btn rojo" id="delemp">Eliminar empleado</button>' : ''}<button class="btn pri">${e.id ? 'Guardar cambios' : 'Agregar empleado'}</button></div></form>`);
+  $('#delemp', h.el) && ($('#delemp', h.el).onclick = async () => {
+    h.cerrar();
+    if (e.user_id) return toast('Primero quita su acceso (usuario) en la ficha del empleado', true);
+    if (!await confirmar('Eliminar empleado', `Se eliminará a ${esc(e.nombre)}. Solo es posible si no tiene comprobantes, préstamos, adelantos ni líneas de planilla; si tiene historial, márcalo como inactivo.`, 'Eliminar', true)) return;
+    try { await q(sb.from('pl_empleados').delete().eq('id', e.id)); toast('Empleado eliminado'); location.hash = '#/empleados'; } catch (er) { toast(errMsg(er), true); }
+  });
   $('form', h.el).onsubmit = async ev => {
     ev.preventDefault(); const x = formData(ev.target);
     const row = { nombre: x.nombre.trim(), identidad: x.identidad || null, cargo: x.cargo || null, area: x.area || null, telefono: x.telefono || null, salario_mensual: +x.salario_mensual || 0, seguro_medico: +x.seguro_medico || 0, fecha_ingreso: x.fecha_ingreso || null, recibe_salario: !!x.recibe_salario, recibe_comisiones: !!x.recibe_comisiones, activo: !!x.activo, metodo_pago: x.metodo_pago, banco: x.banco || null, cuenta: x.cuenta || null };

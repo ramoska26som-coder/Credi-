@@ -530,6 +530,11 @@ function pintar(){
     else if (S.filtroTodas === 'espera') lista = lista.filter(s => s.en_espera);
     else if (S.filtroTodas !== 'todas') lista = lista.filter(s => s.estado === S.filtroTodas);
   }
+  if (S.tab === 'verificar'){
+    const ef = lista.filter(s => s.forma_desembolso === 'efectivo' && !s.en_espera);
+    const tot = ef.reduce((a, s) => a + (montoLibre(s) || 0), 0);
+    if (ef.length) extra = `<div class="alert ok small">💵 Efectivo a entregar: <b>${L(tot)}</b> en ${ef.length} solicitud(es)${lista.some(s => s.en_espera && s.forma_desembolso === 'efectivo') ? ' · no incluye las que están en espera' : ''}</div>`;
+  }
   if (S.tab === 'revisadas'){
     const ap = lista.filter(s => s.estado === 'aprobada').length, dn = lista.length - ap;
     extra = `<div class="alert info small">${ap} aprobada(s) por completar con el cliente · ${dn} denegada(s) en los últimos 15 días</div>`;
@@ -563,7 +568,7 @@ function cardSol(s){
       <div class="sub"><span>${esc(s.codigo)}</span>${tipoChip(s.tipo)}<span>👤 ${esc(nombre(s.asesor_id))}</span>${extra}${c}</div>
       ${s.en_espera && s.espera_motivo ? `<div class="small" style="color:var(--gray);margin-top:3px">⏸ ${esc(s.espera_motivo)}</div>` : ''}
     </div>
-    <div class="right">${chip(s.estado)}${s.en_espera ? '<div style="margin-top:4px">' + esperaChip(s) + '</div>' : ''}<div class="amt" style="margin-top:6px">${monto}</div><div class="small muted">${fecha}</div></div>
+    <div class="right">${chip(s.estado)}${s.en_espera ? '<div style="margin-top:4px">' + esperaChip(s) + '</div>' : ''}<div class="amt" style="margin-top:6px">${monto}</div>${entregaHTML(s)}<div class="small muted">${fecha}</div></div>
   </div>`;
 }
 
@@ -790,6 +795,14 @@ function renderDetalle(){
   $('#sheetTitle').textContent = s.nombre_cliente; $('#sheetChip').innerHTML = chip(s.estado);
   $('#sheetBody').innerHTML = h;
   enlazarDetalle(s, c);
+}
+// Monto que se entrega al cliente (efectivo) o se transfiere, ya descontado el saldo anterior
+function entregaHTML(s, kc){
+  if (!['por_verificar','desembolso_pendiente'].includes(s.estado) || !s.forma_desembolso) return '';
+  const v = montoLibre(s); if (v == null) return '';
+  const ef = s.forma_desembolso === 'efectivo';
+  return kc ? `<div class="ln"><span class="chip ${ef ? 'c-green' : 'c-blue'}" style="font-size:12.5px">${ef ? '💵 Entregar' : '🏦 Transferir'} <b>${L(v)}</b></span></div>`
+            : `<div class="chip ${ef ? 'c-green' : 'c-blue'}" style="margin-top:6px;font-size:13px">${ef ? '💵 Entregar' : '🏦 Transferir'} <b>${L(v)}</b></div>`;
 }
 function montoLibre(s){
   const base = s.monto_solicitado || s.monto_aprobado;
@@ -1754,6 +1767,7 @@ function cardK(s, dia){
     <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}${esperaChip(s)}</div>
     ${s.en_espera ? `<div class="ln" style="color:var(--gray)">⏸ ${esc(s.espera_motivo||'')} · ${hace(s.espera_desde)}</div>` : ''}
     <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab && !s.en_espera ? `<span>Espera: <b>${esc(responsable(s) || ESPERA[s.estado])}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
+    ${entregaHTML(s, true)}
     <div class="tm">${tm}</div></div>`;
 }
 // Cronómetros en vivo (tablero y detalle)

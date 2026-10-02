@@ -204,10 +204,10 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 .steps{position:relative}
 .stp{display:grid;grid-template-columns:18px 1fr auto;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
 .stp:last-child{border-bottom:0}
-.stp i{width:12px;height:12px;border-radius:50%;margin-top:4px;background:var(--brand)}
+.stp > i{width:12px;height:12px;border-radius:50%;margin-top:4px;background:var(--brand)}
 .stp .d{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .stp .d small{display:block;font-weight:500;color:var(--muted)}
-.stp.now i{background:var(--accent);box-shadow:0 0 0 3px rgba(255,212,0,.35)}
+.stp.now > i{background:var(--accent);box-shadow:0 0 0 3px rgba(255,212,0,.35)}
 .rol{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px 3px 7px;border-radius:999px;background:var(--rb);color:var(--rc);white-space:nowrap}
 .rol:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--rc)}
 .kc{border-left-color:var(--rc)!important} .kc .rolbar{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px}
@@ -217,7 +217,8 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 .pasos span{font-size:11px;font-weight:600;padding:2px 7px 2px 6px;border-radius:6px;background:var(--rb);color:var(--rc);border-left:3px solid var(--rc);font-variant-numeric:tabular-nums;white-space:nowrap}
 .pasos span.cur{outline:1.5px dashed var(--rc);outline-offset:1px}
 .pasos span.late{background:var(--red-bg);color:var(--red);border-left-color:var(--red)}
-.stp i{background:var(--rc,var(--brand))!important}
+.stp > i{background:var(--rc,var(--brand))!important}
+.stp .nota{font-style:italic;color:var(--ink2)}
 .stp .pn{display:inline-block;font-size:11.5px;font-weight:700;color:var(--rc);margin-right:4px}
 .dif-ok{color:var(--green);font-weight:700} .dif-w{color:var(--amber);font-weight:700} .dif-b{color:var(--red);font-weight:700}
 .rf-head{background:linear-gradient(135deg,#1877F2,#0B5AD6);color:#fff;border-radius:12px;padding:10px 14px;margin-bottom:10px}
@@ -1659,7 +1660,7 @@ function tiemposHTML(s, evs){
     <div class="stp" style="${rcVars('asesor')}"><i></i><div><b>${esc(nombre(creada?.usuario_id || s.asesor_id))}</b> creó la solicitud<br><small class="muted">${fDT(s.creado_en)}</small></div><div class="d"></div></div>`;
   pasos.forEach(e => {
     const pr = PASO[e.de_estado];
-    h += `<div class="stp" style="${rcVars(pr ? pr.r : 'cerrada')}"><i></i><div><span class="pn">${pr ? pr.t + ' · ' + RC[pr.r].t : (EST[e.de_estado]?.t || e.de_estado)}</span><br><b>${esc(nombre(e.usuario_id))}</b> ${esc((ACC[e.accion]||e.accion).toLowerCase())}${e.nota ? `: <i>${esc(e.nota)}</i>` : ''}<br><small class="muted">${fDT(e.creado_en)}</small></div>
+    h += `<div class="stp" style="${rcVars(pr ? pr.r : 'cerrada')}"><i></i><div><span class="pn">${pr ? pr.t + ' · ' + RC[pr.r].t : (EST[e.de_estado]?.t || e.de_estado)}</span><br><b>${esc(nombre(e.usuario_id))}</b> ${esc((ACC[e.accion]||e.accion).toLowerCase())}${e.nota ? `: <span class="nota">${esc(e.nota)}</span>` : ''}<br><small class="muted">${fDT(e.creado_en)}</small></div>
       <div class="d">${fmtDur(e.duracion_habil_seg)}<small>${fmtDur(e.duracion_seg)} cal.</small></div></div>`;
   });
   if (!cerrada){

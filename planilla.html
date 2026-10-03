@@ -744,29 +744,82 @@ async function tabMovimientos(cont, per, calc) {
 }
 
 async function editarMov(per, mv, empId, emps) {
-  const cs = (await conceptos()).filter(c => c.aplica === 'ambos' || c.aplica === per.tipo);
+  const [cs0, plants, empsA] = await Promise.all([conceptos(), q(sb.from('pl_plantillas').select('*')), q(sb.from('pl_empleados').select('id,area,cargo'))]);
+  const cs = cs0.filter(c => c.aplica === 'ambos' || c.aplica === per.tipo);
   mv = mv || { tipo: 'ingreso', concepto: '', monto: '', detalle: '', empleado_id: empId };
   const h = hoja(mv.id ? 'Editar línea' : 'Agregar línea', `<form>
     <label class="f">Empleado<select class="inp" name="empleado_id" required><option value="">Elegir…</option>${emps.filter(e => e.activo || e.id === mv.empleado_id).map(e => `<option value="${e.id}" ${e.id === mv.empleado_id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></label>
     <div class="segm"><button type="button" data-t="ingreso" class="${mv.tipo === 'ingreso' ? 'on' : ''}">Ingreso</button><button type="button" data-t="deduccion" class="${mv.tipo === 'deduccion' ? 'on' : ''}">Deducción</button></div>
     <input type="hidden" name="tipo" value="${mv.tipo}">
-    <label class="f">Concepto<input class="inp" name="concepto" list="dl-con" value="${esc(mv.concepto)}" required placeholder="Escribe o elige"></label>
+    <label class="f">Concepto<input class="inp" name="concepto" list="dl-con" value="${esc(mv.concepto)}" required placeholder="Escribe o elige" autocomplete="off"></label>
     <datalist id="dl-con"></datalist>
-    <div class="row2"><label class="f">Base (opcional)<input class="inp" type="number" step="0.01" name="base" placeholder="Ej. 344996.11"></label><label class="f">% (opcional)<input class="inp" type="number" step="0.01" name="pct" placeholder="Ej. 5"></label></div>
-    <label class="f">Monto (L)<input class="inp" type="number" step="0.01" min="0" name="monto" value="${mv.monto}" required></label>
-    <label class="f">Detalle del cálculo<input class="inp" name="detalle" value="${esc(mv.detalle || '')}" placeholder="Aparece en el comprobante, ej.: 2 cuentas × L 300"></label>
+    <label class="f">Cómo se calcula<select class="inp" name="modo">
+      <option value="plantilla" hidden>Según la plantilla del empleado</option>
+      <option value="unitario">Cantidad × valor por unidad (ej.: cuentas canceladas × L 300)</option>
+      <option value="porcentaje">Porcentaje de un monto (ej.: intereses cobrados × 5%)</option>
+      <option value="fijo">Escribir el monto directo</option></select></label>
+    <div class="small" id="regla" style="color:var(--azul2);font-weight:600"></div>
+    <div class="row2" id="campos"><label class="f" id="lcant">Cantidad<input class="inp" type="number" step="any" min="0" name="cantidad" inputmode="decimal"></label><label class="f" id="lval">Valor por unidad (L)<input class="inp" type="number" step="any" min="0" name="valor" inputmode="decimal"></label></div>
+    <label class="f">Monto (L)<input class="inp" type="number" step="1" min="0" name="monto" value="${mv.monto}" required></label>
+    <label class="f">Detalle del cálculo<input class="inp" name="detalle" value="${esc(mv.detalle || '')}" placeholder="Aparece en el comprobante"></label>
+    <label class="chk" id="lguardar"><input type="checkbox" name="guardar">Guardar este cálculo para este empleado (la próxima vez solo pones la cantidad)</label>
     <div class="pie">${mv.id ? '<button type="button" class="btn rojo" id="del">Eliminar</button>' : ''}<button class="btn pri">${mv.id ? 'Guardar cambios' : 'Agregar línea'}</button></div></form>`);
   const f = $('form', h.el);
-  const dl = () => { $('#dl-con', h.el).innerHTML = cs.filter(c => c.tipo === f.tipo.value).map(c => `<option value="${esc(c.nombre)}">`).join(''); };
-  dl();
-  $$('.segm button', h.el).forEach(b => b.onclick = () => { $$('.segm button', h.el).forEach(x => x.classList.toggle('on', x === b)); f.tipo.value = b.dataset.t; dl(); });
-  const calc = () => { const b = +f.base.value, p = +f.pct.value; if (b && p) { f.monto.value = Math.round(b * p / 100); f.detalle.value = `${N(b)} × ${p}%`; } };
-  f.base.oninput = calc; f.pct.oninput = calc;
+  const empObj = () => { const id = f.empleado_id.value; const a = empsA.find(x => x.id === id) || {}; return { id, area: a.area, cargo: a.cargo }; };
+  const plDe = () => f.empleado_id.value ? plantillasDe(empObj(), per.tipo, plants) : [];
+  const actual = () => plDe().find(p => p.tipo === f.tipo.value && p.concepto.trim().toLowerCase() === f.concepto.value.trim().toLowerCase());
+  const dl = () => { const propios = plDe().filter(p => p.tipo === f.tipo.value).map(p => p.concepto); $('#dl-con', h.el).innerHTML = [...new Set([...propios, ...cs.filter(c => c.tipo === f.tipo.value).map(c => c.nombre)])].map(n => `<option value="${esc(n)}">`).join(''); };
+  let pl = null;
+  const ui = () => {
+    const modo = f.modo.value; const p = modo === 'plantilla' ? pl : null;
+    $('#campos', h.el).classList.toggle('hidden', modo === 'fijo' && !p);
+    if (p && p.calculo === 'fijo') $('#campos', h.el).classList.toggle('hidden', true);
+    $('#lval', h.el).classList.toggle('hidden', !!p);
+    $('#lcant', h.el).firstChild.textContent = p ? (p.etiqueta || (p.calculo === 'porcentaje' ? 'Monto (L)' : 'Cantidad')) : modo === 'porcentaje' ? 'Monto base (L)' : 'Cantidad';
+    $('#lval', h.el).firstChild.textContent = modo === 'porcentaje' ? 'Porcentaje (%)' : 'Valor por unidad (L)';
+    $('#regla', h.el).textContent = p ? `Cálculo guardado: ${reglaPlantilla(p)}` : '';
+    f.monto.readOnly = !!p ? p.calculo !== 'fijo' : modo !== 'fijo';
+    $('#lguardar', h.el).classList.toggle('hidden', !!p || modo === 'fijo' || !f.empleado_id.value);
+    calc();
+  };
+  const calc = () => {
+    const modo = f.modo.value;
+    if (modo === 'fijo' || (modo === 'plantilla' && pl?.calculo === 'fijo')) { if (modo === 'plantilla') f.cantidad.value = f.monto.value; return; }
+    const p = modo === 'plantilla' ? pl : { calculo: modo, valor: +f.valor.value || 0, factor: 100 };
+    if (f.cantidad.value === '') { f.monto.value = ''; return; }
+    const r = calcPlantilla(p, f.cantidad.value);
+    f.monto.value = r.monto; f.detalle.value = r.detalle || '';
+  };
+  const detectar = (inicial = false) => {
+    pl = actual();
+    if (pl) { f.modo.value = 'plantilla'; $('option[value=plantilla]', f).hidden = false; }
+    else { $('option[value=plantilla]', f).hidden = true; if (f.modo.value === 'plantilla' || inicial) f.modo.value = mv.cantidad != null && /×\s*L/.test(mv.detalle || '') ? 'unitario' : mv.cantidad != null ? 'porcentaje' : (inicial && mv.id ? 'fijo' : 'unitario'); }
+    ui();
+  };
+  if (mv.cantidad != null) f.cantidad.value = mv.cantidad;
+  dl(); detectar(true);
+  if (mv.id && !pl && mv.cantidad == null) { f.modo.value = 'fijo'; ui(); }
+  $$('.segm button', h.el).forEach(b => b.onclick = () => { $$('.segm button', h.el).forEach(x => x.classList.toggle('on', x === b)); f.tipo.value = b.dataset.t; dl(); detectar(); });
+  f.empleado_id.onchange = () => { dl(); detectar(); };
+  f.concepto.oninput = () => detectar();
+  f.modo.onchange = ui;
+  f.cantidad.oninput = calc; f.valor.oninput = calc;
+  f.monto.oninput = () => { if (f.modo.value === 'plantilla' && pl?.calculo === 'fijo') f.cantidad.value = f.monto.value; };
   f.onsubmit = async e => {
     e.preventDefault(); const x = formData(f);
-    const row = { periodo_id: per.id, empleado_id: x.empleado_id, tipo: x.tipo, concepto: x.concepto.trim(), monto: +x.monto, detalle: x.detalle || null };
+    const usaCant = x.modo !== 'fijo' && !(x.modo === 'plantilla' && pl?.calculo === 'fijo');
+    const row = { periodo_id: per.id, empleado_id: x.empleado_id, tipo: x.tipo, concepto: x.concepto.trim(), monto: Math.round(+x.monto), detalle: x.detalle || null,
+      cantidad: usaCant && x.cantidad !== '' ? +x.cantidad : (x.modo === 'plantilla' ? +x.monto : null), plantilla_id: x.modo === 'plantilla' ? pl.id : null };
     const orden = cs.find(c => c.nombre === row.concepto)?.orden; if (orden) row.orden = orden;
-    try { if (mv.id) await q(sb.from('pl_movimientos').update(row).eq('id', mv.id)); else await q(sb.from('pl_movimientos').insert(row)); h.cerrar(); toast(mv.id ? 'Cambios guardados' : 'Línea agregada'); vPeriodo(per.id, 'movimientos'); } catch (er) { toast(errMsg(er), true); }
+    try {
+      if (x.guardar && (x.modo === 'unitario' || x.modo === 'porcentaje') && +x.valor > 0) {
+        const nueva = await q(sb.from('pl_plantillas').insert({ empleado_id: x.empleado_id, aplica: per.tipo, tipo: x.tipo, concepto: row.concepto, calculo: x.modo, valor: +x.valor, factor: 100,
+          etiqueta: x.modo === 'porcentaje' ? 'Monto base (L)' : 'Cantidad', orden: row.orden || 100 }).select().single());
+        row.plantilla_id = nueva.id;
+      }
+      if (mv.id) await q(sb.from('pl_movimientos').update(row).eq('id', mv.id)); else await q(sb.from('pl_movimientos').insert(row));
+      h.cerrar(); toast(mv.id ? 'Cambios guardados' : 'Línea agregada'); vPeriodo(per.id, 'movimientos');
+    } catch (er) { toast(errMsg(er), true); }
   };
   $('#del', h.el) && ($('#del', h.el).onclick = async () => { try { await q(sb.from('pl_movimientos').delete().eq('id', mv.id)); h.cerrar(); toast('Línea eliminada'); vPeriodo(per.id, 'movimientos'); } catch (er) { toast(errMsg(er), true); } });
 }
@@ -1724,7 +1777,7 @@ async function editarPlantilla(p, ambito, despues) {
     <label class="chk"><input type="checkbox" name="activo" ${p.activo ? 'checked' : ''}>Activo</label>
     <div class="pie">${p.id ? '<button type="button" class="btn rojo" id="del">Eliminar</button>' : ''}<button class="btn pri">Guardar cálculo</button></div></form>`);
   const f = $('form', h.el);
-  const ej = () => { const c = f.calculo.value; $('#lval', h.el).firstChild.textContent = c === 'porcentaje' ? 'Porcentaje (%)' : 'Valor por unidad (L)'; $('#lval', h.el).hidden = c === 'fijo'; $('#lfac', h.el).hidden = c === 'fijo';
+  const ej = () => { const c = f.calculo.value; $('#lval', h.el).firstChild.textContent = c === 'porcentaje' ? 'Porcentaje (%)' : 'Valor por unidad (L)'; $('#lval', h.el).classList.toggle('hidden', c === 'fijo'); $('#lfac', h.el).classList.toggle('hidden', c === 'fijo');
     const pp = { calculo: c, valor: +f.valor.value || 0, factor: +f.factor.value || 100 }; const muestra = c === 'porcentaje' ? 100000 : c === 'unitario' ? 3 : 1500; const r = calcPlantilla(pp, muestra);
     $('#ejemplo', h.el).textContent = `Ejemplo: si escribes ${N(muestra)} → ${L(r.monto)}${r.detalle ? ` (${r.detalle})` : ''}`; };
   f.oninput = ej; ej();

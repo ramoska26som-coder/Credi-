@@ -1332,7 +1332,7 @@ function enlazarCompletar(s, refrescar){
     $('#cVerF').classList.toggle('hidden', directo);
     $('#cDestino').innerHTML = !forma ? 'Seleccione la forma de desembolso.'
       : directo ? '➡ Pasará directo a <b>Desembolsos por transferencia</b> (no requiere verificador).'
-      : `➡ Pasará a <b>Verificación</b>${nuevo ? (verTrab ? ' · visitas: domicilio y trabajo' : ' · visita: solo domicilio') : ''}${forma === 'efectivo' ? ' (el verificador entrega el efectivo)' : ''}.`;
+      : `➡ Pasará a <b>Verificación</b>${nuevo ? (verTrab ? ' · visitas: domicilio y trabajo' : ' · visita: solo domicilio') : ''}${forma === 'efectivo' ? ' (el verificador entrega el efectivo)' : ''}.${s.dom_lat == null ? '<div class="muted" style="margin-top:4px">Opcional: agregue sector y coordenadas en "Ubicación para verificación" para ordenar las visitas por cercanía. Se puede hacer después.</div>' : ''}`;
   };
   F.querySelectorAll('input,textarea,select').forEach(i => i.addEventListener('input', () => S.dirty = true));
   F.querySelectorAll('#cForma button').forEach(b => b.onclick = () => { forma = b.dataset.v; S.dirty = true;
@@ -1347,8 +1347,6 @@ function enlazarCompletar(s, refrescar){
   destino();
   $('#cEnviar').onclick = e => run(e.target, async () => {
     if (!forma) throw new Error('Seleccione la forma de desembolso');
-    const vaVerif = !$('#cVerF').classList.contains('hidden');
-    if (vaVerif && s.dom_lat == null && !confirm('La solicitud no tiene coordenadas del domicilio (sección "Ubicación para verificación").\nSin ellas no se puede ordenar por cercanía. ¿Enviar de todos modos?')) return;
     const r = await rpc('completar_solicitud', { p_id: s.id, p_datos: {}, p_forma: forma,
       p_act_domicilio: !nuevo && $('#cDom').checked, p_act_trabajo: nuevo ? verTrab : $('#cTrab').checked, p_act_foto: false,
       p_verificador: $('#cVer').value || null, p_monto_solicitado: (() => { const m = num($('#cMonto').value); if (!m || m <= 0) throw new Error('Indique el monto que toma el cliente'); if (m > +s.monto_aprobado) throw new Error(`El monto excede el aprobado (${L(s.monto_aprobado)})`); return m; })(), p_plazo: null, p_cuenta: $('#cCta').value || null });

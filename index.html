@@ -697,10 +697,9 @@ $('#fab').onclick = () => {
   w.querySelectorAll('#nTipo button').forEach(b => b.onclick = () => {
     tipo = b.dataset.v; w.querySelectorAll('#nTipo button').forEach(x => x.classList.toggle('on', x === b));
     const nuevo = tipo === 'nuevo';
-    $('#nOk').textContent = nuevo ? 'Crear' : 'Crear y enviar a análisis';
+    $('#nOk').textContent = 'Crear';
     $('#nIngF').classList.toggle('hidden', nuevo);
-    $('#nHelp').textContent = nuevo ? 'Se crea con el nombre; luego agrega los ingresos y la envía a análisis.'
-      : 'Para reingreso/refinanciamiento solo se necesita el nombre: se envía directo a análisis.';
+    $('#nHelp').textContent = 'Se crea con el nombre; luego agrega los ingresos y, cuando esté lista, la envía a análisis.';
   });
   const coin = () => { $('#nCoin').innerHTML = coincidencias({ id:0, nombre_cliente: $('#nNombre').value, telefono: $('#nTel').value, dni: $('#nDni').value }); };
   $('#nNombre').oninput = coin;
@@ -708,10 +707,10 @@ $('#fab').onclick = () => {
   $('#nNombre').focus();
   $('#nOk').onclick = e => run(e.target, async () => {
     if ($('#nDni').value.replace(/\D/g,'').length !== 13) throw new Error('Ingrese el número de identidad (13 dígitos)');
-    const id = await rpc('crear_solicitud', { p_dni: $('#nDni').value, p_nombre: $('#nNombre').value, p_tipo: tipo, p_telefono: $('#nTel').value || null, p_enviar: tipo !== 'nuevo', p_fecha_ingreso: tipo !== 'nuevo' ? ($('#nIng').value || null) : null, p_asesor: $('#nAsesor')?.value || null });
+    const id = await rpc('crear_solicitud', { p_dni: $('#nDni').value, p_nombre: $('#nNombre').value, p_tipo: tipo, p_telefono: $('#nTel').value || null, p_enviar: false, p_fecha_ingreso: tipo !== 'nuevo' ? ($('#nIng').value || null) : null, p_asesor: $('#nAsesor')?.value || null });
     await cerrarDialogo(w); await cargarSolicitudes(); pintarTabs(); pintar();
-    toast(tipo === 'nuevo' ? 'Solicitud creada. Agregue los ingresos.' : 'Enviada a análisis');
-    if (tipo === 'nuevo') abrirDetalle(id);
+    toast('Solicitud creada. Agregue los ingresos.');
+    abrirDetalle(id);
   });
 };
 function dialogo(html){
@@ -1057,8 +1056,11 @@ function accionesHTML(s, c){
   const abierta = !CERRADAS.includes(s.estado);
   // Asesor: borrador
   if (s.estado === 'borrador' && es('asesor')){
-    h += `<div class="card"><div class="small muted">${s.tipo === 'nuevo' ? 'Agregue los pagos de planilla (y comisiones si aplica) y envíe a análisis.' : 'Lista para enviar a análisis.'}</div>
-      <div class="btns"><button class="btn pri" id="aEnviar">Enviar a análisis</button></div></div>`;
+    const nIng = (S.detData.ing || []).length;
+    h += `<div class="card" style="border:1.5px solid var(--r-asesor)"><h4 class="sec" style="margin-top:0">¿La solicitud está lista?</h4>
+      <div class="small muted">Agregue todos los ingresos${s.tipo === 'nuevo' ? ' (planilla y comisiones si aplica)' : ' y los datos del préstamo actual'}. La solicitud se queda con usted hasta que confirme; el analista no la verá antes.</div>
+      <div class="small" style="margin-top:6px">${nIng ? `📄 ${nIng} registro(s) de ingresos agregados` : '<span style="color:var(--amber)">⚠ Aún no hay ingresos registrados</span>'}</div>
+      <div class="btns"><button class="btn pri" id="aEnviar">✅ Solicitud lista · enviar a análisis</button></div></div>`;
   }
   // Analista: dictamen
   if (s.estado === 'en_analisis' && es('analista')){
@@ -1196,7 +1198,11 @@ function enlazarDetalle(s, c){
   if ($('#rdAbrir')) $('#rdAbrir').onclick = () => abrirReconocimiento(S.detData.s);
   if ($('#dAsesor')) $('#dAsesor').onchange = e => run(e.target, async () => { await rpc('reasignar_asesor', { p_id: s.id, p_asesor: e.target.value }); toast('Asesor reasignado'); await refrescar(); });
   // Asesor: enviar
-  if ($('#aEnviar')) $('#aEnviar').onclick = e => run(e.target, async () => { await rpc('enviar_analisis', { p_id: s.id }); toast('Enviada a análisis'); await refrescar(); });
+  if ($('#aEnviar')) $('#aEnviar').onclick = e => {
+    const nIng = (S.detData.ing || []).length;
+    if (!confirm(`¿Confirma que la solicitud de ${s.nombre_cliente} está lista?\n\n${nIng} registro(s) de ingresos.${nIng ? '' : ' ⚠ No tiene ingresos.'}\nSe enviará al analista y ya no podrá editar los ingresos.`)) return;
+    run(e.target, async () => { await rpc('enviar_analisis', { p_id: s.id }); toast('Enviada a análisis'); await refrescar(); });
+  };
 
   // Analista
   if ($('#dAprobar')){

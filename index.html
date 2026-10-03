@@ -188,6 +188,24 @@ table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums
 .col{background:var(--brand2);border-radius:16px;padding:8px;min-height:120px}
 .col-h{display:flex;align-items:center;gap:8px;padding:6px 6px 10px;border-bottom:3px solid var(--cc);margin-bottom:8px}
 .col-h > div{flex:1;min-width:0}
+/* Ubicación para verificación */
+.ubi{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+.ubi .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700}
+.ubi .hd a{font-weight:600;font-size:12.5px}
+.ubi .prev{font-size:12px;margin-top:4px}
+.loc{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12.5px;color:var(--ink2);margin-top:5px}
+.loc a{font-weight:600}
+.loc .km{font-weight:700;color:var(--brand-dk)}
+.loc .sin{color:var(--amber)}
+.vtool{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
+.vtool .seg{flex:none}
+.vtool select{width:auto;min-width:170px;padding:7px 10px}
+.grp{font:700 13px/1.2 Poppins,Inter,sans-serif;color:var(--ink2);margin:14px 2px 6px;display:flex;gap:8px;align-items:center}
+.grp span{font:600 11.5px Inter,sans-serif;color:var(--muted)}
+.parada{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:11px;background:var(--brand);color:#fff;font:700 12px Inter,sans-serif;padding:0 6px}
+#vMap{height:62vh;min-height:360px;border-radius:14px;border:1px solid var(--line);overflow:hidden;z-index:0}
+.asig{display:flex;gap:6px;align-items:center;margin-top:6px;font-size:12.5px}
+.asig select{width:auto;padding:4px 8px;font-size:12.5px}
 .col-h b{font-size:14.5px;flex:1}
 .col-h .cnt{background:var(--card);border-radius:999px;padding:1px 9px;font-weight:700;font-size:13px}
 .col-body{display:flex;flex-direction:column;gap:8px;max-height:calc(100dvh - 300px);overflow-y:auto}
@@ -332,7 +350,7 @@ const ACC = { creada:'Creó la solicitud', enviada_analisis:'Envió a análisis'
   dictamen_aprobada:'Aprobó', dictamen_denegada:'Denegó', enviada_verificacion:'Envió a verificación',
   enviada_desembolso:'Envió a desembolso por transferencia', verificacion_ok:'Verificación exitosa',
   verificacion_rechazada:'Rechazó en verificación', desembolsada:'Marcó como desembolsada', desistida:'Cliente desistió',
-  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa', reconocimiento_deuda:'Generó el reconocimiento de deuda', edicion_admin:'Editó la solicitud', cambio_estado_admin:'Cambió el estado (administrador)', en_espera:'Puso en espera', reanudada:'Reanudó la solicitud' };
+  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa', reconocimiento_deuda:'Generó el reconocimiento de deuda', edicion_admin:'Editó la solicitud', cambio_estado_admin:'Cambió el estado (administrador)', en_espera:'Puso en espera', reanudada:'Reanudó la solicitud', ubicacion_domicilio:'Guardó la ubicación del domicilio', ubicacion_trabajo:'Guardó la ubicación del trabajo', verificador_asignado:'Asignó verificador' };
 const CERRADAS = ['desembolsada','denegada','rechazada_verificacion','desistida'];
 
 const S = { user:null, me:null, perfiles:{}, params:{}, sols:[], com:{}, tab:null, q:'', filtroTodas:'abiertas',
@@ -545,6 +563,7 @@ function pintar(){
   if (['analisis','verificar'].includes(S.tab)) lista.sort((a,b) => new Date(a.estado_desde || a.creado_en) - new Date(b.estado_desde || b.creado_en));
   // Las que están en espera van al final
   lista.sort((a,b) => (a.en_espera ? 1 : 0) - (b.en_espera ? 1 : 0));
+  if (S.tab === 'verificar') return pintarVerificar(lista, extra);
   $('#main').innerHTML = `
     <div class="search"><input id="q" placeholder="Buscar por nombre, código, DNI o teléfono" value="${esc(S.q)}">
       ${['solicitudes','revisadas','proceso'].includes(S.tab) ? `<div class="seg" style="flex:none;min-width:160px"><button data-sm="0" class="${S.soloMias?'':'on'}">Todas</button><button data-sm="1" class="${S.soloMias?'on':''}">Solo mías</button></div>` : ''}</div>
@@ -555,7 +574,94 @@ function pintar(){
   $('#main').querySelectorAll('[data-sm]').forEach(b => b.onclick = () => { S.soloMias = b.dataset.sm === '1'; pintarTabs(); pintar(); });
   $('#main').querySelectorAll('.sol').forEach(c => c.onclick = () => abrirDetalle(+c.dataset.id));
 }
-function cardSol(s){
+function asignarHTML(s){
+  if (es('analista')){
+    const vs = Object.values(S.perfiles).filter(p => p.rol === 'verificador' && p.activo);
+    return `<div class="asig" data-stop>Verificador: <select data-asig="${s.id}"><option value="">— Sin asignar —</option>${vs.map(p => `<option value="${p.id}" ${p.id === s.verificador_id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></div>`;
+  }
+  if (rol() === 'verificador' && !s.verificador_id) return `<div class="asig" data-stop><button class="btn sm pri" data-tomar="${s.id}">Tomar esta visita</button></div>`;
+  return '';
+}
+function pintarVerificar(lista, extra){
+  S.vOrden = S.vOrden || 'antig'; S.vVista = S.vVista || 'lista'; if (S.vVerif == null) S.vVerif = '';
+  const vs = Object.values(S.perfiles).filter(p => p.rol === 'verificador' && p.activo);
+  if (es('analista') && S.vVerif) lista = lista.filter(s => S.vVerif === 'sin' ? !s.verificador_id : s.verificador_id === S.vVerif);
+  const conPt = lista.filter(s => puntoVerif(s) && !s.en_espera), sinPt = lista.filter(s => !puntoVerif(s) || s.en_espera);
+  let cuerpo = '', nota = '';
+  if (S.vVista === 'mapa'){
+    cuerpo = `<div id="vMap"></div><div class="small muted" style="margin-top:6px">${conPt.length} con coordenadas${sinPt.length ? ` · ${sinPt.length} sin coordenadas o en espera (no aparecen en el mapa)` : ''}. Toque un punto para ver la solicitud.</div>`;
+  } else if (S.vOrden === 'cerca'){
+    const r = rutaCercana(S.miPos || null, conPt);
+    nota = `<div class="alert info small">${S.miPos ? `🧭 Ruta sugerida desde su ubicación · <b>${fKm(r.total)}</b> en total (línea recta)` : '📍 Sin su ubicación: la ruta empieza en la solicitud más cercana a las demás. Toque "Mi ubicación" para empezar desde donde está.'}</div>`;
+    S.vRuta = r.out.map(x => x.s.id);
+    cuerpo = r.out.map((x, i) => cardSol(x.s, { parada: i + 1, d: x.d, asignar:true })).join('')
+      + (sinPt.length ? `<div class="grp">Sin coordenadas o en espera <span>${sinPt.length}</span></div>` + sinPt.map(s => cardSol(s, { asignar:true })).join('') : '');
+  } else if (S.vOrden === 'sector'){
+    const key = s => [ciudadDe(s) || 'zzz', sectorDe(s) || 'zzz'];
+    const ord = lista.slice().sort((a, b) => (a.en_espera - b.en_espera) || key(a)[0].localeCompare(key(b)[0]) || key(a)[1].localeCompare(key(b)[1]) || (new Date(a.estado_desde) - new Date(b.estado_desde)));
+    let g = null;
+    ord.forEach(s => { const k = s.en_espera ? 'En espera' : [sectorDe(s), ciudadDe(s)].filter(Boolean).join(' · ') || 'Sin sector';
+      if (k !== g){ g = k; const n = ord.filter(x => (x.en_espera ? 'En espera' : [sectorDe(x), ciudadDe(x)].filter(Boolean).join(' · ') || 'Sin sector') === k).length; cuerpo += `<div class="grp">📍 ${esc(k)} <span>${n}</span></div>`; }
+      cuerpo += cardSol(s, { d: S.miPos && puntoVerif(s) ? distKm(S.miPos, puntoVerif(s)) : null, asignar:true }); });
+  } else {
+    cuerpo = lista.map(s => cardSol(s, { d: S.miPos && puntoVerif(s) ? distKm(S.miPos, puntoVerif(s)) : null, asignar:true })).join('');
+  }
+  const sinCoord = lista.filter(s => !puntoVerif(s)).length;
+  $('#main').innerHTML = `
+    <div class="search"><input id="q" placeholder="Buscar por nombre, código, DNI o teléfono" value="${esc(S.q)}"></div>
+    <div class="vtool">
+      <div class="seg"><button data-vo="antig" class="${S.vOrden==='antig'?'on':''}">Antigüedad</button><button data-vo="cerca" class="${S.vOrden==='cerca'?'on':''}">Cercanía</button><button data-vo="sector" class="${S.vOrden==='sector'?'on':''}">Sector</button></div>
+      <div class="seg"><button data-vv="lista" class="${S.vVista==='lista'?'on':''}">☰ Lista</button><button data-vv="mapa" class="${S.vVista==='mapa'?'on':''}">🗺 Mapa</button></div>
+      <button class="btn sm ghost" id="vYo">📍 ${S.miPos ? 'Actualizar mi ubicación' : 'Mi ubicación'}</button>
+      ${es('analista') ? `<select id="vVerif"><option value="">Todos los verificadores</option><option value="sin" ${S.vVerif==='sin'?'selected':''}>Sin asignar</option>${vs.map(p => `<option value="${p.id}" ${S.vVerif===p.id?'selected':''}>${esc(p.nombre)}</option>`).join('')}</select>` : ''}
+    </div>
+    ${extra}${nota}
+    ${sinCoord ? `<div class="small muted" style="margin:-2px 2px 8px">⚠ ${sinCoord} solicitud(es) sin coordenadas: ábrala y complete "Ubicación para verificación".</div>` : ''}
+    ${lista.length ? cuerpo : '<div class="empty">No hay solicitudes aquí.</div>'}`;
+  const qi = $('#q'); qi.oninput = () => { S.q = qi.value; const p = qi.selectionStart; pintar(); const n = $('#q'); n.focus(); n.setSelectionRange(p,p); };
+  $('#main').querySelectorAll('[data-vo]').forEach(b => b.onclick = async () => { S.vOrden = b.dataset.vo; S.vVista = 'lista';
+    if (S.vOrden === 'cerca' && !S.miPos) { try { await miUbicacion(); } catch(e){ toast(errMsg(e), true); } } pintar(); });
+  $('#main').querySelectorAll('[data-vv]').forEach(b => b.onclick = () => { S.vVista = b.dataset.vv; pintar(); });
+  $('#vYo').onclick = e => run(e.target, async () => { await miUbicacion(); pintar(); });
+  if ($('#vVerif')) $('#vVerif').onchange = e => { S.vVerif = e.target.value; pintar(); };
+  $('#main').querySelectorAll('[data-stop]').forEach(el => el.addEventListener('click', e => e.stopPropagation()));
+  $('#main').querySelectorAll('[data-asig]').forEach(sel => sel.onchange = e => run(e.target, async () => {
+    await rpc('asignar_verificador', { p_id: +sel.dataset.asig, p_verificador: sel.value || null }); toast('Verificador asignado'); await cargarSolicitudes(); pintarTabs(); pintar(); }));
+  $('#main').querySelectorAll('[data-tomar]').forEach(b => b.onclick = e => run(e.target, async () => {
+    await rpc('asignar_verificador', { p_id: +b.dataset.tomar, p_verificador: S.me.id }); toast('Visita asignada a usted'); await cargarSolicitudes(); pintarTabs(); pintar(); }));
+  $('#main').querySelectorAll('.sol').forEach(c => c.onclick = () => abrirDetalle(+c.dataset.id));
+  if (S.vVista === 'mapa') mapaVerificar(conPt);
+}
+async function mapaVerificar(pts){
+  const el = $('#vMap'); if (!el) return;
+  try {
+    if (!window.L){
+      if (!document.querySelector('link[data-leaflet]')){ const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.leaflet = 1; l.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(l); }
+      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js');
+    }
+  } catch(e){ el.innerHTML = `<div class="empty">${esc(errMsg(e))}</div>`; return; }
+  if (!$('#vMap')) return;
+  const LF = window.L; // Leaflet (L ya se usa para formatear lempiras)
+  const map = LF.map(el, { zoomControl:true }).setView([15.5, -88.03], 12);
+  LF.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
+  const b = [];
+  pts.forEach(s => { const p = puntoVerif(s); b.push([p.lat, p.lng]);
+    const col = s.verificador_id ? avColor(s.verificador_id) : '#6b7280';
+    LF.circleMarker([p.lat, p.lng], { radius:10, color:'#fff', weight:2, fillColor:col, fillOpacity:.95 }).addTo(map)
+      .bindPopup(`<b>${esc(s.nombre_cliente)}</b><br>${esc(s.codigo)} · ${esc([sectorDe(s), ciudadDe(s)].filter(Boolean).join(', '))}<br>Verificador: ${esc(s.verificador_id ? nombre(s.verificador_id) : 'Sin asignar')}${s.forma_desembolso === 'efectivo' ? `<br>💵 Entregar ${L(montoLibre(s))}` : ''}<br><a href="#" data-open="${s.id}">Abrir solicitud</a> · <a href="${linkRuta(p.lat, p.lng)}" target="_blank">Cómo llegar</a>`); });
+  if (S.miPos){ b.push([S.miPos.lat, S.miPos.lng]); LF.circleMarker([S.miPos.lat, S.miPos.lng], { radius:8, color:'#0A2A66', weight:3, fillColor:'#FFD400', fillOpacity:1 }).addTo(map).bindPopup('Usted está aquí'); }
+  if (S.vOrden === 'cerca' && pts.length > 1){ const r = rutaCercana(S.miPos || null, pts);
+    LF.polyline((S.miPos ? [[S.miPos.lat, S.miPos.lng]] : []).concat(r.out.map(x => { const p = puntoVerif(x.s); return [p.lat, p.lng]; })), { color:'#1877F2', weight:3, opacity:.6, dashArray:'6 6' }).addTo(map); }
+  if (b.length) map.fitBounds(b, { padding:[30,30], maxZoom:15 });
+  el.addEventListener('click', e => { const a = e.target.closest('[data-open]'); if (a){ e.preventDefault(); abrirDetalle(+a.dataset.open); } });
+  // Leyenda de verificadores
+  const vs = [...new Set(pts.map(s => s.verificador_id || ''))];
+  const leg = LF.control({ position:'bottomleft' });
+  leg.onAdd = () => { const d = LF.DomUtil.create('div'); d.style.cssText = 'background:#fff;padding:6px 8px;border-radius:8px;font:12px Inter,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.2)';
+    d.innerHTML = vs.map(v => `<div><span style="display:inline-block;width:10px;height:10px;border-radius:5px;background:${v ? avColor(v) : '#6b7280'};margin-right:5px"></span>${esc(v ? nombre(v) : 'Sin asignar')}</div>`).join(''); return d; };
+  leg.addTo(map);
+}
+function cardSol(s, ctx){
   const monto = s.monto_aprobado ? L(s.monto_solicitado || s.monto_aprobado) : '';
   const c = S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : '';
   const fecha = CERRADAS.includes(s.estado) ? hace(s.cerrado_en || s.estado_desde || s.creado_en) : s.en_espera ? `En espera ${hace(s.espera_desde).replace(/^hace /,'')}` : `En este paso ${hace(s.estado_desde || s.creado_en).replace(/^hace /,'')}`;
@@ -567,6 +673,7 @@ function cardSol(s){
       <div class="name">${esc(s.nombre_cliente)}</div>
       <div class="sub"><span>${esc(s.codigo)}</span>${tipoChip(s.tipo)}<span>👤 ${esc(nombre(s.asesor_id))}</span>${extra}${c}</div>
       ${s.en_espera && s.espera_motivo ? `<div class="small" style="color:var(--gray);margin-top:3px">⏸ ${esc(s.espera_motivo)}</div>` : ''}
+      ${ctx ? locHTML(s, ctx.parada ? `<span class="parada">${ctx.parada}</span>${ctx.d != null ? `<span class="km">${fKm(ctx.d)}</span>` : ''}` : ctx.d != null ? `<span class="km">a ${fKm(ctx.d)}</span>` : '') + (ctx.asignar ? asignarHTML(s) : '') : ''}
     </div>
     <div class="right">${chip(s.estado)}${s.en_espera ? '<div style="margin-top:4px">' + esperaChip(s) + '</div>' : ''}<div class="amt" style="margin-top:6px">${monto}</div>${entregaHTML(s)}<div class="small muted">${fecha}</div></div>
   </div>`;
@@ -779,6 +886,9 @@ function renderDetalle(){
   // Datos del cliente (completados)
   if (Object.keys(d).length || s.forma_desembolso) h += datosClienteHTML(s);
 
+  // Ubicación para verificación (domicilio / trabajo)
+  if (!['borrador','en_analisis'].includes(s.estado) || s.dom_lat != null || s.dom_sector) h += ubicacionHTML(s);
+
   // Acciones según estado y rol
   h += accionesHTML(s, c);
 
@@ -795,6 +905,100 @@ function renderDetalle(){
   $('#sheetTitle').textContent = s.nombre_cliente; $('#sheetChip').innerHTML = chip(s.estado);
   $('#sheetBody').innerHTML = h;
   enlazarDetalle(s, c);
+}
+// ================== Ubicación de verificación ==================
+const CIUDADES = ['San Pedro Sula','Choloma','Villanueva','La Lima','El Progreso','Puerto Cortés','Otra'];
+// Acepta "15.50417, -88.025", enlaces de Google Maps (@lat,lng · q=lat,lng · !3dlat!4dlng) o de WhatsApp
+function parseCoords(txt){
+  const t = String(txt || '').trim(); if (!t) return null;
+  let m = t.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/) || t.match(/@(-?\d+\.\d+),\s*(-?\d+\.\d+)/)
+       || t.match(/[?&](?:q|query|ll|destination|daddr)=(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)/i) || t.match(/(-?\d{1,2}\.\d{3,})\s*[,;\s]\s*(-?\d{1,3}\.\d{3,})/);
+  if (!m) return /goo\.gl|maps\.app/i.test(t) ? { corto:true } : null;
+  const lat = +m[1], lng = +m[2];
+  if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) return null;
+  return { lat, lng, fueraHN: !(lat > 12.9 && lat < 16.6 && lng > -89.5 && lng < -83) };
+}
+function distKm(a, b){
+  const R = 6371, r = x => x * Math.PI / 180, dLa = r(b.lat - a.lat), dLo = r(b.lng - a.lng);
+  const h = Math.sin(dLa/2)**2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const fKm = d => d == null ? '' : d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km';
+// Punto principal a visitar: domicilio; si no tiene, el trabajo
+const puntoVerif = s => s.dom_lat != null ? { lat:+s.dom_lat, lng:+s.dom_lng, lugar:'domicilio' } : s.trab_lat != null ? { lat:+s.trab_lat, lng:+s.trab_lng, lugar:'trabajo' } : null;
+const sectorDe = s => s.dom_sector || s.trab_sector || s.datos_cliente?.sector || null;
+const ciudadDe = s => s.dom_ciudad || s.trab_ciudad || s.datos_cliente?.ciudad || null;
+const linkMapa = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+const linkRuta = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+const sectoresConocidos = () => [...new Set(S.sols.flatMap(s => [s.dom_sector, s.trab_sector]).filter(Boolean))].sort();
+function miUbicacion(){
+  return new Promise((ok, fail) => {
+    if (!navigator.geolocation) return fail(new Error('Este dispositivo no permite obtener la ubicación'));
+    navigator.geolocation.getCurrentPosition(p => { S.miPos = { lat:p.coords.latitude, lng:p.coords.longitude, t:Date.now() }; ok(S.miPos); },
+      e => fail(new Error(e.code === 1 ? 'Permita el acceso a la ubicación en el navegador' : 'No se pudo obtener la ubicación')), { enableHighAccuracy:true, timeout:12000, maximumAge:60000 });
+  });
+}
+// Línea con sector, ciudad, distancia y enlaces (para tarjetas)
+function locHTML(s, extra){
+  const pt = puntoVerif(s), sec = sectorDe(s), ciu = ciudadDe(s);
+  if (!pt && !sec && !['aprobada','por_verificar'].includes(s.estado)) return '';
+  return `<div class="loc">${extra || ''}<span>📍 ${sec || ciu ? esc([sec, ciu].filter(Boolean).join(' · ')) : '<span class="sin">Sin sector</span>'}</span>
+    ${pt ? `<a href="${linkRuta(pt.lat, pt.lng)}" target="_blank" rel="noopener" data-stop>Cómo llegar</a>` : '<span class="sin">Sin coordenadas</span>'}</div>`;
+}
+function ubicacionHTML(s){
+  const abierta = !CERRADAS.includes(s.estado);
+  const edit = abierta || rol() === 'admin';
+  const tieneTrab = s.trab_lat != null || s.trab_sector || s.actualizar_trabajo || s.tipo === 'nuevo';
+  const bloque = (lugar, ico, tit) => {
+    const k = lugar === 'domicilio' ? 'dom' : 'trab';
+    const lat = s[k + '_lat'], lng = s[k + '_lng'], sec = s[k + '_sector'], ciu = s[k + '_ciudad'], ref = s[k + '_ref'];
+    if (!edit) return lat == null && !sec ? '' : `<div class="ubi"><div class="hd">${ico} ${tit}${lat != null ? ` <span class="spacer"></span><a href="${linkMapa(lat,lng)}" target="_blank">Ver en mapa</a>` : ''}</div>
+      <div class="small">${esc([sec, ciu].filter(Boolean).join(' · ') || '—')}${ref ? ' · ' + esc(ref) : ''}</div></div>`;
+    return `<div class="ubi" data-lugar="${lugar}">
+      <div class="hd">${ico} ${tit}${lugar === 'trabajo' ? ' <span class="small muted" style="font-weight:500">(si se visita)</span>' : ''}<span class="spacer"></span>
+        ${lat != null ? `<a href="${linkMapa(lat,lng)}" target="_blank">Ver en mapa</a><a href="${linkRuta(lat,lng)}" target="_blank">Cómo llegar</a>` : ''}</div>
+      <div class="grid2"><div><label class="f">Sector / colonia</label><input data-u="sector" list="dlSectores" value="${esc(sec||'')}" placeholder="Ej. Col. Rivera Hernández"></div>
+        <div><label class="f">Ciudad</label><select data-u="ciudad"><option value="">—</option>${CIUDADES.map(c => `<option ${c === ciu ? 'selected' : ''}>${c}</option>`).join('')}${ciu && !CIUDADES.includes(ciu) ? `<option selected>${esc(ciu)}</option>` : ''}</select></div></div>
+      <label class="f">Coordenadas o enlace de Google Maps</label>
+      <div class="row" style="gap:6px"><input data-u="coord" value="${lat != null ? `${(+lat).toFixed(6)}, ${(+lng).toFixed(6)}` : ''}" placeholder="15.50417, -88.02500 o pegue el enlace" style="flex:1">
+        <button type="button" class="btn sm ghost" data-gpsu title="Usar la ubicación de este teléfono">📍 Aquí</button></div>
+      <div class="prev muted" data-prev></div>
+      <label class="f">Referencia</label><input data-u="ref" value="${esc(ref||'')}" placeholder="Ej. frente a pulpería La Bendición, portón negro">
+      <div class="btns" style="margin-top:8px"><button type="button" class="btn sm pri" data-saveu>Guardar ${lugar}</button></div></div>`;
+  };
+  const dom = bloque('domicilio', '🏠', 'Domicilio'), trab = tieneTrab || !edit ? bloque('trabajo', '🏢', 'Trabajo') : '';
+  if (!dom && !trab) return '';
+  return `<div class="card" id="ubiCard"><h4 class="sec" style="margin-top:0">📍 Ubicación para verificación</h4>
+    ${edit ? '<div class="small muted">Sirve para asignar y ordenar las visitas por sector y cercanía. Pegue el enlace que comparte el cliente por WhatsApp o escriba las coordenadas.</div>' : ''}
+    <datalist id="dlSectores">${sectoresConocidos().map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+    ${dom}${trab}</div>`;
+}
+function enlazarUbicacion(s, refrescar){
+  document.querySelectorAll('#ubiCard .ubi[data-lugar]').forEach(box => {
+    const inp = box.querySelector('[data-u="coord"]'), prev = box.querySelector('[data-prev]');
+    const ver = () => { const c = parseCoords(inp.value);
+      prev.innerHTML = !inp.value.trim() ? '' : !c ? '<span style="color:var(--red)">No se reconocen coordenadas</span>'
+        : c.corto ? '<span style="color:var(--red)">Es un enlace corto: ábralo en Google Maps, mantenga presionado el punto y copie las coordenadas (ej. 15.50417, -88.02500)</span>'
+        : `✔ ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}${c.fueraHN ? ' · <span style="color:var(--amber)">⚠ fuera de Honduras, revise</span>' : ''} · <a href="${linkMapa(c.lat, c.lng)}" target="_blank">comprobar</a>`; };
+    inp.oninput = ver; ver();
+    box.querySelector('[data-gpsu]').onclick = e => run(e.target, async () => { const p = await miUbicacion(); inp.value = `${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`; ver(); });
+    box.querySelector('[data-saveu]').onclick = e => run(e.target, async () => {
+      const raw = inp.value.trim(), c = raw ? parseCoords(raw) : null;
+      if (raw && (!c || c.corto)) throw new Error(c?.corto ? 'Pegue las coordenadas, el enlace corto no trae la ubicación' : 'Coordenadas no válidas');
+      const sector = box.querySelector('[data-u="sector"]').value, ciudad = box.querySelector('[data-u="ciudad"]').value, ref = box.querySelector('[data-u="ref"]').value;
+      await rpc('guardar_ubicacion', { p_id: s.id, p_lugar: box.dataset.lugar, p_lat: c ? c.lat : null, p_lng: c ? c.lng : null, p_sector: sector, p_ciudad: ciudad, p_ref: ref });
+      toast('Ubicación guardada'); await refrescar();
+    });
+  });
+}
+// Ruta sugerida: siempre al punto más cercano siguiente (vecino más cercano)
+function rutaCercana(origen, items){
+  const pend = items.slice(), out = []; let cur = origen, total = 0;
+  while (pend.length){
+    let bi = 0, bd = Infinity; pend.forEach((x, i) => { const d = cur ? distKm(cur, puntoVerif(x)) : 0; if (d < bd){ bd = d; bi = i; } });
+    const x = pend.splice(bi, 1)[0]; const d = cur ? bd : null; if (d) total += d; out.push({ s:x, d }); cur = puntoVerif(x);
+  }
+  return { out, total };
 }
 // Monto que se entrega al cliente (efectivo) o se transfiere, ya descontado el saldo anterior
 function entregaHTML(s, kc){
@@ -942,6 +1146,7 @@ function verificacionHTML(s, items){
 function enlazarDetalle(s, c){
   const B = $('#sheetBody');
   const refrescar = async () => { await cargarSolicitudes(); const n = S.sols.find(x => x.id === s.id); if (n) { S.dirty=false; await abrirDetalle(s.id, true); } pintarTabs(); };
+  enlazarUbicacion(s, refrescar);
 
   // Ingresos
   let cat = 'salario';
@@ -1142,6 +1347,8 @@ function enlazarCompletar(s, refrescar){
   destino();
   $('#cEnviar').onclick = e => run(e.target, async () => {
     if (!forma) throw new Error('Seleccione la forma de desembolso');
+    const vaVerif = !$('#cVerF').classList.contains('hidden');
+    if (vaVerif && s.dom_lat == null && !confirm('La solicitud no tiene coordenadas del domicilio (sección "Ubicación para verificación").\nSin ellas no se puede ordenar por cercanía. ¿Enviar de todos modos?')) return;
     const r = await rpc('completar_solicitud', { p_id: s.id, p_datos: {}, p_forma: forma,
       p_act_domicilio: !nuevo && $('#cDom').checked, p_act_trabajo: nuevo ? verTrab : $('#cTrab').checked, p_act_foto: false,
       p_verificador: $('#cVer').value || null, p_monto_solicitado: (() => { const m = num($('#cMonto').value); if (!m || m <= 0) throw new Error('Indique el monto que toma el cliente'); if (m > +s.monto_aprobado) throw new Error(`El monto excede el aprobado (${L(s.monto_aprobado)})`); return m; })(), p_plazo: null, p_cuenta: $('#cCta').value || null });
@@ -1767,6 +1974,7 @@ function cardK(s, dia){
     <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}${esperaChip(s)}</div>
     ${s.en_espera ? `<div class="ln" style="color:var(--gray)">⏸ ${esc(s.espera_motivo||'')} · ${hace(s.espera_desde)}</div>` : ''}
     <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab && !s.en_espera ? `<span>Espera: <b>${esc(responsable(s) || ESPERA[s.estado])}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
+    ${['aprobada','por_verificar'].includes(s.estado) && (sectorDe(s) || ciudadDe(s)) ? `<div class="ln">📍 ${esc([sectorDe(s), ciudadDe(s)].filter(Boolean).join(' · '))}</div>` : ''}
     ${entregaHTML(s, true)}
     <div class="tm">${tm}</div></div>`;
 }

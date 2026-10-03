@@ -268,7 +268,7 @@ const SB_KEY = 'sb_publishable_lgTmmLtUESDDyX2sff6ArQ_z65Ti9d6';
 const DOMINIO = 'planilla.maspisto.hn';
 const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
-const S = { user: null, admin: false, autoriza: false, yo: null, conceptos: null };
+const S = { user: null, admin: false, autoriza: false, supervisor: false, yo: null, conceptos: null };
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const app = $('#app');
@@ -352,14 +352,15 @@ async function iniciar() {
     S.admin = !!(await q(sb.rpc('pl_es_admin')));
     S.yo = await q(sb.from('pl_empleados').select('*').eq('user_id', S.user.id).maybeSingle());
     S.autoriza = S.admin ? !!(await q(sb.rpc('pl_puede_autorizar'))) : false;
+    S.supervisor = !S.admin && !!(await q(sb.rpc('pl_es_supervisor')));
   } catch (e) { toast(errMsg(e), true); }
-  if (!S.admin && !S.yo) {
+  if (!S.admin && !S.yo && !S.supervisor) {
     app.innerHTML = `<div class="login"><div class="login-in"><div class="marca">más<span class="p">pisto</span></div><p class="marca-sub">Planilla</p>
       <div class="err" style="background:#fff">Tu cuenta no está vinculada a ningún empleado. Pide al administrador que la vincule.</div>
       <button class="btn ama" style="margin-top:16px" onclick="salir()">Cerrar sesión</button></div></div>`;
     return;
   }
-  if (!location.hash || location.hash === '#/') { location.hash = S.admin ? '#/planillas' : '#/mis-pagos'; return; }
+  if (!location.hash || location.hash === '#/') { location.hash = S.admin ? '#/planillas' : S.supervisor ? '#/asistencia' : '#/mis-pagos'; return; }
   ruta();
 }
 async function salir() { await sb.auth.signOut(); S.user = null; S.admin = false; S.yo = null; location.hash = ''; pintarLogin(); }
@@ -394,6 +395,7 @@ function navItems() {
   const A = 'Administración', M = 'Mi cuenta';
   if (S.admin) it.push(['#/planillas', 'Planillas', ICON.planilla, A], ['#/solicitudes', 'Solicitudes', ICON.bandeja, A], ['#/empleados', 'Empleados', ICON.gente, A],
     ['#/prestamos', 'Préstamos', ICON.prestamo, A], ['#/adelantos', 'Adelantos', ICON.adelanto, A], ['#/combustible', 'Combustible', ICON.moto, A], ['#/historial', 'Historial', ICON.reloj, A], ['#/ajustes', 'Ajustes', ICON.ajustes, A]);
+  if (S.supervisor) it.push(['#/asistencia', 'Asistencia', ICON.planilla, 'Supervisión']);
   if (S.yo) it.push(['#/mi-tiempo', 'Mi tiempo', ICON.sol, M], ['#/mis-pagos', 'Mis pagos', ICON.yo, M], ['#/mis-solicitudes', 'Mis solicitudes', ICON.bandeja, M], ['#/mis-prestamos', 'Mis préstamos', ICON.prestamo, M]);
   return it;
 }
@@ -415,7 +417,7 @@ function shell(html) {
   <div class="mob-head"><div class="marca">más<span class="p">pisto</span></div><div style="display:flex;gap:6px"><button data-instalar ${promptInstalar ? '' : 'hidden'} onclick="instalarApp()">Instalar</button><button onclick="salir()">Salir</button></div></div>
   <div class="shell">
     <aside class="side"><div class="marca">más<span class="p">pisto</span></div><div class="marca-sub">Planilla</div>
-      <nav class="nav">${items.map(([href, t, ic, g], i) => `${S.admin && S.yo && g !== items[i - 1]?.[3] ? `<div class="nav-g">${g}</div>` : ''}<a href="${href}" class="${on(href)}">${ic}<span>${t}</span>${href === '#/solicitudes' ? '<b class="badge hidden" data-badge></b>' : ''}</a>`).join('')}</nav>
+      <nav class="nav">${items.map(([href, t, ic, g], i) => `${(S.admin || S.supervisor) && S.yo && g !== items[i - 1]?.[3] ? `<div class="nav-g">${g}</div>` : ''}<a href="${href}" class="${on(href)}">${ic}<span>${t}</span>${href === '#/solicitudes' ? '<b class="badge hidden" data-badge></b>' : ''}</a>`).join('')}</nav>
       <div class="side-pie"><span>${esc(nom)}</span><button data-instalar ${promptInstalar ? '' : 'hidden'} onclick="instalarApp()">Instalar app</button><button onclick="cambiarMiClave()">Cambiar contraseña</button><button onclick="salir()">Cerrar sesión</button></div>
     </aside>
     <main id="main">${html}</main>
@@ -465,6 +467,7 @@ async function ruta() {
       if (p[0] === 'ajustes') return vAjustes();
       if (p[0] === 'comp') return vComprobanteAdmin(p[1], p[2]);
     }
+    if (S.supervisor && p[0] === 'asistencia') return vAsistenciaSup(p[1]);
     if (S.yo) {
       if (p[0] === 'mis-pagos') return vMisPagos();
       if (p[0] === 'mis-prestamos') return vMisPrestamos();
@@ -478,7 +481,7 @@ async function ruta() {
       if (p[0] === 'mis-solicitudes') return vMisSolicitudes();
       if (p[0] === 'solicitar') return ({ adelanto: vMiAdelanto, vacaciones: vMisVacaciones, permiso: vMisPermisos, horas: vRegistrarHoras, descanso: vSolicitarDescanso }[p[1]] || vMisSolicitudes)();
     }
-    location.hash = S.admin ? '#/planillas' : '#/mis-pagos';
+    location.hash = S.admin ? '#/planillas' : S.supervisor ? '#/asistencia' : '#/mis-pagos';
   } catch (e) { console.error(e); shell(`<div class="err">${esc(errMsg(e))}</div>`); }
 }
 
@@ -665,11 +668,10 @@ function excelPlanilla(per, calc) {
 /* ---------- asistencia ---------- */
 const MARCAS = { T: 'Trabajado', F: 'Falta', V: 'Vacaciones', I: 'Incapacidad', P: 'Permiso sin goce', L: 'Libre / permiso con goce', N: 'No laboraba aún' };
 const HORAS_MARCA = { T: 8, F: 0, V: 8, I: 8, P: 0, L: 8, N: 0 };
-async function tabAsistencia(cont, per) {
+async function tabAsistencia(cont, per, recargar = () => vPeriodo(per.id, 'asistencia')) {
   const abierta = per.estado === 'abierta';
-  const [rows, emps] = await Promise.all([
-    q(sb.from('pl_asistencia').select('*').eq('periodo_id', per.id)),
-    q(sb.from('pl_empleados').select('id,nombre,salario_mensual').order('nombre'))]);
+  const datos = await q(sb.rpc('pl_asistencia_periodo', { p_periodo: per.id }));
+  const rows = datos.registros, emps = datos.empleados;
   const dias = []; for (let d = pf(per.fecha_inicio); d <= pf(per.fecha_fin); d.setDate(d.getDate() + 1)) dias.push(new Date(d));
   const map = {}; rows.forEach(r => map[r.empleado_id + '|' + r.fecha] = r);
   const ids = [...new Set(rows.map(r => r.empleado_id))];
@@ -683,12 +685,12 @@ async function tabAsistencia(cont, per) {
       <tbody>${lista.map(e => `<tr><td class="n" title="${esc(e.nombre)}">${esc(corto(e.nombre))}</td>${dias.map(d => { const r = map[e.id + '|' + iso(d)]; if (!r) return `<td><button class="m m-N" data-e="${e.id}" data-f="${iso(d)}" ${abierta ? '' : 'disabled'}>·</button></td>`; const parcial = (r.marca === 'T' && +r.horas < 8) || r.minutos_tarde > 0; const extra = +r.horas_extra > 0 || r.feriado; return `<td><button class="m m-${r.marca} ${parcial ? 'parcial' : ''} ${extra ? 'extra' : ''}" data-e="${e.id}" data-f="${r.fecha}" title="${esc(MARCAS[r.marca])} · ${N(r.horas)} h${r.minutos_tarde ? ' · ' + r.minutos_tarde + ' min tarde' : ''}${+r.horas_extra ? ' · ' + N(r.horas_extra) + ' h extra' : ''}${r.nota ? ' · ' + r.nota : ''}" ${abierta ? '' : 'disabled'}>${r.marca === 'T' && +r.horas < 8 ? N(r.horas) : r.marca}</button></td>`; }).join('')}<td class="h">${N(horasPag(e.id))}</td></tr>`).join('')}</tbody>
     </table></div>` : `<div class="vacio"><b>No hay asistencia generada</b>Genera 8 horas diarias para los empleados con salario.</div>`}
     ${abierta ? `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn borde sm" id="gen">Agregar empleados faltantes</button><span class="small muted" style="align-self:center">Toca un día para marcar falta, vacaciones, horas extra o llegada tarde. La quincena se paga sobre 120 horas.</span></div>` : ''}`;
-  $('#gen', cont) && ($('#gen', cont).onclick = async () => { try { const n = await q(sb.rpc('pl_generar_asistencia', { p_periodo: per.id })); toast(n ? `${n} días agregados` : 'No faltaba nadie'); vPeriodo(per.id, 'asistencia'); } catch (e) { toast(errMsg(e), true); } });
+  $('#gen', cont) && ($('#gen', cont).onclick = async () => { try { const n = await q(sb.rpc('pl_generar_asistencia', { p_periodo: per.id })); toast(n ? `${n} días agregados` : 'No faltaba nadie'); recargar(); } catch (e) { toast(errMsg(e), true); } });
   if (!abierta) return;
-  $$('button.m[data-e]', cont).forEach(b => b.onclick = () => editarDia(per, lista.find(e => e.id === b.dataset.e), b.dataset.f, map[b.dataset.e + '|' + b.dataset.f]));
+  $$('button.m[data-e]', cont).forEach(b => b.onclick = () => editarDia(per, lista.find(e => e.id === b.dataset.e), b.dataset.f, map[b.dataset.e + '|' + b.dataset.f], recargar));
 }
 
-function editarDia(per, emp, fecha, r) {
+function editarDia(per, emp, fecha, r, recargar) {
   r = r || { marca: 'T', horas: 8, minutos_tarde: 0, horas_extra: 0, feriado: false, nota: '' };
   const d = pf(fecha);
   const h = hoja(`${corto(emp.nombre)} · ${['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d.getDay()]} ${d.getDate()}`, `<form>
@@ -704,9 +706,23 @@ function editarDia(per, emp, fecha, r) {
   $$('[data-m]', h.el).forEach(b => b.onclick = () => { $$('[data-m]', h.el).forEach(x => x.classList.toggle('on', x === b)); f.marca.value = b.dataset.m; f.horas.value = HORAS_MARCA[b.dataset.m]; });
   f.onsubmit = async e => {
     e.preventDefault(); const x = formData(f);
-    const row = { periodo_id: per.id, empleado_id: emp.id, fecha, marca: x.marca, horas: +x.horas || 0, minutos_tarde: +x.minutos_tarde || 0, horas_extra: +x.horas_extra || 0, feriado: !!x.feriado, nota: x.nota || null };
-    try { await q(sb.from('pl_asistencia').upsert(row, { onConflict: 'periodo_id,empleado_id,fecha' })); h.cerrar(); vPeriodo(per.id, 'asistencia'); } catch (er) { toast(errMsg(er), true); }
+    try {
+      await q(sb.rpc('pl_guardar_asistencia', { p_periodo: per.id, p_empleado: emp.id, p_fecha: fecha, p_marca: x.marca, p_horas: +x.horas || 0, p_minutos_tarde: +x.minutos_tarde || 0, p_horas_extra: +x.horas_extra || 0, p_feriado: !!x.feriado, p_nota: x.nota || null }));
+      h.cerrar(); recargar();
+    } catch (er) { toast(errMsg(er), true); }
   };
+}
+
+/* ---------- supervisor de asistencia ---------- */
+async function vAsistenciaSup(perId) {
+  cargando();
+  const pers = await q(sb.from('pl_periodos').select('id,nombre,codigo,fecha_inicio,fecha_fin,estado,tipo').eq('tipo', 'salario').order('fecha_inicio', { ascending: false }).limit(8));
+  const per = pers.find(p => p.id === perId) || pers.find(p => p.estado === 'abierta') || pers[0];
+  if (!per) return shell('<div class="vacio"><b>Aún no hay planillas de salario</b>Cuando administración cree la quincena, aquí podrás marcar la asistencia.</div>');
+  const m = shell(`<div class="top"><div><h1>Asistencia</h1><div class="muted small">${rango(per.fecha_inicio, per.fecha_fin)} · ${per.estado === 'abierta' ? '<span class="chip warn">Abierta</span>' : '<span class="chip ok">Cerrada, solo lectura</span>'}</div></div>
+    <div class="acc"><select class="inp" id="selp" style="width:auto">${pers.map(p => `<option value="${p.id}" ${p.id === per.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></div></div><div id="tab"></div>`);
+  $('#selp', m).onchange = e => location.hash = `#/asistencia/${e.target.value}`;
+  await tabAsistencia($('#tab', m), per, () => vAsistenciaSup(per.id));
 }
 
 /* ---------- movimientos (comisiones / otros) ---------- */
@@ -1252,12 +1268,14 @@ async function vAdelantos() {
 /* ===================== AJUSTES ===================== */
 async function vAjustes() {
   cargando();
-  const [cs, adms, conCuenta] = await Promise.all([
+  const [cs, adms, sups, conCuenta] = await Promise.all([
     q(sb.from('pl_conceptos').select('*').order('tipo').order('orden')),
     q(sb.from('pl_admins').select('user_id,autoriza')),
+    q(sb.from('pl_supervisores').select('user_id')),
     q(sb.from('pl_empleados').select('id,nombre,user_id,usuario').not('user_id', 'is', null).order('nombre'))]);
   const esAdm = new Set(adms.map(a => a.user_id));
   const aut = new Set(adms.filter(a => a.autoriza).map(a => a.user_id));
+  const sup = new Set(sups.map(a => a.user_id));
   const par = await q(sb.from('pl_parametros').select('*').order('clave'));
   const [plArea, empsA] = await Promise.all([q(sb.from('pl_plantillas').select('*').is('empleado_id', null).order('area').order('orden')), q(sb.from('pl_empleados').select('area,cargo'))]);
   S.areas = empsA.map(x => x.area || x.cargo).filter(Boolean);
@@ -1265,9 +1283,9 @@ async function vAjustes() {
   const grupo = (t, titulo) => `<div class="panel"><h3 style="margin-bottom:8px">${titulo}</h3><table class="t"><tbody>${cs.filter(c => c.tipo === t).map(c => `<tr class="click" data-c="${c.id}" style="${c.activo ? '' : 'opacity:.45'}"><td>${esc(c.nombre)}</td><td class="small muted">${{ salario: 'Salario', comisiones: 'Comisiones', ambos: 'Ambas' }[c.aplica]}</td></tr>`).join('')}</tbody></table></div>`;
   const m = shell(`<div class="top"><div><h1>Ajustes</h1><div class="muted small">Catálogo de conceptos para ingresos y deducciones</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Nuevo concepto</button></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">${grupo('ingreso', 'Ingresos')}${grupo('deduccion', 'Deducciones')}</div>
-    <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Administradores de planilla</h3>
-      <p class="small muted" style="margin:0 0 10px">Pueden ver y editar todo: planillas, empleados, préstamos, adelantos y comprobantes de todos. El administrador de VerifiCrédito siempre tiene este acceso. Solo aparecen empleados que ya tienen usuario.</p>
-      ${conCuenta.length ? `<table class="t"><tbody>${conCuenta.map(e => `<tr><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.usuario || '')}</div></td><td class="r">${e.user_id === S.user.id ? `<span class="chip ok">Tú</span>${aut.has(e.user_id) ? ' <span class="chip warn">Autoriza</span>' : ''}` : `<div style="display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap"><label class="chk"><input type="checkbox" data-adm="${e.user_id}" ${esAdm.has(e.user_id) ? 'checked' : ''}>Administrador</label><label class="chk"><input type="checkbox" data-aut="${e.user_id}" ${aut.has(e.user_id) ? 'checked' : ''} ${esAdm.has(e.user_id) ? '' : 'disabled'}>Autoriza adelantos especiales</label></div>`}</td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Ningún empleado tiene usuario todavía.</p>'}</div>
+    <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Accesos</h3>
+      <p class="small muted" style="margin:0 0 10px">Pueden ver y editar todo: planillas, empleados, préstamos, adelantos y comprobantes de todos. El administrador de VerifiCrédito siempre tiene este acceso. El <b>supervisor de asistencia</b> solo marca asistencia de todos (faltas, llegadas tarde, horas extra); no ve salarios, comprobantes ni préstamos. Solo aparecen empleados que ya tienen usuario.</p>
+      ${conCuenta.length ? `<table class="t"><tbody>${conCuenta.map(e => `<tr><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.usuario || '')}</div></td><td class="r">${e.user_id === S.user.id ? `<span class="chip ok">Tú</span>${aut.has(e.user_id) ? ' <span class="chip warn">Autoriza</span>' : ''}` : `<div style="display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap"><label class="chk"><input type="checkbox" data-adm="${e.user_id}" ${esAdm.has(e.user_id) ? 'checked' : ''}>Administrador</label><label class="chk"><input type="checkbox" data-aut="${e.user_id}" ${aut.has(e.user_id) ? 'checked' : ''} ${esAdm.has(e.user_id) ? '' : 'disabled'}>Autoriza adelantos especiales</label><label class="chk"><input type="checkbox" data-sup="${e.user_id}" ${sup.has(e.user_id) ? 'checked' : ''} ${esAdm.has(e.user_id) ? 'disabled title="Los administradores ya manejan la asistencia"' : ''}>Supervisor de asistencia</label></div>`}</td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Ningún empleado tiene usuario todavía.</p>'}</div>
     <div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3>Plantillas de cálculo por área o cargo</h3><button class="btn sm pri" id="nparea">${ICON.mas}Agregar</button></div>
       <p class="small muted" style="margin:0 0 10px">Se aplican a todos los empleados de esa área o cargo, salvo que el empleado tenga su propio cálculo del mismo concepto.</p>${tablaPlantillas(plArea)}</div>
     <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Reglas y datos de la empresa</h3><p class="small muted" style="margin:0 0 10px">Adelantos automáticos, pago de combustible y datos que salen en las constancias.</p>
@@ -1293,6 +1311,13 @@ async function vAjustes() {
       if (ch.checked) await q(sb.from('pl_admins').insert({ user_id: ch.dataset.adm }));
       else await q(sb.from('pl_admins').delete().eq('user_id', ch.dataset.adm));
       toast(ch.checked ? 'Acceso de administrador dado' : 'Acceso de administrador quitado'); vAjustes();
+    } catch (er) { ch.checked = !ch.checked; toast(errMsg(er), true); }
+  });
+  $$('[data-sup]', m).forEach(ch => ch.onchange = async () => {
+    try {
+      if (ch.checked) await q(sb.from('pl_supervisores').insert({ user_id: ch.dataset.sup }));
+      else await q(sb.from('pl_supervisores').delete().eq('user_id', ch.dataset.sup));
+      toast(ch.checked ? 'Ahora es supervisor de asistencia' : 'Ya no es supervisor de asistencia');
     } catch (er) { ch.checked = !ch.checked; toast(errMsg(er), true); }
   });
   $$('[data-aut]', m).forEach(ch => ch.onchange = async () => {
@@ -1893,7 +1918,7 @@ async function vCombustible(perId) {
 }
 
 /* ===================== ADMIN: historial ===================== */
-const TABLAS = { pl_empleados: 'Empleado', pl_periodos: 'Planilla', pl_asistencia: 'Asistencia', pl_adelantos: 'Adelanto', pl_prestamos: 'Préstamo', pl_prestamo_pagos: 'Abono a préstamo', pl_movimientos: 'Línea de planilla', pl_comprobantes: 'Comprobante', pl_vacaciones: 'Vacaciones', pl_odometro: 'Odómetro', pl_parametros: 'Ajuste', pl_admins: 'Administrador', pl_conceptos: 'Concepto' };
+const TABLAS = { pl_empleados: 'Empleado', pl_periodos: 'Planilla', pl_asistencia: 'Asistencia', pl_adelantos: 'Adelanto', pl_prestamos: 'Préstamo', pl_prestamo_pagos: 'Abono a préstamo', pl_movimientos: 'Línea de planilla', pl_comprobantes: 'Comprobante', pl_vacaciones: 'Vacaciones', pl_odometro: 'Odómetro', pl_parametros: 'Ajuste', pl_admins: 'Administrador', pl_conceptos: 'Concepto', pl_supervisores: 'Supervisor', pl_plantillas: 'Plantilla de cálculo', pl_permisos: 'Permiso', pl_horas_extra: 'Horas extra' };
 const OMITIR = ['actualizado_en', 'generado_en', 'datos', 'creado_en'];
 async function vHistorial() {
   cargando();

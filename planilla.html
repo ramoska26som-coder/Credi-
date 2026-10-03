@@ -128,6 +128,9 @@ main{padding:24px 28px 100px;max-width:1180px;width:100%;min-width:0}
 table.t{width:100%;border-collapse:collapse;font-size:14px}
 table.t th{text-align:left;font-weight:600;color:var(--gris);font-size:12px;padding:8px 10px;border-bottom:1.5px solid var(--linea);white-space:nowrap}
 table.t td{padding:10px;border-bottom:1px solid #EEF2F8;vertical-align:middle}
+table.t th.ordenable{cursor:pointer;user-select:none}
+table.t th.ordenable:hover{color:var(--tinta)}
+table.t th[aria-sort=ascending],table.t th[aria-sort=descending]{color:var(--azul2)}
 table.t tr.click{cursor:pointer} table.t tr.click:hover td{background:#F7FAFF}
 table.t .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bottom:0}
@@ -868,12 +871,46 @@ function compartirWA(c, tel) {
 /* ===================== EMPLEADOS ===================== */
 async function vEmpleados() {
   cargando();
-  const emps = await q(sb.from('pl_empleados').select('*').order('activo', { ascending: false }).order('nombre'));
-  const m = shell(`<div class="top"><div><h1>Empleados</h1><div class="muted small">${emps.filter(e => e.activo).length} activos</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Agregar empleado</button></div></div>
-    <div class="tscroll"><table class="t"><thead><tr><th>#</th><th>Nombre</th><th>Cargo</th><th class="r">Salario mensual</th><th>Recibe</th><th>Usuario</th></tr></thead><tbody>
-    ${emps.map(e => `<tr class="click" data-e="${e.id}" style="${e.activo ? '' : 'opacity:.5'}"><td class="muted">${e.numero}</td><td><b>${esc(e.nombre)}</b>${e.activo ? '' : ' <span class="chip gris">inactivo</span>'}</td><td class="muted">${esc(e.cargo || '')}</td><td class="r">${+e.salario_mensual ? L(e.salario_mensual) : '—'}</td><td>${e.recibe_salario ? '<span class="chip">Salario</span> ' : ''}${e.recibe_comisiones ? '<span class="chip warn">Comisiones</span>' : ''}</td><td class="small">${e.user_id ? `<span class="chip ok">${esc(e.usuario || 'vinculado')}</span>` : '<span class="muted">Sin usuario</span>'}</td></tr>`).join('')}
-    </tbody></table></div>`);
-  $$('tr[data-e]', m).forEach(tr => tr.onclick = () => location.hash = `#/empleado/${tr.dataset.e}`);
+  const [emps, pers] = await Promise.all([
+    q(sb.from('pl_empleados').select('*')),
+    q(sb.from('pl_periodos').select('id,nombre,fecha_fin').eq('tipo', 'comisiones').eq('estado', 'cerrada').order('fecha_fin', { ascending: false }).limit(3))]);
+  // Promedio de comisiones: lo ganado (total de ingresos) en los últimos 3 meses de comisiones cerrados ÷ número de meses
+  const perIds = pers.map(p => p.id);
+  const comps = perIds.length ? await q(sb.from('pl_comprobantes').select('empleado_id,total_ingresos').in('periodo_id', perIds).eq('anulado', false)) : [];
+  const sumCom = {}; comps.forEach(c => sumCom[c.empleado_id] = (sumCom[c.empleado_id] || 0) + +c.total_ingresos);
+  const nMeses = perIds.length || 1;
+  const filas = emps.map(e => ({ ...e, prom: Math.round((sumCom[e.id] || 0) / nMeses) }));
+  filas.forEach(e => e.total = (+e.salario_mensual || 0) + e.prom);
+  let orden = { k: 'nombre', dir: 1 };
+  try { orden = JSON.parse(sessionStorage.getItem('pl_emp_orden')) || orden; } catch (_) { }
+  const COLS = [
+    ['numero', '#', 'num'], ['nombre', 'Nombre', 'txt'], ['cargo', 'Cargo', 'txt'], ['salario_mensual', 'Salario mensual', 'num', 'r'],
+    ['prom', 'Prom. comisiones', 'num', 'r'], ['total', 'Total mensual', 'num', 'r'], ['recibe', 'Recibe', 'txt'], ['usuario', 'Usuario', 'txt']];
+  const valor = (e, k) => k === 'recibe' ? `${e.recibe_salario ? 'Salario' : ''}${e.recibe_comisiones ? ' Comisiones' : ''}` : k === 'usuario' ? (e.usuario || '') : e[k];
+  const act = filas.filter(e => e.activo);
+  const tSal = act.reduce((a, e) => a + (+e.salario_mensual || 0), 0), tCom = act.reduce((a, e) => a + e.prom, 0);
+  const m = shell(`<div class="top"><div><h1>Empleados</h1><div class="muted small">${act.length} activos · ${pers.length ? `promedio de comisiones de ${pers.length === 1 ? '1 mes' : `${pers.length} meses`}: ${pers.map(p => p.nombre.replace(/^Comisiones /, '')).reverse().join(', ')}` : 'aún no hay meses de comisiones cerrados'}</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Agregar empleado</button></div></div>
+    <div class="tscroll"><table class="t" id="temp"><thead><tr>${COLS.map(([k, t, , al]) => `<th class="${al || ''} ordenable" data-k="${k}" aria-sort="none">${t}<span class="flecha"></span></th>`).join('')}</tr></thead><tbody></tbody>
+    <tfoot><tr><td></td><td>Total (${act.length} activos)</td><td></td><td class="r">${L(tSal)}</td><td class="r">${L(tCom)}</td><td class="r">${L(tSal + tCom)}</td><td colspan="2" class="small muted" style="font-weight:500">Planilla quincenal: ${L(tSal / 2)}</td></tr></tfoot></table></div>`);
+  const pintar = () => {
+    const tipo = COLS.find(c => c[0] === orden.k)?.[2];
+    const lista = [...filas].sort((a, b) => {
+      if (a.activo !== b.activo) return a.activo ? -1 : 1; // inactivos siempre al final
+      const x = valor(a, orden.k), y = valor(b, orden.k);
+      const r = tipo === 'num' ? (+x || 0) - (+y || 0) : String(x || '').localeCompare(String(y || ''), 'es', { sensitivity: 'base' });
+      return r * orden.dir || a.nombre.localeCompare(b.nombre);
+    });
+    $('#temp tbody', m).innerHTML = lista.map(e => `<tr class="click" data-e="${e.id}" style="${e.activo ? '' : 'opacity:.5'}"><td class="muted">${e.numero}</td><td><b>${esc(e.nombre)}</b>${e.activo ? '' : ' <span class="chip gris">inactivo</span>'}</td><td class="muted">${esc(e.cargo || '')}</td><td class="r">${+e.salario_mensual ? L(e.salario_mensual) : '—'}</td><td class="r">${e.prom ? L(e.prom) : '—'}</td><td class="r num">${e.total ? L(e.total) : '—'}</td><td>${e.recibe_salario ? '<span class="chip">Salario</span> ' : ''}${e.recibe_comisiones ? '<span class="chip warn">Comisiones</span>' : ''}</td><td class="small">${e.user_id ? `<span class="chip ok">${esc(e.usuario || 'vinculado')}</span>` : '<span class="muted">Sin usuario</span>'}</td></tr>`).join('');
+    $$('#temp th[data-k]', m).forEach(th => { const on = th.dataset.k === orden.k; th.setAttribute('aria-sort', on ? (orden.dir > 0 ? 'ascending' : 'descending') : 'none'); th.querySelector('.flecha').textContent = on ? (orden.dir > 0 ? ' ▲' : ' ▼') : ''; });
+    $$('tr[data-e]', m).forEach(tr => tr.onclick = () => location.hash = `#/empleado/${tr.dataset.e}`);
+  };
+  $$('#temp th[data-k]', m).forEach(th => th.onclick = () => {
+    const k = th.dataset.k; const num = COLS.find(c => c[0] === k)[2] === 'num';
+    orden = orden.k === k ? { k, dir: -orden.dir } : { k, dir: num ? -1 : 1 }; // montos: primero de mayor a menor
+    try { sessionStorage.setItem('pl_emp_orden', JSON.stringify(orden)); } catch (_) { }
+    pintar();
+  });
+  pintar();
   $('#nuevo', m).onclick = () => editarEmpleado(null);
 }
 

@@ -209,13 +209,36 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .accion{background:#fff;border:1px solid var(--linea);border-radius:var(--r-m);padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;color:var(--tinta);font-weight:600;font-size:13px;text-align:center}
 .accion svg{width:24px;height:24px;color:var(--azul)}
 .accion:hover{border-color:#B9CDEE}
-.constancia .cons-cuerpo{padding:28px 40px 30px;font-size:15px;line-height:1.7}
-.constancia h2{text-align:center;margin-bottom:22px;font-size:20px}
-.constancia .cons-firma{display:flex;justify-content:center;margin-top:70px}
-.constancia .cons-firma div{border-top:1px solid var(--tinta);padding-top:6px;min-width:260px;text-align:center;font-weight:600}
-.constancia .cons-firma span{font-weight:400;color:var(--gris)}
+.carta{background:#fff;color:#1a1a1a;max-width:816px;margin:0 auto;padding:56px 64px 40px;border:1px solid var(--linea);border-radius:6px;box-shadow:var(--sombra,0 6px 24px rgba(10,42,102,.08));font-family:'Times New Roman',Georgia,serif;font-size:16px;line-height:1.75;min-width:0}
+.carta-mem{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding-bottom:12px;border-bottom:2px solid #0A2A66;position:relative}
+.carta-mem:after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:2px;background:#FFD400}
+.carta-mem .marca{font-size:28px;color:#0A2A66}
+.carta-mem .marca .p{color:#1877F2}
+.carta-emp{text-align:right;font-family:Inter,Arial,sans-serif;font-size:11.5px;line-height:1.5;color:#444}
+.carta-emp b{display:block;font-family:Poppins,Arial,sans-serif;font-size:13px;color:#0A2A66;letter-spacing:.02em;text-transform:uppercase}
+.carta-meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:26px 0 30px;font-size:14.5px}
+.carta h1{text-align:center;font-family:'Times New Roman',Georgia,serif;font-size:21px;font-weight:700;letter-spacing:.18em;margin:0 0 30px;text-decoration:underline;text-underline-offset:6px}
+.carta p{margin:0 0 18px;text-align:justify;hyphens:auto}
+.carta .carta-a{font-weight:700;text-transform:uppercase;margin-bottom:22px}
+.carta-firma{display:flex;justify-content:center;align-items:flex-end;gap:36px;margin-top:84px}
+.carta-firma .linea{border-top:1px solid #1a1a1a;padding-top:6px;min-width:280px;text-align:center;line-height:1.45}
+.carta-firma .linea b{display:block;text-transform:uppercase;font-size:15px}
+.carta-firma .linea span{display:block;font-size:14px}
+.carta-firma .sello{width:104px;height:104px;border:1.5px dashed #b8b8b8;border-radius:50%;display:grid;place-items:center;color:#b0b0b0;font-family:Inter,Arial,sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;flex:none}
+.carta-pie{margin-top:56px;padding-top:10px;border-top:1px solid #d6d6d6;font-family:Inter,Arial,sans-serif;font-size:10.5px;line-height:1.5;color:#666;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+@media (max-width:640px){.carta{padding:26px 18px;font-size:14.5px}.carta-mem{flex-direction:column;align-items:flex-start}.carta-emp{text-align:left}.carta-firma{flex-direction:column-reverse;align-items:center;gap:14px}.carta-firma .linea{min-width:0;width:100%}}
+.interr{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:14px 0;border-top:1px solid var(--linea)}
+.interr:first-of-type{border-top:0}
+.interr .t{font-weight:600}
+.sw{position:relative;width:46px;height:26px;flex:none;cursor:pointer}
+.sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.sw i{position:absolute;inset:0;background:#CBD5E1;border-radius:99px;transition:.2s}
+.sw i:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.2s}
+.sw input:checked+i{background:var(--azul)}
+.sw input:checked+i:after{transform:translateX(20px)}
+.sw input:focus-visible+i{box-shadow:0 0 0 3px rgba(24,119,242,.3)}
 button.lnk{background:none;border:0;padding:0;color:var(--azul2);font-weight:600;cursor:pointer;font:inherit;text-decoration:underline dotted}
-@media (max-width:760px){.liq{grid-template-columns:1fr!important}.constancia .cons-cuerpo{padding:20px}}
+@media (max-width:760px){.liq{grid-template-columns:1fr!important}}
 .cp-firma{display:none;padding:34px 22px 18px;grid-template-columns:1fr 1fr;gap:40px;font-size:12px;color:var(--gris);text-align:center}
 .cp-firma div{border-top:1px solid var(--tinta);padding-top:6px}
 @media (max-width:640px){
@@ -250,6 +273,8 @@ button.lnk{background:none;border:0;padding:0;color:var(--azul2);font-weight:600
   .cp-firma{display:grid!important}
   .cp-neto,.cp-cab,.totales .neto{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .cp + .cp{page-break-before:always}
+  .carta{border:0;box-shadow:none;border-radius:0;max-width:none;padding:6mm 10mm 0;font-size:12.5pt}
+  .carta-mem:after{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @media (prefers-reduced-motion:no-preference){
   .hoja{animation:sube .18s ease-out}
@@ -353,6 +378,7 @@ async function iniciar() {
     S.yo = await q(sb.from('pl_empleados').select('*').eq('user_id', S.user.id).maybeSingle());
     S.autoriza = S.admin ? !!(await q(sb.rpc('pl_puede_autorizar'))) : false;
     S.supervisor = !S.admin && !!(await q(sb.rpc('pl_es_supervisor')));
+    S.par = await parametros().catch(() => ({}));
   } catch (e) { toast(errMsg(e), true); }
   if (!S.admin && !S.yo && !S.supervisor) {
     app.innerHTML = `<div class="login"><div class="login-in"><div class="marca">más<span class="p">pisto</span></div><p class="marca-sub">Planilla</p>
@@ -437,12 +463,13 @@ function shell(html) {
 }
 async function refrescarBadge() {
   try {
-    const [a, v, pm, hx] = await Promise.all([
+    const [a, v, pm, hx, cs] = await Promise.all([
       sb.from('pl_adelantos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       sb.from('pl_vacaciones').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       sb.from('pl_permisos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
-      sb.from('pl_horas_extra').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')]);
-    const n = (a.count || 0) + (v.count || 0) + (pm.count || 0) + (hx.count || 0);
+      sb.from('pl_horas_extra').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+      sb.from('pl_constancia_solicitudes').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')]);
+    const n = (a.count || 0) + (v.count || 0) + (pm.count || 0) + (hx.count || 0) + (cs.count || 0);
     $$('[data-badge]').forEach(b => { b.textContent = n; b.classList.toggle('hidden', !n); });
   } catch (_) { }
 }
@@ -1276,7 +1303,12 @@ async function vAjustes() {
   const esAdm = new Set(adms.map(a => a.user_id));
   const aut = new Set(adms.filter(a => a.autoriza).map(a => a.user_id));
   const sup = new Set(sups.map(a => a.user_id));
-  const par = await q(sb.from('pl_parametros').select('*').order('clave'));
+  const parTodos = await q(sb.from('pl_parametros').select('*').order('clave'));
+  const SW = { he_pago_habilitado: ['Pedir horas extra pagadas', 'Encendido: el empleado elige si quiere que le paguen las horas extra o tomarlas como descanso. Apagado: solo puede registrarlas para descanso compensatorio (al aprobar, tú sí puedes decidir pagarlas).'],
+    constancia_autoservicio: ['Constancias automáticas', 'Encendido: el empleado genera su constancia de trabajo al instante. Apagado: la solicita y aparece en Solicitudes para que administración la emita.'] };
+  const ORDEN_PAR = ['empresa_nombre', 'empresa_rtn', 'empresa_direccion', 'empresa_ciudad', 'empresa_telefono', 'firma_nombre', 'firma_cargo'];
+  const par = parTodos.filter(x => !SW[x.clave]).sort((a, b) => { const ia = ORDEN_PAR.indexOf(a.clave), ib = ORDEN_PAR.indexOf(b.clave); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.clave.localeCompare(b.clave); });
+  const valSw = k => String(parTodos.find(x => x.clave === k)?.valor ?? 'si').trim().toLowerCase() !== 'no';
   const [plArea, empsA] = await Promise.all([q(sb.from('pl_plantillas').select('*').is('empleado_id', null).order('area').order('orden')), q(sb.from('pl_empleados').select('area,cargo'))]);
   S.areas = empsA.map(x => x.area || x.cargo).filter(Boolean);
   S.conceptos = null;
@@ -1288,6 +1320,8 @@ async function vAjustes() {
       ${conCuenta.length ? `<table class="t"><tbody>${conCuenta.map(e => `<tr><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.usuario || '')}</div></td><td class="r">${e.user_id === S.user.id ? `<span class="chip ok">Tú</span>${aut.has(e.user_id) ? ' <span class="chip warn">Autoriza</span>' : ''}` : `<div style="display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap"><label class="chk"><input type="checkbox" data-adm="${e.user_id}" ${esAdm.has(e.user_id) ? 'checked' : ''}>Administrador</label><label class="chk"><input type="checkbox" data-aut="${e.user_id}" ${aut.has(e.user_id) ? 'checked' : ''} ${esAdm.has(e.user_id) ? '' : 'disabled'}>Autoriza adelantos especiales</label><label class="chk"><input type="checkbox" data-sup="${e.user_id}" ${sup.has(e.user_id) ? 'checked' : ''} ${esAdm.has(e.user_id) ? 'disabled title="Los administradores ya manejan la asistencia"' : ''}>Supervisor de asistencia</label></div>`}</td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Ningún empleado tiene usuario todavía.</p>'}</div>
     <div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3>Plantillas de cálculo por área o cargo</h3><button class="btn sm pri" id="nparea">${ICON.mas}Agregar</button></div>
       <p class="small muted" style="margin:0 0 10px">Se aplican a todos los empleados de esa área o cargo, salvo que el empleado tenga su propio cálculo del mismo concepto.</p>${tablaPlantillas(plArea)}</div>
+    <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Funciones para empleados</h3><p class="small muted" style="margin:0 0 4px">Se aplican de inmediato a todos los empleados.</p>
+      ${Object.entries(SW).map(([k, [t, d]]) => `<div class="interr"><div><div class="t">${t}</div><div class="small muted">${d}</div></div><label class="sw" title="${t}"><input type="checkbox" data-sw="${k}" ${valSw(k) ? 'checked' : ''} aria-label="${t}"><i></i></label></div>`).join('')}</div>
     <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Reglas y datos de la empresa</h3><p class="small muted" style="margin:0 0 10px">Adelantos automáticos, pago de combustible y datos que salen en las constancias.</p>
       <form id="fpar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px">${par.map(x => `<label class="f">${esc(x.descripcion || x.clave)}<input class="inp" name="${esc(x.clave)}" value="${esc(x.valor || '')}"></label>`).join('')}
       <div style="grid-column:1/-1;display:flex;justify-content:flex-end"><button class="btn pri">Guardar reglas</button></div></form></div>
@@ -1323,6 +1357,15 @@ async function vAjustes() {
   $$('[data-aut]', m).forEach(ch => ch.onchange = async () => {
     try { await q(sb.from('pl_admins').update({ autoriza: ch.checked }).eq('user_id', ch.dataset.aut)); toast(ch.checked ? 'Ahora puede autorizar adelantos especiales' : 'Ya no autoriza adelantos especiales'); }
     catch (er) { ch.checked = !ch.checked; toast(errMsg(er), true); }
+  });
+  $$('[data-sw]', m).forEach(ch => ch.onchange = async () => {
+    const k = ch.dataset.sw, v = ch.checked ? 'si' : 'no';
+    try {
+      if (parTodos.some(x => x.clave === k)) await q(sb.from('pl_parametros').update({ valor: v }).eq('clave', k));
+      else await q(sb.from('pl_parametros').insert({ clave: k, valor: v, descripcion: SW[k][0] }));
+      S.par = { ...(S.par || {}), [k]: v };
+      toast(`${SW[k][0]}: ${ch.checked ? 'activado' : 'desactivado'}`);
+    } catch (er) { ch.checked = !ch.checked; toast(errMsg(er), true); }
   });
   $('#fpar', m).onsubmit = async ev => {
     ev.preventDefault(); const x = formData(ev.target);
@@ -1422,7 +1465,8 @@ async function vMisPrestamos() {
 const DIAS_LARGO = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 const addDias = (s, n) => { const d = pf(s); d.setDate(d.getDate() + n); return iso(d); };
 const difDias = (a, b) => Math.round((pf(b) - pf(a)) / 864e5);
-const chipEstado = e => ({ pendiente: '<span class="chip warn">Pendiente</span>', aprobado: '<span class="chip ok">Aprobado</span>', aprobada: '<span class="chip ok">Aprobada</span>', rechazado: '<span class="chip red">Rechazado</span>', rechazada: '<span class="chip red">Rechazada</span>', cancelada: '<span class="chip gris">Cancelada</span>', cancelado: '<span class="chip gris">Cancelado</span>' }[e] || esc(e));
+const chipEstado = e => ({ pendiente: '<span class="chip warn">Pendiente</span>', aprobado: '<span class="chip ok">Aprobado</span>', aprobada: '<span class="chip ok">Aprobada</span>', rechazado: '<span class="chip red">Rechazado</span>', rechazada: '<span class="chip red">Rechazada</span>', cancelada: '<span class="chip gris">Cancelada</span>', cancelado: '<span class="chip gris">Cancelado</span>', emitida: '<span class="chip ok">Emitida</span>' }[e] || esc(e));
+const parSi = k => String(S.par?.[k] ?? 'si').trim().toLowerCase() !== 'no';
 async function parametros() { const r = await q(sb.from('pl_parametros').select('*')); const o = {}; r.forEach(x => o[x.clave] = x.valor); return o; }
 function mapsLink(lat, lng) { return lat != null ? `<a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" rel="noopener" title="Ver en el mapa" style="display:inline-flex;vertical-align:middle">${ICON.gps.replace('<svg', '<svg width="16" height="16"')}</a>` : '<span class="tiny muted">sin GPS</span>'; }
 function obtenerGPS() {
@@ -1549,37 +1593,65 @@ async function vMiCombustible() {
 }
 
 /* ===================== CONSTANCIA ===================== */
+const fechaLarga = s => { const d = pf(s); return d ? `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}` : '—'; };
+const diaLetras = n => n === 1 ? 'al primer día' : `a los ${n === 21 ? 'veintiún' : letras(n)} días`;
+const montoFormal = n => `${lempirasLetras(n).toUpperCase()} (${L(n)})`;
 function htmlConstancia(d) {
-  const tienda = d.empresa_nombre || 'Más Pisto Financiera';
-  return `<article class="cp constancia">
-    <header class="cp-cab"><div><div class="marca">más<span class="p">pisto</span></div><div class="tit">${esc(tienda)}${d.empresa_rtn ? ' · RTN ' + esc(d.empresa_rtn) : ''}</div></div><div class="nro">Folio<b>${esc(d.folio)}</b>${fc(d.fecha)}</div></header>
-    <div class="cons-cuerpo">
-      <h2>Constancia de trabajo</h2>
-      <p class="cons-a">${esc(d.dirigido_a || 'A quien interese')}:</p>
-      <p>Por medio de la presente, <b>${esc(tienda)}</b> hace constar que <b>${esc(d.nombre)}</b>${d.identidad ? `, con número de identidad <b>${esc(d.identidad)}</b>,` : ''} labora en nuestra empresa desde el <b>${fl(d.fecha_ingreso)}</b>${d.cargo ? `, desempeñando el cargo de <b>${esc(d.cargo)}</b>` : ''}.</p>
-      ${+d.salario_mensual ? `<p>Devenga un salario mensual de <b>${L(d.salario_mensual)}</b> (${lempirasLetras(d.salario_mensual)}).</p>` : ''}
-      ${d.promedio_comisiones ? `<p>Adicionalmente percibe comisiones por desempeño, con un promedio mensual de <b>${L(d.promedio_comisiones)}</b> (${lempirasLetras(d.promedio_comisiones)}) ${d.meses_comisiones > 1 ? `en los últimos ${d.meses_comisiones} meses` : 'en el último mes'}.</p>` : ''}
-      <p>Se extiende la presente a solicitud de la parte interesada, a los ${pf(d.fecha).getDate()} días del mes de ${MESES[pf(d.fecha).getMonth()]} de ${pf(d.fecha).getFullYear()}.</p>
-      <div class="cons-firma"><div>${esc(d.firma_nombre || '')}<br><span>${esc(d.firma_cargo || '')}</span></div></div>
-      <p class="tiny muted" style="margin-top:28px">${[d.empresa_direccion, d.empresa_telefono].filter(Boolean).map(esc).join(' · ')}${d.empresa_direccion || d.empresa_telefono ? ' · ' : ''}Folio ${esc(d.folio)}: puede verificarse con la administración de la empresa.</p>
-    </div></article>`;
+  const emp = d.empresa_nombre || 'Más Pisto Financiera';
+  const ciudad = (d.empresa_ciudad || '').trim();
+  const f = pf(String(d.fecha).slice(0, 10)) || hoyHN();
+  const dirigido = (d.dirigido_a || '').trim();
+  const contacto = [d.empresa_direccion, d.empresa_telefono ? 'Tel. ' + d.empresa_telefono : ''].filter(Boolean).map(esc);
+  return `<article class="carta">
+    <header class="carta-mem"><div class="marca">más<span class="p">pisto</span></div>
+      <div class="carta-emp"><b>${esc(emp)}</b>${d.empresa_rtn ? `RTN ${esc(d.empresa_rtn)}<br>` : ''}${contacto.join('<br>')}</div></header>
+    <div class="carta-meta"><span>Folio N.º <b>${esc(d.folio || '')}</b></span><span>${esc(ciudad || 'Honduras')}, ${fechaLarga(iso(f))}</span></div>
+    <h1>CONSTANCIA DE TRABAJO</h1>
+    <p class="carta-a">${dirigido ? esc(dirigido) : 'A quien interese'}:</p>
+    <p>La suscrita administración de <b>${esc(emp.toUpperCase())}</b>${d.empresa_rtn ? `, con Registro Tributario Nacional N.º ${esc(d.empresa_rtn)}` : ''}, por medio de la presente <b>HACE CONSTAR</b> que <b>${esc(String(d.nombre || '').toUpperCase())}</b>${d.identidad ? `, con Documento Nacional de Identificación N.º <b>${esc(d.identidad)}</b>,` : ''} labora para esta empresa desde el ${fechaLarga(d.fecha_ingreso)} hasta la fecha${d.cargo ? `, desempeñando el cargo de <b>${esc(d.cargo)}</b>` : ''}.</p>
+    ${+d.salario_mensual ? `<p>Durante su relación laboral devenga un salario mensual ordinario de <b>${montoFormal(Math.round(+d.salario_mensual))}</b>.</p>` : ''}
+    ${+d.promedio_comisiones ? `<p>Adicionalmente percibe comisiones variables por desempeño, cuyo promedio mensual ${+d.meses_comisiones > 1 ? `de los últimos ${letras(+d.meses_comisiones)} meses` : 'del último mes'} asciende a <b>${montoFormal(Math.round(+d.promedio_comisiones))}</b>.</p>` : ''}
+    <p>Y para los fines que el interesado estime convenientes, se extiende la presente constancia en ${ciudad ? `la ciudad de ${esc(ciudad)}` : 'Honduras'}, ${diaLetras(f.getDate())} del mes de ${MESES[f.getMonth()]} del año ${letras(f.getFullYear())}.</p>
+    <div class="carta-firma"><div class="sello">Sello</div><div class="linea"><b>${esc(d.firma_nombre || '')}</b><span>${esc(d.firma_cargo || '')}</span><span>${esc(emp)}</span></div></div>
+    <footer class="carta-pie"><span>Folio ${esc(d.folio || '')} · Emitida el ${fechaLarga(iso(f))}</span><span>Para verificar su autenticidad, comuníquese con la administración${d.empresa_telefono ? ' al ' + esc(d.empresa_telefono) : ''} indicando el número de folio.</span></footer>
+  </article>`;
 }
 function imprimirConstancia(d) { $('#imprimir').innerHTML = htmlConstancia(d); setTimeout(() => window.print(), 60); }
+function mostrarConstancia(cont, d) {
+  cont.innerHTML = `<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap"><button class="btn borde" data-img>${ICON.doc}Imagen</button><button class="btn pri" data-pdf>${ICON.print}Descargar PDF</button></div><div style="overflow-x:auto">${htmlConstancia(d)}</div>`;
+  $('[data-pdf]', cont).onclick = () => imprimirConstancia(d);
+  $('[data-img]', cont).onclick = () => exportarImagen($('.carta', cont), `constancia-${d.folio || 'trabajo'}`);
+  if (!cont.closest('.hoja')) cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 async function vConstancia() {
   cargando();
-  const prev = await q(sb.from('pl_constancias').select('*').eq('empleado_id', S.yo.id).order('generado_en', { ascending: false }).limit(10));
-  const m = shell(`<div class="miga"><a href="#/mis-pagos">Mis pagos</a></div><div class="top"><div><h1>Constancia de trabajo</h1><div class="muted small">Genérala en PDF cuando la necesites (banco, alquiler, trámites)</div></div></div>
+  const [prev, sols, par] = await Promise.all([
+    q(sb.from('pl_constancias').select('*').eq('empleado_id', S.yo.id).order('generado_en', { ascending: false }).limit(10)),
+    q(sb.from('pl_constancia_solicitudes').select('*').eq('empleado_id', S.yo.id).order('solicitado_en', { ascending: false }).limit(10)),
+    parametros()]);
+  S.par = par;
+  const auto = parSi('constancia_autoservicio');
+  const pend = sols.filter(x => x.estado === 'pendiente');
+  const m = shell(`<div class="miga"><a href="#/mis-pagos">Mis pagos</a></div><div class="top"><div><h1>Constancia de trabajo</h1><div class="muted small">${auto ? 'Genérala en PDF cuando la necesites (banco, alquiler, trámites)' : 'Solicítala y administración la emite y firma'}</div></div></div>
     <div class="panel"><form id="fc" style="display:grid;gap:12px">
-      <label class="f">Dirigida a<input class="inp" name="dirigido" placeholder="A quien interese"></label>
+      ${auto ? '' : '<h3>Solicitar constancia</h3>'}
+      <label class="f">Dirigida a<input class="inp" name="dirigido" placeholder="A quien interese (o el nombre del banco, embajada…)"></label>
       ${S.yo.recibe_comisiones ? '<label class="chk"><input type="checkbox" name="com" checked>Incluir promedio de comisiones (últimos 3 meses)</label>' : ''}
-      <button class="btn pri">Generar constancia</button></form></div>
+      ${auto ? '' : '<label class="f">Para qué la necesitas (opcional)<input class="inp" name="motivo" placeholder="Ej.: préstamo bancario, alquiler"></label>'}
+      <button class="btn pri" ${!auto && pend.length ? 'disabled' : ''}>${auto ? 'Generar constancia' : 'Enviar solicitud'}</button>
+      ${!auto && pend.length ? '<p class="small muted" style="margin:0">Ya tienes una solicitud pendiente. Espera a que la emitan o cancélala para pedir otra.</p>' : ''}</form></div>
     <div id="vista" style="margin-top:16px"></div>
-    ${prev.length ? `<h2 style="margin:22px 0 10px">Generadas antes</h2><div class="lista">${prev.map(c => `<button class="item" style="font:inherit;text-align:left" data-c="${c.id}"><div class="grow"><div class="t">${esc(c.folio)}</div><div class="s">${fc(c.generado_en.slice(0, 10))} · ${esc(c.dirigido_a || 'A quien interese')}</div></div>${ICON.print.replace('<svg', '<svg width="18" height="18"')}</button>`).join('')}</div>` : ''}`);
+    ${sols.length ? `<h2 style="margin:22px 0 10px">Mis solicitudes</h2><div class="lista">${sols.map(x => `<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(x.dirigido_a || 'A quien interese')}</div><div class="s">${fdt(x.solicitado_en)}${x.motivo ? ' · ' + esc(x.motivo) : ''}${x.respuesta ? ' · ' + esc(x.respuesta) : ''}</div></div>${chipEstado(x.estado)}${x.estado === 'pendiente' ? `<button class="btn sm rojo" data-x="${x.id}">Cancelar</button>` : ''}${x.estado === 'emitida' && x.constancia_id ? `<button class="btn sm pri" data-c="${x.constancia_id}">Ver</button>` : ''}</div>`).join('')}</div>` : ''}
+    ${prev.length ? `<h2 style="margin:22px 0 10px">Constancias emitidas</h2><div class="lista">${prev.map(c => `<button class="item" style="font:inherit;text-align:left" data-c="${c.id}"><div class="grow"><div class="t">${esc(c.folio)}</div><div class="s">${fc(c.generado_en.slice(0, 10))} · ${esc(c.dirigido_a || 'A quien interese')}</div></div>${ICON.print.replace('<svg', '<svg width="18" height="18"')}</button>`).join('')}</div>` : ''}`);
   $('#fc', m).onsubmit = async e => {
     e.preventDefault(); const x = formData(e.target);
-    try { const d = await q(sb.rpc('pl_generar_constancia', { p_dirigido: x.dirigido || null, p_comisiones: !!x.com })); $('#vista', m).innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn pri" id="pc">${ICON.print}Descargar PDF</button></div>${htmlConstancia(d)}`; $('#pc', m).onclick = () => imprimirConstancia(d); toast('Constancia generada'); } catch (er) { toast(errMsg(er), true); }
+    try {
+      if (auto) { const d = await q(sb.rpc('pl_generar_constancia', { p_dirigido: x.dirigido || null, p_comisiones: !!x.com })); mostrarConstancia($('#vista', m), d); toast('Constancia generada'); }
+      else { await q(sb.rpc('pl_solicitar_constancia', { p_dirigido: x.dirigido || null, p_comisiones: !!x.com, p_motivo: x.motivo || null })); toast('Solicitud enviada a administración'); vConstancia(); }
+    } catch (er) { toast(errMsg(er), true); }
   };
-  $$('[data-c]', m).forEach(b => b.onclick = () => { const c = prev.find(x => x.id === b.dataset.c); imprimirConstancia({ ...c.datos, folio: c.folio }); });
+  $$('[data-c]', m).forEach(b => b.onclick = () => { const c = prev.find(x => x.id === b.dataset.c); if (c) mostrarConstancia($('#vista', m), { ...c.datos, folio: c.folio }); });
+  $$('[data-x]', m).forEach(b => b.onclick = async () => { try { await q(sb.rpc('pl_cancelar_constancia', { p_id: b.dataset.x })); toast('Solicitud cancelada'); vConstancia(); } catch (er) { toast(errMsg(er), true); } });
 }
 
 /* ===================== PERMISOS ===================== */
@@ -1654,13 +1726,15 @@ async function vMiTiempo(tab) {
 
 async function vMisSolicitudes() {
   cargando();
-  const [ad, vac, pm, he, b, vr] = await Promise.all([
+  const [ad, vac, pm, he, b, vr, cons] = await Promise.all([
     q(sb.from('pl_adelantos').select('*').eq('empleado_id', S.yo.id).eq('origen', 'empleado').order('creado_en', { ascending: false }).limit(30)),
     q(sb.from('pl_vacaciones').select('*').eq('empleado_id', S.yo.id).eq('tipo', 'solicitud').order('solicitado_en', { ascending: false }).limit(30)),
     q(sb.from('pl_permisos').select('*').eq('empleado_id', S.yo.id).order('solicitado_en', { ascending: false }).limit(30)),
     q(sb.from('pl_horas_extra').select('*').eq('empleado_id', S.yo.id).order('solicitado_en', { ascending: false }).limit(30)),
-    q(sb.rpc('pl_banco_horas')), q(sb.rpc('pl_vacaciones_resumen'))]);
+    q(sb.rpc('pl_banco_horas')), q(sb.rpc('pl_vacaciones_resumen')),
+    q(sb.from('pl_constancia_solicitudes').select('*').eq('empleado_id', S.yo.id).order('solicitado_en', { ascending: false }).limit(20))]);
   const todas = [
+    ...cons.map(c => ({ f: c.solicitado_en, t: 'Constancia de trabajo', d: esc(c.dirigido_a || 'A quien interese'), e: c.estado, nota: c.respuesta, cancel: c.estado === 'pendiente' && ['cons', c.id] })),
     ...ad.map(a => ({ f: a.creado_en, t: `Adelanto de ${a.tipo === 'comisiones' ? 'comisiones' : 'salario'}`, d: `${L(a.monto)}${a.automatico ? ' · automático' : ''}`, e: a.estado, nota: a.respuesta || (a.estado === 'pendiente' ? a.motivo_revision : '') })),
     ...vac.map(v => ({ f: v.solicitado_en, t: 'Vacaciones', d: `${fc(v.desde)} al ${fc(v.hasta)} · ${N(v.dias)} días`, e: v.estado, nota: v.respuesta, cancel: v.estado === 'pendiente' && ['vac', v.id] })),
     ...pm.map(p => ({ f: p.solicitado_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce`, d: `${rangoPermiso(p)} · ${esc(p.motivo)}`, e: p.estado, nota: p.respuesta, cancel: p.estado === 'pendiente' && ['perm', p.id] })),
@@ -1674,25 +1748,30 @@ async function vMisSolicitudes() {
       <a class="accion" href="#/solicitar/permiso">${ICON.reloj}<span>Permiso</span></a>
       <a class="accion" href="#/solicitar/horas">${ICON.mas}<span>Horas extra</span></a>
       <a class="accion" href="#/solicitar/descanso">${ICON.bandeja}<span>Descanso<br><small class="muted">${N(b.disponible)} h disponibles</small></span></a>
+      <a class="accion" href="#/constancia">${ICON.doc}<span>Constancia</span></a>
     </div>
     <h2 style="margin:6px 0 10px">Historial</h2>
     ${todas.length ? `<div class="lista">${todas.map(x => `<div class="item" style="cursor:default"><div class="grow"><div class="t">${x.t}</div><div class="s">${x.d}</div>${x.nota ? `<div class="tiny muted">${esc(x.nota)}</div>` : ''}<div class="tiny muted">${fdt(x.f)}</div></div>${chipEstado(x.e)}${x.cancel ? `<button class="btn sm rojo" data-c="${x.cancel.join('|')}">Cancelar</button>` : ''}</div>`).join('')}</div>` : '<div class="vacio"><b>Aún no tienes solicitudes</b>Usa los botones de arriba para pedir un adelanto, vacaciones, un permiso o registrar horas extra.</div>'}`);
   $$('[data-c]', m).forEach(btn => btn.onclick = async () => {
     const [t, id] = btn.dataset.c.split('|');
-    const fn = { vac: 'pl_cancelar_vacaciones', perm: 'pl_cancelar_permiso', horas: 'pl_cancelar_horas' }[t];
+    const fn = { vac: 'pl_cancelar_vacaciones', perm: 'pl_cancelar_permiso', horas: 'pl_cancelar_horas', cons: 'pl_cancelar_constancia' }[t];
     try { await q(sb.rpc(fn, { p_id: id })); toast('Solicitud cancelada'); vMisSolicitudes(); } catch (er) { toast(errMsg(er), true); }
   });
 }
 
 async function vRegistrarHoras() {
+  cargando();
+  try { S.par = await parametros(); } catch (_) { }
+  const pago = parSi('he_pago_habilitado');
   shell(`<div class="miga"><a href="#/mis-solicitudes">Mis solicitudes</a></div>
-    <div class="top"><div><h1>Registrar horas extra</h1><div class="muted small">Horas trabajadas fuera de tu horario. La gerencia decide si se pagan o pasan a tu banco de horas de descanso.</div></div></div>
+    <div class="top"><div><h1>Registrar horas extra</h1><div class="muted small">${pago ? 'Horas trabajadas fuera de tu horario. La gerencia decide si se pagan o pasan a tu banco de horas de descanso.' : 'Horas trabajadas fuera de tu horario. Se acumulan en tu banco de horas para tomarlas como descanso.'}</div></div></div>
     <div class="panel"><form id="fh" style="display:grid;gap:12px">
       <div class="row2"><label class="f">Fecha<input class="inp" type="date" name="fecha" max="${iso(hoyHN())}" min="${addDias(iso(hoyHN()), -31)}" value="${iso(hoyHN())}" required></label><label class="f">Horas<input class="inp" type="number" name="horas" min="0.5" max="16" step="0.5" required></label></div>
       <label class="f">¿Qué trabajo hiciste?<input class="inp" name="motivo" required placeholder="Ej.: cierre de cartera, visitas después del horario"></label>
-      <label class="f">Prefiero<select class="inp" name="pref"><option value="pagar">Que me las paguen</option><option value="compensar">Tomarlas como descanso</option></select></label>
+      ${pago ? '<label class="f">Prefiero<select class="inp" name="pref"><option value="pagar">Que me las paguen</option><option value="compensar">Tomarlas como descanso</option></select></label>'
+        : '<input type="hidden" name="pref" value="compensar"><p class="small muted" style="margin:0">Por ahora las horas extra se compensan con tiempo de descanso; no se pueden pedir pagadas.</p>'}
       <button class="btn pri">Registrar horas extra</button></form></div>`);
-  $('#fh').onsubmit = async e => { e.preventDefault(); const x = formData(e.target); try { await q(sb.rpc('pl_registrar_horas_extra', { p_fecha: x.fecha, p_horas: +x.horas, p_motivo: x.motivo, p_preferencia: x.pref })); toast('Horas extra registradas'); location.hash = '#/mi-tiempo/horas'; } catch (er) { toast(errMsg(er), true); } };
+  $('#fh').onsubmit = async e => { e.preventDefault(); const x = formData(e.target); try { await q(sb.rpc('pl_registrar_horas_extra', { p_fecha: x.fecha, p_horas: +x.horas, p_motivo: x.motivo, p_preferencia: pago ? x.pref : 'compensar' })); toast('Horas extra registradas'); location.hash = '#/mi-tiempo/horas'; } catch (er) { toast(errMsg(er), true); } };
 }
 
 async function vSolicitarDescanso() {
@@ -1819,7 +1898,7 @@ const tablaPlantillas = ps => ps.length ? `<div class="tscroll"><table class="t"
 /* ===================== ADMIN: solicitudes ===================== */
 async function vSolicitudes() {
   cargando();
-  const [ad, vac, adR, vacR, pm, pmR, hx, hxR] = await Promise.all([
+  const [ad, vac, adR, vacR, pm, pmR, hx, hxR, cs, csR] = await Promise.all([
     q(sb.from('pl_adelantos').select('*, pl_empleados(nombre,salario_mensual)').eq('estado', 'pendiente').order('creado_en')),
     q(sb.from('pl_vacaciones').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
     q(sb.from('pl_adelantos').select('*, pl_empleados(nombre)').eq('origen', 'empleado').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
@@ -1827,8 +1906,10 @@ async function vSolicitudes() {
     q(sb.from('pl_permisos').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
     q(sb.from('pl_permisos').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
     q(sb.from('pl_horas_extra').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
-    q(sb.from('pl_horas_extra').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15))]);
-  const m = shell(`<div class="top"><div><h1>Solicitudes</h1><div class="muted small">Adelantos que necesitan autorización, vacaciones, permisos y horas extra por aprobar</div></div></div>
+    q(sb.from('pl_horas_extra').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
+    q(sb.from('pl_constancia_solicitudes').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
+    q(sb.from('pl_constancia_solicitudes').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15))]);
+  const m = shell(`<div class="top"><div><h1>Solicitudes</h1><div class="muted small">Adelantos que necesitan autorización, vacaciones, permisos, horas extra y constancias por atender</div></div></div>
     <h2 style="margin-bottom:10px">Adelantos por autorizar</h2>
     ${!S.autoriza && ad.length ? '<p class="small muted" style="margin:-4px 0 10px">Solo quien tiene permiso de autorizar (gerencia) puede aprobarlos. Se configura en Ajustes.</p>' : ''}
     ${ad.length ? `<div class="lista">${ad.map(a => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(a.pl_empleados?.nombre)} · ${L(a.monto)}</div><div class="s">${a.tipo === 'comisiones' ? 'Adelanto de comisiones' : 'Adelanto de salario'} · ${fdt(a.creado_en)}${a.descripcion && !/^Adelanto de/.test(a.descripcion) ? ' · ' + esc(a.descripcion) : ''}</div><div class="tiny" style="color:#8A6A00">${esc(a.motivo_revision || '')}</div></div>
@@ -1842,9 +1923,12 @@ async function vSolicitudes() {
     <h2 style="margin:22px 0 10px">Horas extra y descansos por aprobar</h2>
     ${hx.length ? `<div class="lista">${hx.map(h => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(h.pl_empleados?.nombre)} · ${N(h.horas)} h</div><div class="s">${etiquetaHoras(h)} · ${fc(h.fecha)} · ${esc(h.motivo)}</div></div>
       <div style="display:flex;gap:6px"><button class="btn sm rojo" data-hr="${h.id}">Rechazar</button><button class="btn sm pri" data-ha="${h.id}">Aprobar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay horas extra pendientes.</div>'}
+    <h2 style="margin:22px 0 10px">Constancias por emitir</h2>
+    ${cs.length ? `<div class="lista">${cs.map(c => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(c.pl_empleados?.nombre)}</div><div class="s">Dirigida a: ${esc(c.dirigido_a || 'A quien interese')}${c.incluye_comisiones ? ' · con comisiones' : ''}${c.motivo ? ' · ' + esc(c.motivo) : ''} · ${fdt(c.solicitado_en)}</div></div>
+      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-cr="${c.id}">Rechazar</button><button class="btn sm pri" data-ce="${c.id}">Emitir</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay constancias pendientes.</div>'}
     <h2 style="margin:22px 0 10px">Resueltas recientemente</h2>
     <div class="tscroll"><table class="t"><tbody>
-      ${[...adR.map(a => ({ f: a.resuelto_en, t: `${a.tipo === 'comisiones' ? 'Adelanto comisiones' : 'Adelanto'} ${L(a.monto)}${a.automatico ? ' (automático)' : ''}`, n: a.pl_empleados?.nombre, e: a.estado })), ...vacR.map(v => ({ f: v.resuelto_en, t: `Vacaciones ${fc(v.desde)}–${fc(v.hasta)}`, n: v.pl_empleados?.nombre, e: v.estado })), ...pmR.map(p => ({ f: p.resuelto_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce ${rangoPermiso(p)}`, n: p.pl_empleados?.nombre, e: p.estado })), ...hxR.map(h => ({ f: h.resuelto_en, t: `${etiquetaHoras(h)} ${fc(h.fecha)} · ${N(h.horas)} h`, n: h.pl_empleados?.nombre, e: h.estado }))]
+      ${[...adR.map(a => ({ f: a.resuelto_en, t: `${a.tipo === 'comisiones' ? 'Adelanto comisiones' : 'Adelanto'} ${L(a.monto)}${a.automatico ? ' (automático)' : ''}`, n: a.pl_empleados?.nombre, e: a.estado })), ...vacR.map(v => ({ f: v.resuelto_en, t: `Vacaciones ${fc(v.desde)}–${fc(v.hasta)}`, n: v.pl_empleados?.nombre, e: v.estado })), ...pmR.map(p => ({ f: p.resuelto_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce ${rangoPermiso(p)}`, n: p.pl_empleados?.nombre, e: p.estado })), ...hxR.map(h => ({ f: h.resuelto_en, t: `${etiquetaHoras(h)} ${fc(h.fecha)} · ${N(h.horas)} h`, n: h.pl_empleados?.nombre, e: h.estado })), ...csR.map(c => ({ f: c.resuelto_en || c.solicitado_en, t: `Constancia · ${esc(c.dirigido_a || 'A quien interese')}`, n: c.pl_empleados?.nombre, e: c.estado }))]
         .sort((a, b) => String(b.f).localeCompare(String(a.f))).slice(0, 20).map(x => `<tr><td class="small">${fdt(x.f)}</td><td><b>${esc(x.n)}</b><div class="tiny muted">${x.t}</div></td><td class="r">${chipEstado(x.e)}</td></tr>`).join('') || '<tr><td class="muted">Sin movimientos</td></tr>'}
     </tbody></table></div>`);
   const resolverAd = (a, aprobar) => {
@@ -1870,6 +1954,15 @@ async function vSolicitudes() {
   $$('[data-hr]', m).forEach(b => b.onclick = () => resolverHoras(hx.find(x => x.id === b.dataset.hr), false, vSolicitudes));
   $$('[data-pa]', m).forEach(b => b.onclick = () => resolverPermiso(pm.find(x => x.id === b.dataset.pa), true, vSolicitudes));
   $$('[data-pr]', m).forEach(b => b.onclick = () => resolverPermiso(pm.find(x => x.id === b.dataset.pr), false, vSolicitudes));
+  const resolverCons = (c, emitir) => {
+    const h = hoja(emitir ? 'Emitir constancia' : 'Rechazar constancia', `<form><p class="small muted" style="margin:0">${esc(c.pl_empleados?.nombre)} · dirigida a ${esc(c.dirigido_a || 'A quien interese')}${c.incluye_comisiones ? ' · incluye promedio de comisiones' : ''}.</p>
+      ${emitir ? '<p class="small muted" style="margin:0">Se genera con folio, salario y datos de la empresa de Ajustes. Luego puedes descargarla en PDF para firmar y sellar; el empleado también podrá verla.</p>' : ''}
+      <label class="f">${emitir ? 'Comentario para el empleado (opcional)' : 'Motivo del rechazo'}<input class="inp" name="resp" ${emitir ? 'placeholder="Ej.: pasa a recogerla firmada mañana"' : 'required'}></label>
+      <div class="pie"><button class="btn ${emitir ? 'pri' : 'rojo'}">${emitir ? 'Emitir constancia' : 'Rechazar'}</button></div></form>`);
+    $('form', h.el).onsubmit = async e => { e.preventDefault(); const x = formData(e.target); try { const d = await q(sb.rpc('pl_resolver_constancia', { p_id: c.id, p_emitir: emitir, p_respuesta: x.resp || null })); h.cerrar(); toast(emitir ? 'Constancia emitida' : 'Solicitud rechazada'); await vSolicitudes(); if (emitir && d) { const v = hoja(`Constancia · ${c.pl_empleados?.nombre || ''}`, '<div data-v></div>', { ancha: true }); mostrarConstancia($('[data-v]', v.el), d); } } catch (er) { toast(errMsg(er), true); } };
+  };
+  $$('[data-ce]', m).forEach(b => b.onclick = () => resolverCons(cs.find(x => x.id === b.dataset.ce), true));
+  $$('[data-cr]', m).forEach(b => b.onclick = () => resolverCons(cs.find(x => x.id === b.dataset.cr), false));
 }
 
 /* ===================== ADMIN: combustible ===================== */
@@ -1918,7 +2011,7 @@ async function vCombustible(perId) {
 }
 
 /* ===================== ADMIN: historial ===================== */
-const TABLAS = { pl_empleados: 'Empleado', pl_periodos: 'Planilla', pl_asistencia: 'Asistencia', pl_adelantos: 'Adelanto', pl_prestamos: 'Préstamo', pl_prestamo_pagos: 'Abono a préstamo', pl_movimientos: 'Línea de planilla', pl_comprobantes: 'Comprobante', pl_vacaciones: 'Vacaciones', pl_odometro: 'Odómetro', pl_parametros: 'Ajuste', pl_admins: 'Administrador', pl_conceptos: 'Concepto', pl_supervisores: 'Supervisor', pl_plantillas: 'Plantilla de cálculo', pl_permisos: 'Permiso', pl_horas_extra: 'Horas extra' };
+const TABLAS = { pl_empleados: 'Empleado', pl_periodos: 'Planilla', pl_asistencia: 'Asistencia', pl_adelantos: 'Adelanto', pl_prestamos: 'Préstamo', pl_prestamo_pagos: 'Abono a préstamo', pl_movimientos: 'Línea de planilla', pl_comprobantes: 'Comprobante', pl_vacaciones: 'Vacaciones', pl_odometro: 'Odómetro', pl_parametros: 'Ajuste', pl_admins: 'Administrador', pl_conceptos: 'Concepto', pl_supervisores: 'Supervisor', pl_plantillas: 'Plantilla de cálculo', pl_permisos: 'Permiso', pl_horas_extra: 'Horas extra', pl_constancias: 'Constancia', pl_constancia_solicitudes: 'Solicitud de constancia' };
 const OMITIR = ['actualizado_en', 'generado_en', 'datos', 'creado_en'];
 async function vHistorial() {
   cargando();

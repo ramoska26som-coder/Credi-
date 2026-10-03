@@ -209,6 +209,21 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .accion{background:#fff;border:1px solid var(--linea);border-radius:var(--r-m);padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;color:var(--tinta);font-weight:600;font-size:13px;text-align:center}
 .accion svg{width:24px;height:24px;color:var(--azul)}
 .accion:hover{border-color:#B9CDEE}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.selfie{position:relative;background:#0A2A66;border-radius:14px;overflow:hidden;aspect-ratio:3/4;max-height:60vh;margin:0 auto;display:grid;place-items:center}
+.selfie video,.selfie img{width:100%;height:100%;object-fit:cover}
+.selfie video{transform:scaleX(-1)}
+.selfie-msg{position:absolute;left:0;right:0;bottom:0;padding:10px;text-align:center;background:linear-gradient(transparent,rgba(10,42,102,.85));color:#fff!important}
+.selfie-msg:empty{display:none}
+.btn.grande{padding:16px;font-size:17px}
+.marcas-seg{display:flex;flex-wrap:wrap;border-radius:14px}
+.marcas-seg button{flex:1 1 auto}
+.marca-cel{display:flex;align-items:center;gap:8px;background:none;border:0;padding:0;cursor:pointer;font:inherit;color:inherit;text-align:left}
+.marca-cel img,.marca-cel .sinfoto{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#E6F0FE;flex:none}
+.marca-cel span{display:grid}
+.marcas-t td{white-space:nowrap}
+.chip.comb{background:#E7F7EE;color:#11733F}
+.chip.dep{background:#F1EAFE;color:#5B2DB0}
 .carta{background:#fff;color:#1a1a1a;max-width:816px;margin:0 auto;padding:56px 64px 40px;border:1px solid var(--linea);border-radius:6px;box-shadow:var(--sombra,0 6px 24px rgba(10,42,102,.08));font-family:'Times New Roman',Georgia,serif;font-size:16px;line-height:1.75;min-width:0}
 .carta-mem{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding-bottom:12px;border-bottom:2px solid #0A2A66;position:relative}
 .carta-mem:after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:2px;background:#FFD400}
@@ -326,6 +341,9 @@ function errMsg(e) {
 async function q(p) { const { data, error } = await p; if (error) throw error; return data; }
 
 const ICON = {
+  marca: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
+  camara: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  dep: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M9 15.5l2 2 4-4"/></svg>',
   planilla: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3M15 15h2"/></svg>',
   gente: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.5 3.5 5.2"/></svg>',
   prestamo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></svg>',
@@ -347,10 +365,10 @@ const ICON = {
 };
 
 /* ===================== modal ===================== */
-function hoja(titulo, html, { ancha = false } = {}) {
+function hoja(titulo, html, { ancha = false, alCerrar = null } = {}) {
   const v = document.createElement('div'); v.className = 'velo';
   v.innerHTML = `<div class="hoja ${ancha ? 'ancha' : ''}" role="dialog" aria-modal="true"><div class="hoja-top"><h2>${esc(titulo)}</h2><button class="x" aria-label="Cerrar">×</button></div><div class="hoja-c">${html}</div></div>`;
-  const cerrar = () => { v.remove(); document.removeEventListener('keydown', k); };
+  const cerrar = () => { v.remove(); document.removeEventListener('keydown', k); try { alCerrar && alCerrar(); } catch (_) { } };
   const k = e => { if (e.key === 'Escape') cerrar(); };
   document.addEventListener('keydown', k);
   v.addEventListener('click', e => { if (e.target === v) cerrar(); });
@@ -420,15 +438,19 @@ function navItems() {
   const it = [];
   const A = 'Administración', M = 'Mi cuenta';
   if (S.admin) it.push(['#/planillas', 'Planillas', ICON.planilla, A], ['#/solicitudes', 'Solicitudes', ICON.bandeja, A], ['#/empleados', 'Empleados', ICON.gente, A],
-    ['#/prestamos', 'Préstamos', ICON.prestamo, A], ['#/adelantos', 'Adelantos', ICON.adelanto, A], ['#/combustible', 'Combustible', ICON.moto, A], ['#/historial', 'Historial', ICON.reloj, A], ['#/ajustes', 'Ajustes', ICON.ajustes, A]);
+    ['#/prestamos', 'Préstamos', ICON.prestamo, A], ['#/adelantos', 'Adelantos', ICON.adelanto, A], ['#/combustible', 'Combustible', ICON.moto, A], ['#/depreciacion', 'Depreciación', ICON.dep, A], ['#/historial', 'Historial', ICON.reloj, A], ['#/ajustes', 'Ajustes', ICON.ajustes, A]);
+  const marcaje = marcajeActivo();
+  if (S.admin && marcaje) it.splice(1, 0, ['#/marcajes', 'Marcajes', ICON.marca, A]);
   if (S.supervisor) it.push(['#/asistencia', 'Asistencia', ICON.planilla, 'Supervisión']);
+  if (S.supervisor && marcaje) it.push(['#/marcajes', 'Marcajes', ICON.marca, 'Supervisión']);
+  if (S.yo && marcaje) it.push(['#/marcar', 'Marcar', ICON.marca, M]);
   if (S.yo) it.push(['#/mi-tiempo', 'Mi tiempo', ICON.sol, M], ['#/mis-pagos', 'Mis pagos', ICON.yo, M], ['#/mis-solicitudes', 'Mis solicitudes', ICON.bandeja, M], ['#/mis-prestamos', 'Mis préstamos', ICON.prestamo, M]);
   return it;
 }
 // sección del menú a la que pertenece una ruta
 function seccion(h) {
   const p = String(h).replace(/^#\//, '').split('/')[0];
-  const mapa = { 'mi-combustible': 'mi-tiempo', solicitar: 'mis-solicitudes', 'mi-comprobante': 'mis-pagos', constancia: 'mis-pagos', planilla: 'planillas', comp: 'planillas', empleado: 'empleados', liquidacion: 'empleados' };
+  const mapa = { pago: S.admin ? 'combustible' : 'mis-pagos', 'mi-combustible': 'mi-tiempo', solicitar: 'mis-solicitudes', 'mi-comprobante': 'mis-pagos', constancia: 'mis-pagos', planilla: 'planillas', comp: 'planillas', empleado: 'empleados', liquidacion: 'empleados' };
   return mapa[p] || p;
 }
 function shell(html) {
@@ -489,12 +511,16 @@ async function ruta() {
       if (p[0] === 'prestamos') return vPrestamos();
       if (p[0] === 'adelantos') return vAdelantos();
       if (p[0] === 'combustible') return vCombustible(p[1]);
+      if (p[0] === 'depreciacion') return vDepreciacion(p[1]);
       if (p[0] === 'historial') return vHistorial();
       if (p[0] === 'liquidacion') return vLiquidacion(p[1]);
       if (p[0] === 'ajustes') return vAjustes();
       if (p[0] === 'comp') return vComprobanteAdmin(p[1], p[2]);
     }
     if (S.supervisor && p[0] === 'asistencia') return vAsistenciaSup(p[1]);
+    if ((S.admin || S.supervisor) && p[0] === 'marcajes') return vMarcajes(p[1]);
+    if (S.yo && p[0] === 'marcar') return vMarcar();
+    if (p[0] === 'pago') return vPagoExtra(p[1]);
     if (S.yo) {
       if (p[0] === 'mis-pagos') return vMisPagos();
       if (p[0] === 'mis-prestamos') return vMisPrestamos();
@@ -1016,12 +1042,14 @@ async function vEmpleados() {
   const COLS = [
     ['numero', '#', 'num'], ['nombre', 'Nombre', 'txt'], ['cargo', 'Cargo', 'txt'], ['salario_mensual', 'Salario mensual', 'num', 'r'],
     ['prom', 'Prom. comisiones', 'num', 'r'], ['total', 'Total mensual', 'num', 'r'], ['recibe', 'Recibe', 'txt'], ['usuario', 'Usuario', 'txt']];
-  const valor = (e, k) => k === 'recibe' ? `${e.recibe_salario ? 'Salario' : ''}${e.recibe_comisiones ? ' Comisiones' : ''}` : k === 'usuario' ? (e.usuario || '') : e[k];
+  const valor = (e, k) => k === 'recibe' ? `${e.recibe_salario ? 'Salario' : ''}${e.recibe_comisiones ? ' Comisiones' : ''}${e.recibe_combustible ? ' Combustible' : ''}${e.recibe_depreciacion ? ' Depreciación' : ''}` : k === 'usuario' ? (e.usuario || '') : e[k];
   const act = filas.filter(e => e.activo);
   const tSal = act.reduce((a, e) => a + (+e.salario_mensual || 0), 0), tCom = act.reduce((a, e) => a + e.prom, 0);
+  const conComb = act.filter(e => e.recibe_combustible), conDep = act.filter(e => e.recibe_depreciacion);
+  const tDep = conDep.reduce((a, e) => a + (+e.depreciacion_mensual || 0), 0);
   const m = shell(`<div class="top"><div><h1>Empleados</h1><div class="muted small">${act.length} activos · ${pers.length ? `promedio de comisiones de ${pers.length === 1 ? '1 mes' : `${pers.length} meses`}: ${pers.map(p => p.nombre.replace(/^Comisiones /, '')).reverse().join(', ')}` : 'aún no hay meses de comisiones cerrados'}</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Agregar empleado</button></div></div>
     <div class="tscroll"><table class="t" id="temp"><thead><tr>${COLS.map(([k, t, , al]) => `<th class="${al || ''} ordenable" data-k="${k}" aria-sort="none">${t}<span class="flecha"></span></th>`).join('')}</tr></thead><tbody></tbody>
-    <tfoot><tr><td></td><td>Total (${act.length} activos)</td><td></td><td class="r">${L(tSal)}</td><td class="r">${L(tCom)}</td><td class="r">${L(tSal + tCom)}</td><td colspan="2" class="small muted" style="font-weight:500">Planilla quincenal: ${L(tSal / 2)}</td></tr></tfoot></table></div>`);
+    <tfoot><tr><td></td><td>Total (${act.length} activos)</td><td></td><td class="r">${L(tSal)}</td><td class="r">${L(tCom)}</td><td class="r">${L(tSal + tCom)}</td><td colspan="2" class="small muted" style="font-weight:500">Planilla quincenal: ${L(tSal / 2)}${conComb.length ? `<br>Combustible (efectivo): ${conComb.length}` : ''}${conDep.length ? `<br>Depreciación día 30: ${tDep ? L(tDep) : conDep.length + ' empleados'}` : ''}</td></tr></tfoot></table></div>`);
   const pintar = () => {
     const tipo = COLS.find(c => c[0] === orden.k)?.[2];
     const lista = [...filas].sort((a, b) => {
@@ -1030,7 +1058,7 @@ async function vEmpleados() {
       const r = tipo === 'num' ? (+x || 0) - (+y || 0) : String(x || '').localeCompare(String(y || ''), 'es', { sensitivity: 'base' });
       return r * orden.dir || a.nombre.localeCompare(b.nombre);
     });
-    $('#temp tbody', m).innerHTML = lista.map(e => `<tr class="click" data-e="${e.id}" style="${e.activo ? '' : 'opacity:.5'}"><td class="muted">${e.numero}</td><td><b>${esc(e.nombre)}</b>${e.activo ? '' : ' <span class="chip gris">inactivo</span>'}</td><td class="muted">${esc(e.cargo || '')}</td><td class="r">${+e.salario_mensual ? L(e.salario_mensual) : '—'}</td><td class="r">${e.prom ? L(e.prom) : '—'}</td><td class="r num">${e.total ? L(e.total) : '—'}</td><td>${e.recibe_salario ? '<span class="chip">Salario</span> ' : ''}${e.recibe_comisiones ? '<span class="chip warn">Comisiones</span>' : ''}</td><td class="small">${e.user_id ? `<span class="chip ok">${esc(e.usuario || 'vinculado')}</span>` : '<span class="muted">Sin usuario</span>'}</td></tr>`).join('');
+    $('#temp tbody', m).innerHTML = lista.map(e => `<tr class="click" data-e="${e.id}" style="${e.activo ? '' : 'opacity:.5'}"><td class="muted">${e.numero}</td><td><b>${esc(e.nombre)}</b>${e.activo ? '' : ' <span class="chip gris">inactivo</span>'}</td><td class="muted">${esc(e.cargo || '')}</td><td class="r">${+e.salario_mensual ? L(e.salario_mensual) : '—'}</td><td class="r">${e.prom ? L(e.prom) : '—'}</td><td class="r num">${e.total ? L(e.total) : '—'}</td><td><div class="chips">${e.recibe_salario ? '<span class="chip">Salario</span>' : ''}${e.recibe_comisiones ? '<span class="chip warn">Comisiones</span>' : ''}${e.recibe_combustible ? '<span class="chip comb" title="Se paga aparte, en efectivo, la misma fecha de la planilla">Combustible</span>' : ''}${e.recibe_depreciacion ? `<span class="chip dep" title="Se paga el día 30 de cada mes">Depreciación${+e.depreciacion_mensual ? ' ' + L(e.depreciacion_mensual) : ''}</span>` : ''}</div></td><td class="small">${e.user_id ? `<span class="chip ok">${esc(e.usuario || 'vinculado')}</span>` : '<span class="muted">Sin usuario</span>'}</td></tr>`).join('');
     $$('#temp th[data-k]', m).forEach(th => { const on = th.dataset.k === orden.k; th.setAttribute('aria-sort', on ? (orden.dir > 0 ? 'ascending' : 'descending') : 'none'); th.querySelector('.flecha').textContent = on ? (orden.dir > 0 ? ' ▲' : ' ▼') : ''; });
     $$('tr[data-e]', m).forEach(tr => tr.onclick = () => location.hash = `#/empleado/${tr.dataset.e}`);
   };
@@ -1052,11 +1080,16 @@ function editarEmpleado(e) {
     <div class="row2"><label class="f">Cargo<input class="inp" name="cargo" value="${esc(e.cargo || '')}"></label><label class="f">Área<input class="inp" name="area" value="${esc(e.area || '')}"></label></div>
     <div class="row2"><label class="f">Salario mensual (L)<input class="inp" type="number" step="0.01" min="0" name="salario_mensual" value="${e.salario_mensual}"></label><label class="f">Seguro médico por quincena (L)<input class="inp" type="number" step="0.01" min="0" name="seguro_medico" value="${e.seguro_medico}"></label></div>
     <label class="f">Fecha de ingreso<input class="inp" type="date" name="fecha_ingreso" value="${e.fecha_ingreso || ''}"></label>
-    <div style="display:flex;gap:18px;flex-wrap:wrap"><label class="chk"><input type="checkbox" name="recibe_salario" ${e.recibe_salario ? 'checked' : ''}>Recibe salario</label><label class="chk"><input type="checkbox" name="recibe_comisiones" ${e.recibe_comisiones ? 'checked' : ''}>Recibe comisiones</label><label class="chk"><input type="checkbox" name="recibe_combustible" ${e.recibe_combustible ? 'checked' : ''}>Recibe combustible (odómetro)</label><label class="chk"><input type="checkbox" name="activo" ${e.activo ? 'checked' : ''}>Activo</label></div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap"><label class="chk"><input type="checkbox" name="recibe_salario" ${e.recibe_salario ? 'checked' : ''}>Recibe salario</label><label class="chk"><input type="checkbox" name="recibe_comisiones" ${e.recibe_comisiones ? 'checked' : ''}>Recibe comisiones</label><label class="chk"><input type="checkbox" name="activo" ${e.activo ? 'checked' : ''}>Activo</label></div>
+    <div class="panel" style="padding:12px 14px;display:grid;gap:10px;box-shadow:none"><div class="small" style="font-weight:600">Pagos de la moto</div>
+      <label class="chk"><input type="checkbox" name="recibe_combustible" ${e.recibe_combustible ? 'checked' : ''}>Combustible <span class="muted small">(odómetro · en efectivo la misma fecha de la planilla)</span></label>
+      <label class="chk"><input type="checkbox" name="recibe_depreciacion" ${e.recibe_depreciacion ? 'checked' : ''}>Depreciación <span class="muted small">(se paga el día 30)</span></label>
+      <label class="f ${e.recibe_depreciacion ? '' : 'hidden'}" id="ldep">Depreciación mensual (L)<input class="inp" type="number" step="0.01" min="0" name="depreciacion_mensual" value="${+e.depreciacion_mensual || ''}" inputmode="decimal"></label></div>
     <div class="row2"><label class="f">Forma de pago<select class="inp" name="metodo_pago"><option ${e.metodo_pago === 'TRANSFERENCIA' ? 'selected' : ''}>TRANSFERENCIA</option><option ${e.metodo_pago === 'EFECTIVO' ? 'selected' : ''}>EFECTIVO</option></select></label><label class="f">Banco<input class="inp" name="banco" list="dl-banco" value="${esc(e.banco || '')}"></label></div>
     <datalist id="dl-banco"><option value="BAC"><option value="BANPAIS"><option value="ATLANTIDA"><option value="FICOHSA"><option value="OCCIDENTE"><option value="DAVIVIENDA"><option value="BANRURAL"></datalist>
     <label class="f">Número de cuenta<input class="inp" name="cuenta" value="${esc(e.cuenta || '')}"></label>
     <div class="pie">${e.id ? '<button type="button" class="btn rojo" id="delemp">Eliminar empleado</button>' : ''}<button class="btn pri">${e.id ? 'Guardar cambios' : 'Agregar empleado'}</button></div></form>`);
+  const fe = $('form', h.el); fe.recibe_depreciacion.onchange = () => $('#ldep', h.el).classList.toggle('hidden', !fe.recibe_depreciacion.checked);
   $('#delemp', h.el) && ($('#delemp', h.el).onclick = async () => {
     h.cerrar();
     if (e.user_id) return toast('Primero quita su acceso (usuario) en la ficha del empleado', true);
@@ -1065,7 +1098,7 @@ function editarEmpleado(e) {
   });
   $('form', h.el).onsubmit = async ev => {
     ev.preventDefault(); const x = formData(ev.target);
-    const row = { nombre: x.nombre.trim(), identidad: x.identidad || null, cargo: x.cargo || null, area: x.area || null, telefono: x.telefono || null, salario_mensual: +x.salario_mensual || 0, seguro_medico: +x.seguro_medico || 0, fecha_ingreso: x.fecha_ingreso || null, recibe_salario: !!x.recibe_salario, recibe_comisiones: !!x.recibe_comisiones, recibe_combustible: !!x.recibe_combustible, activo: !!x.activo, metodo_pago: x.metodo_pago, banco: x.banco || null, cuenta: x.cuenta || null };
+    const row = { nombre: x.nombre.trim(), identidad: x.identidad || null, cargo: x.cargo || null, area: x.area || null, telefono: x.telefono || null, salario_mensual: +x.salario_mensual || 0, seguro_medico: +x.seguro_medico || 0, fecha_ingreso: x.fecha_ingreso || null, recibe_salario: !!x.recibe_salario, recibe_comisiones: !!x.recibe_comisiones, recibe_combustible: !!x.recibe_combustible, recibe_depreciacion: !!x.recibe_depreciacion, depreciacion_mensual: x.recibe_depreciacion ? (+x.depreciacion_mensual || 0) : 0, activo: !!x.activo, metodo_pago: x.metodo_pago, banco: x.banco || null, cuenta: x.cuenta || null };
     try {
       if (e.id) { await q(sb.from('pl_empleados').update(row).eq('id', e.id)); h.cerrar(); toast('Cambios guardados'); ruta(); }
       else { const n = await q(sb.from('pl_empleados').insert(row).select().single()); h.cerrar(); toast('Empleado agregado'); location.hash = `#/empleado/${n.id}`; }
@@ -1098,6 +1131,8 @@ async function vEmpleado(id) {
         <div class="cp-dato"><span>Salario por hora</span><span>${L(e.salario_mensual / 240)}</span></div>
         <div class="cp-dato"><span>Seguro médico</span><span>${L(e.seguro_medico)}</span></div>
         <div class="cp-dato"><span>Recibe</span><span>${[e.recibe_salario && 'Salario', e.recibe_comisiones && 'Comisiones'].filter(Boolean).join(' y ') || '—'}</span></div>
+        ${e.recibe_combustible ? '<div class="cp-dato"><span>Combustible</span><span>En efectivo, fecha de planilla</span></div>' : ''}
+        ${e.recibe_depreciacion ? `<div class="cp-dato"><span>Depreciación</span><span>${+e.depreciacion_mensual ? L(e.depreciacion_mensual) + ' · ' : ''}día 30</span></div>` : ''}
         <div class="cp-dato"><span>Forma de pago</span><span>${e.metodo_pago === 'EFECTIVO' ? 'Efectivo' : 'Transferencia ' + esc(e.banco || '')}</span></div>
         ${e.cuenta ? `<div class="cp-dato"><span>Cuenta</span><span>${esc(e.cuenta)}</span></div>` : ''}
         ${e.identidad ? `<div class="cp-dato"><span>Identidad</span><span>${esc(e.identidad)}</span></div>` : ''}
@@ -1305,10 +1340,11 @@ async function vAjustes() {
   const sup = new Set(sups.map(a => a.user_id));
   const parTodos = await q(sb.from('pl_parametros').select('*').order('clave'));
   const SW = { he_pago_habilitado: ['Pedir horas extra pagadas', 'Encendido: el empleado elige si quiere que le paguen las horas extra o tomarlas como descanso. Apagado: solo puede registrarlas para descanso compensatorio (al aprobar, tú sí puedes decidir pagarlas).'],
+    marcaje_habilitado: ['Marcaje con selfie y GPS', 'Encendido: los empleados marcan entrada, almuerzo y salida desde el teléfono; se guarda la hora del servidor, una selfie y la ubicación. Tú y la supervisora de asistencia lo ven en Marcajes. Apagado: la opción desaparece del menú.', 'no'],
     constancia_autoservicio: ['Constancias automáticas', 'Encendido: el empleado genera su constancia de trabajo al instante. Apagado: la solicita y aparece en Solicitudes para que administración la emita.'] };
   const ORDEN_PAR = ['empresa_nombre', 'empresa_rtn', 'empresa_direccion', 'empresa_ciudad', 'empresa_telefono', 'firma_nombre', 'firma_cargo'];
   const par = parTodos.filter(x => !SW[x.clave]).sort((a, b) => { const ia = ORDEN_PAR.indexOf(a.clave), ib = ORDEN_PAR.indexOf(b.clave); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.clave.localeCompare(b.clave); });
-  const valSw = k => String(parTodos.find(x => x.clave === k)?.valor ?? 'si').trim().toLowerCase() !== 'no';
+  const valSw = k => String(parTodos.find(x => x.clave === k)?.valor ?? (SW[k][2] || 'si')).trim().toLowerCase() === 'si';
   const [plArea, empsA] = await Promise.all([q(sb.from('pl_plantillas').select('*').is('empleado_id', null).order('area').order('orden')), q(sb.from('pl_empleados').select('area,cargo'))]);
   S.areas = empsA.map(x => x.area || x.cargo).filter(Boolean);
   S.conceptos = null;
@@ -1365,6 +1401,7 @@ async function vAjustes() {
       else await q(sb.from('pl_parametros').insert({ clave: k, valor: v, descripcion: SW[k][0] }));
       S.par = { ...(S.par || {}), [k]: v };
       toast(`${SW[k][0]}: ${ch.checked ? 'activado' : 'desactivado'}`);
+      if (k === 'marcaje_habilitado') vAjustes();
     } catch (er) { ch.checked = !ch.checked; toast(errMsg(er), true); }
   });
   $('#fpar', m).onsubmit = async ev => {
@@ -1418,7 +1455,9 @@ const conGanado = c => { const adel = anticipado(c.datos); return { ...c, period
 
 async function vMisPagos() {
   cargando();
-  const comps0 = await q(sb.from('pl_comprobantes').select('id,numero,neto,total_ingresos,total_deducciones,generado_en,periodo_id,datos,recibido_en').eq('empleado_id', S.yo.id).eq('anulado', false));
+  const [comps0, extra] = await Promise.all([
+    q(sb.from('pl_comprobantes').select('id,numero,neto,total_ingresos,total_deducciones,generado_en,periodo_id,datos,recibido_en').eq('empleado_id', S.yo.id).eq('anulado', false)),
+    q(sb.from('pl_pagos_extra').select('*').eq('empleado_id', S.yo.id).eq('anulado', false).order('fecha_pago', { ascending: false }).limit(60))]);
   const comps = comps0.map(conGanado);
   comps.sort((a, b) => String(b.periodo?.fecha_pago || b.periodo?.fecha_fin).localeCompare(String(a.periodo?.fecha_pago || a.periodo?.fecha_fin)));
   const ult = comps[0];
@@ -1426,7 +1465,9 @@ async function vMisPagos() {
     <div class="hola">${ult ? `<div class="k">Último pago · ${esc(ult.periodo?.nombre)}</div><div class="v">${L(ult.recibido)}</div><div class="s">${ult.adel > 0 ? `${L(ult.neto)} pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)} + ${L(ult.adel)} en adelantos, vales y préstamos` : `Pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)}`}</div>` : `<div class="k">Hola, ${esc(corto(S.yo.nombre))}</div><div class="v" style="font-size:22px">Aún no tienes comprobantes</div><div class="s">Aparecerán aquí cuando se cierre la planilla.</div>`}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"><a class="btn borde" href="#/constancia">${ICON.doc}Constancia de trabajo</a>${S.yo.recibe_combustible ? `<a class="btn borde" href="#/mi-combustible">${ICON.moto}Odómetro</a>` : ''}</div>
     <h2 style="margin:6px 0 12px">Mis comprobantes</h2>
-    <div id="lc"></div>`);
+    <div id="lc"></div>
+    ${extra.length ? `<h2 style="margin:24px 0 4px">Combustible y depreciación</h2><p class="small muted" style="margin:0 0 10px">Pagos aparte de la planilla</p>
+      <div class="lista">${extra.map(p => `<a class="item" href="#/pago/${p.id}"><div class="pago" style="flex:1"><div class="ic ${p.tipo === 'combustible' ? 's' : 'c'}">${p.tipo === 'combustible' ? ICON.moto.replace('<svg', '<svg width="20" height="20"') : ICON.dep.replace('<svg', '<svg width="20" height="20"')}</div><div class="grow"><div class="t">${p.tipo === 'combustible' ? `Combustible · ${fc(p.desde)} al ${fc(p.hasta)}` : `Depreciación · <span style="text-transform:capitalize">${nombreMes(p.desde)}</span>`}</div><div class="s">${fc(p.fecha_pago)} · ${esc(p.detalle || '')}</div></div><div style="text-align:right"><div class="num">${L(p.monto)}</div>${p.recibido_en ? '' : '<span class="chip warn" style="margin-top:4px">Por confirmar</span>'}</div></div></a>`).join('')}</div>` : ''}`);
   pagosFiltrables($('#lc', m), comps, { link: c => `#/mi-comprobante/${c.id}` });
 }
 
@@ -1442,6 +1483,212 @@ async function vMiComprobante(id) {
   $('#rec', m) && ($('#rec', m).onclick = async () => {
     if (!await confirmar('Recibí conforme', `Confirmas que recibiste ${L(c.neto)} y que estás de acuerdo con el detalle de este comprobante.`, 'Confirmar')) return;
     try { await q(sb.rpc('pl_confirmar_recibido', { p_id: id, p_info: navigator.userAgent.slice(0, 180) })); toast('Gracias, quedó confirmado'); vMiComprobante(id); } catch (e) { toast(errMsg(e), true); }
+  });
+}
+
+/* ===================== MARCAJE: hora, selfie y GPS ===================== */
+const TIPOS_MARCA = [['entrada', 'Entrada'], ['almuerzo_inicio', 'Salida a almuerzo'], ['almuerzo_fin', 'Regreso de almuerzo'], ['salida', 'Salida']];
+const nomMarca = t => (TIPOS_MARCA.find(x => x[0] === t) || [, t])[1];
+const hora = x => x ? new Date(x).toLocaleTimeString('es-HN', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Tegucigalpa' }) : '—';
+const horasTrabajadas = d => { if (!d.entrada || !d.salida) return null; let ms = new Date(d.salida.marcado_en) - new Date(d.entrada.marcado_en); if (d.almuerzo_inicio && d.almuerzo_fin) ms -= new Date(d.almuerzo_fin.marcado_en) - new Date(d.almuerzo_inicio.marcado_en); return Math.max(0, ms / 36e5); };
+const fmtHoras = h => h == null ? '—' : `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padStart(2, '0')} min`;
+function reducirImagen(fuente, max = 720) {
+  const w0 = fuente.videoWidth || fuente.naturalWidth || fuente.width, h0 = fuente.videoHeight || fuente.naturalHeight || fuente.height;
+  const k = Math.min(1, max / Math.max(w0, h0)); const c = document.createElement('canvas'); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
+  c.getContext('2d').drawImage(fuente, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.75));
+}
+// Abre la cámara frontal y devuelve la selfie (Blob JPEG) o null si se cancela
+function tomarSelfie() {
+  return new Promise(resolve => {
+    let stream = null, listo = false, foto = null;
+    const parar = () => { stream?.getTracks().forEach(t => t.stop()); stream = null; };
+    const h = hoja('Selfie', `<div class="selfie"><video playsinline autoplay muted></video><img alt="Tu selfie" class="hidden"><div class="selfie-msg small muted">Abriendo la cámara…</div></div>
+      <input type="file" accept="image/*" capture="user" hidden>
+      <div class="pie"><button type="button" class="btn borde hidden" data-otra>Repetir</button><button type="button" class="btn pri" data-tomar disabled>${ICON.camara}Tomar foto</button><button type="button" class="btn pri hidden" data-usar>Usar esta foto</button></div>`,
+      { alCerrar: () => { parar(); if (!listo) resolve(null); } });
+    const vid = $('video', h.el), img = $('img', h.el), msg = $('.selfie-msg', h.el), inp = $('input[type=file]', h.el);
+    const bTomar = $('[data-tomar]', h.el), bUsar = $('[data-usar]', h.el), bOtra = $('[data-otra]', h.el);
+    const mostrar = blob => { foto = blob; img.src = URL.createObjectURL(blob); img.classList.toggle('hidden', false); vid.classList.toggle('hidden', true); bTomar.classList.toggle('hidden', true); bUsar.classList.toggle('hidden', false); bOtra.classList.toggle('hidden', false); msg.textContent = ''; };
+    const respaldo = () => { msg.innerHTML = 'No se pudo abrir la cámara aquí. Toca el botón para tomar la selfie con la cámara del teléfono.'; vid.classList.toggle('hidden', true); bTomar.disabled = false; bTomar.onclick = () => inp.click(); };
+    inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const im = new Image(); im.onload = async () => mostrar(await reducirImagen(im)); im.src = URL.createObjectURL(f); };
+    const abrir = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) return respaldo();
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 960 } }, audio: false });
+        if (!document.body.contains(h.el)) return parar();
+        vid.srcObject = stream; await vid.play().catch(() => { });
+        msg.textContent = 'Centra tu cara y toca “Tomar foto”'; bTomar.disabled = false;
+        bTomar.onclick = async () => { const b = await reducirImagen(vid); parar(); mostrar(b); };
+      } catch (_) { respaldo(); }
+    };
+    bOtra.onclick = () => { foto = null; img.classList.toggle('hidden', true); vid.classList.toggle('hidden', false); bTomar.classList.toggle('hidden', false); bUsar.classList.toggle('hidden', true); bOtra.classList.toggle('hidden', true); bTomar.disabled = true; abrir(); };
+    bUsar.onclick = () => { listo = true; h.cerrar(); resolve(foto); };
+    abrir();
+  });
+}
+async function vMarcar() {
+  cargando();
+  try { S.par = await parametros(); } catch (_) { }
+  if (!marcajeActivo()) return shell('<div class="vacio"><b>El marcaje no está activado</b>Administración lo puede activar en Ajustes.</div>');
+  const hoy = iso(hoyHN());
+  const rows = await q(sb.from('pl_marcajes').select('*').eq('empleado_id', S.yo.id).eq('anulado', false).gte('fecha', addDias(hoy, -13)).order('marcado_en', { ascending: false }));
+  const dias = {}; rows.forEach(r => (dias[r.fecha] = dias[r.fecha] || {})[r.tipo] = r);
+  const d = dias[hoy] || {};
+  const sig = !d.entrada ? 'entrada' : !d.salida ? (!d.almuerzo_inicio ? null : !d.almuerzo_fin ? 'almuerzo_fin' : 'salida') : null;
+  const opciones = TIPOS_MARCA.filter(([t]) => !d[t] && (t === 'entrada' || d.entrada) && !d.salida);
+  const sugerida = sig || (d.entrada && !d.salida ? 'salida' : null);
+  const m = shell(`<div class="miga"><a href="#/mi-tiempo">Mi tiempo</a></div><div class="top"><div><h1>Marcar</h1><div class="muted small">${DIAS_LARGO[hoyHN().getDay()]} ${fl(hoy)}</div></div></div>
+    <div class="hola"><div class="k">Hora actual</div><div class="v" id="reloj">${hora(new Date())}</div><div class="s">${d.entrada ? `Entraste a las ${hora(d.entrada.marcado_en)}${d.salida ? ` · saliste a las ${hora(d.salida.marcado_en)}` : ''}` : 'Aún no marcas tu entrada'}</div></div>
+    ${opciones.length ? `<div class="panel"><form id="fm" style="display:grid;gap:12px">
+      <div class="segm marcas-seg">${opciones.map(([t, n]) => `<button type="button" data-t="${t}" class="${t === sugerida ? 'on' : ''}">${n}</button>`).join('')}</div>
+      <input type="hidden" name="tipo" value="${sugerida || opciones[0][0]}">
+      <label class="f">Nota (opcional)<input class="inp" name="nota" placeholder="Ej.: visita a cliente en Choloma"></label>
+      <div class="small muted" id="estado">${ICON.camara.replace('<svg', '<svg width="14" height="14" style="vertical-align:-2px"')} Se tomará una selfie y tu ubicación. La hora la pone el sistema.</div>
+      <button class="btn pri grande" id="bm">${ICON.marca}Marcar ${nomMarca(sugerida || opciones[0][0]).toLowerCase()}</button></form></div>`
+      : `<div class="vacio"><b>Día completo</b>Ya marcaste tu salida. Trabajaste ${fmtHoras(horasTrabajadas(d))}.</div>`}
+    <h2 style="margin:22px 0 10px">Últimos 14 días</h2>
+    ${Object.keys(dias).length ? `<div class="tscroll"><table class="t"><thead><tr><th>Fecha</th><th>Entrada</th><th>Almuerzo</th><th>Salida</th><th class="r">Horas</th></tr></thead><tbody>${Object.entries(dias).map(([f, x]) => `<tr><td>${DIAS_LARGO[pf(f).getDay()].slice(0, 3)} ${fc(f)}</td><td>${hora(x.entrada?.marcado_en)}</td><td class="small">${x.almuerzo_inicio ? `${hora(x.almuerzo_inicio.marcado_en)} – ${hora(x.almuerzo_fin?.marcado_en)}` : '—'}</td><td>${hora(x.salida?.marcado_en)}</td><td class="r num">${fmtHoras(horasTrabajadas(x))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Sin marcajes todavía.</div>'}`);
+  const tic = setInterval(() => { const el = $('#reloj'); if (!el) return clearInterval(tic); el.textContent = hora(new Date()); }, 15000);
+  const f = $('#fm', m); if (!f) return;
+  $$('.segm button', f).forEach(b => b.onclick = () => { $$('.segm button', f).forEach(x => x.classList.toggle('on', x === b)); f.tipo.value = b.dataset.t; $('#bm', m).innerHTML = `${ICON.marca}Marcar ${nomMarca(b.dataset.t).toLowerCase()}`; });
+  f.onsubmit = async e => {
+    e.preventDefault(); const x = formData(f); const b = $('#bm', m); const est = $('#estado', m);
+    b.disabled = true;
+    try {
+      est.textContent = 'Obteniendo ubicación…';
+      const gpsP = obtenerGPS();
+      const foto = await tomarSelfie();
+      if (!foto) { b.disabled = false; est.textContent = 'Marcaje cancelado: se necesita la selfie.'; return; }
+      const g = await gpsP;
+      est.textContent = 'Guardando…';
+      const ruta = `${S.yo.id}/${hoy}/${x.tipo}-${Date.now()}.jpg`;
+      const up = await sb.storage.from('pl-marcajes').upload(ruta, foto, { contentType: 'image/jpeg', upsert: false });
+      if (up.error) throw up.error;
+      const r = await q(sb.rpc('pl_registrar_marcaje', { p_tipo: x.tipo, p_lat: g.lat, p_lng: g.lng, p_precision: g.prec, p_foto: ruta, p_nota: x.nota || null, p_dispositivo: navigator.userAgent.slice(0, 200) }));
+      toast(`${nomMarca(x.tipo)} marcada a las ${hora(r.marcado_en)}`); vMarcar();
+    } catch (er) { b.disabled = false; est.textContent = errMsg(er); toast(errMsg(er), true); }
+  };
+}
+async function urlsFotos(paths) {
+  const ps = [...new Set(paths.filter(Boolean))]; if (!ps.length) return {};
+  try { const { data } = await sb.storage.from('pl-marcajes').createSignedUrls(ps, 3600); const o = {}; (data || []).forEach(x => { if (x.signedUrl) o[x.path] = x.signedUrl; }); return o; } catch (_) { return {}; }
+}
+async function vMarcajes(fecha) {
+  cargando();
+  const hoy = iso(hoyHN());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha || '')) fecha = hoy;
+  const [emps, rows] = await Promise.all([
+    q(sb.from('pl_empleados').select('id,nombre,cargo').eq('activo', true).order('nombre')),
+    q(sb.from('pl_marcajes').select('*').eq('fecha', fecha).order('marcado_en'))]);
+  const urls = await urlsFotos(rows.map(r => r.foto_path));
+  const val = rows.filter(r => !r.anulado);
+  const por = {}; val.forEach(r => (por[r.empleado_id] = por[r.empleado_id] || {})[r.tipo] = r);
+  const lista = emps.filter(e => por[e.id]).concat(emps.filter(e => !por[e.id]));
+  const celda = r => r ? `<button class="marca-cel" data-mk="${r.id}">${urls[r.foto_path] ? `<img src="${urls[r.foto_path]}" alt="">` : '<span class="sinfoto"></span>'}<span><b>${hora(r.marcado_en)}</b>${r.precision_m > 100 ? `<small class="tiny" style="color:#8A6A00">GPS ±${Math.round(r.precision_m)} m</small>` : ''}</span></button>` : '<span class="muted">—</span>';
+  const m = shell(`<div class="top"><div><h1>Marcajes</h1><div class="muted small">${DIAS_LARGO[pf(fecha).getDay()]} ${fl(fecha)} · ${Object.keys(por).length} de ${emps.length} empleados marcaron</div></div>
+      <div class="acc"><button class="btn borde sm" data-d="-1" aria-label="Día anterior">‹</button><input class="inp" type="date" id="fd" value="${fecha}" max="${hoy}" style="width:auto"><button class="btn borde sm" data-d="1" ${fecha >= hoy ? 'disabled' : ''} aria-label="Día siguiente">›</button></div></div>
+    <div class="tscroll"><table class="t marcas-t"><thead><tr><th>Empleado</th><th>Entrada</th><th>Salida a almuerzo</th><th>Regreso</th><th>Salida</th><th class="r">Horas</th></tr></thead><tbody>
+      ${lista.map(e => { const d = por[e.id] || {}; return `<tr><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.cargo || '')}</div></td>${TIPOS_MARCA.map(([t]) => `<td>${celda(d[t])}</td>`).join('')}<td class="r num">${por[e.id] ? fmtHoras(horasTrabajadas(d)) : '<span class="chip gris">Sin marcaje</span>'}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    ${rows.some(r => r.anulado) ? `<p class="small muted" style="margin-top:10px">Anulados este día: ${rows.filter(r => r.anulado).map(r => `${esc(corto(emps.find(e => e.id === r.empleado_id)?.nombre || ''))} (${nomMarca(r.tipo).toLowerCase()} ${hora(r.marcado_en)}: ${esc(r.motivo_anulacion || '')})`).join(', ')}</p>` : ''}`);
+  $('#fd', m).onchange = e => e.target.value && (location.hash = `#/marcajes/${e.target.value}`);
+  $$('[data-d]', m).forEach(b => b.onclick = () => location.hash = `#/marcajes/${addDias(fecha, +b.dataset.d)}`);
+  $$('[data-mk]', m).forEach(b => b.onclick = () => {
+    const r = rows.find(x => x.id === b.dataset.mk); const e = emps.find(x => x.id === r.empleado_id);
+    const h = hoja(`${nomMarca(r.tipo)} · ${corto(e?.nombre || '')}`, `${urls[r.foto_path] ? `<img src="${urls[r.foto_path]}" alt="Selfie" style="width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#0A2A66">` : '<div class="vacio">Sin foto</div>'}
+      <div class="panel small" style="margin-top:12px"><div class="cp-dato"><span>Hora</span><span>${fdt(r.marcado_en)}</span></div>
+      <div class="cp-dato"><span>Ubicación</span><span>${mapsLink(r.lat, r.lng)} ${r.precision_m ? `±${Math.round(r.precision_m)} m` : ''}</span></div>
+      ${r.nota ? `<div class="cp-dato"><span>Nota</span><span>${esc(r.nota)}</span></div>` : ''}</div>
+      <form style="margin-top:12px;display:grid;gap:10px"><label class="f">Anular este marcaje (motivo)<input class="inp" name="motivo" required placeholder="Ej.: marcó por error, foto no corresponde"></label><div class="pie"><button class="btn rojo">Anular marcaje</button></div></form>`);
+    $('form', h.el).onsubmit = async ev => { ev.preventDefault(); try { await q(sb.rpc('pl_anular_marcaje', { p_id: r.id, p_motivo: formData(ev.target).motivo })); h.cerrar(); toast('Marcaje anulado; el empleado puede volver a marcar'); vMarcajes(fecha); } catch (er) { toast(errMsg(er), true); } };
+  });
+}
+
+/* ===================== PAGOS APARTE: combustible y depreciación ===================== */
+const TIPO_EXTRA = { combustible: 'Combustible', depreciacion: 'Depreciación de motocicleta' };
+const nombreMes = d => { const x = pf(d); return x ? `${MESES[x.getMonth()]} ${x.getFullYear()}` : ''; };
+function htmlPagoExtra(p, { recibido } = {}) {
+  const d = p.datos || {}; const nom = d.nombre || p.pl_empleados?.nombre || '';
+  const comb = p.tipo === 'combustible';
+  const lineas = comb
+    ? [['Kilómetros recorridos', `${N(d.km)} km`], ['Días con registro', d.dias], ['Pago por kilómetro', L(d.tarifa)]]
+    : [['Depreciación mensual', L(p.monto)]];
+  return `<article class="cp">
+    <header class="cp-cab"><div><div class="marca">más<span class="p">pisto</span></div><div class="tit">Comprobante de pago · ${TIPO_EXTRA[p.tipo]}</div></div>
+      <div class="nro">No.<b>${esc(p.numero)}</b>${fc(p.fecha_pago)}${p.anulado ? '<div><span class="chip red">Anulado</span></div>' : ''}</div></header>
+    <section class="cp-quien"><div class="nom">${esc(nom)}</div>
+      ${d.cargo ? `<div class="cp-dato"><span>Cargo</span><span>${esc(d.cargo)}</span></div>` : ''}
+      ${comb ? `<div class="cp-dato"><span>Recorrido</span><span>${fc(p.desde)} al ${fc(p.hasta)}</span></div>${d.planilla ? `<div class="cp-dato"><span>Pagado con</span><span>${esc(d.planilla)}</span></div>` : ''}`
+        : `<div class="cp-dato"><span>Mes</span><span style="text-transform:capitalize">${nombreMes(p.desde)}</span></div>`}
+      <div class="cp-dato"><span>Forma de pago</span><span>${p.metodo === 'EFECTIVO' ? 'Efectivo' : 'Transferencia ' + esc(d.banco || '')}${p.metodo !== 'EFECTIVO' && d.cuenta ? ' · ' + esc(d.cuenta) : ''}</span></div>
+    </section>
+    <section class="cp-cols" style="grid-template-columns:1fr"><div class="cp-col"><h4><span>Detalle</span></h4>
+      ${lineas.map(([k, v]) => `<div class="cp-l"><span>${k}</span><span class="mt">${v}</span></div>`).join('')}
+      ${comb && +d.incompletos ? `<div class="tiny muted" style="margin-top:6px">${d.incompletos} día(s) sin lectura de fin no se pagaron.</div>` : ''}
+      ${p.anulado ? `<div class="tiny" style="color:var(--rojo);margin-top:6px">Anulado: ${esc(p.motivo_anulacion || '')}</div>` : ''}</div></section>
+    <div class="cp-neto"><div class="k">Total a pagar<small>${p.metodo === 'EFECTIVO' ? 'En efectivo' : 'Por transferencia'}</small></div><div class="v">${L(p.monto)}</div></div>
+    ${recibido ? `<div class="cp-recibido">✓ Recibido conforme digitalmente por ${esc(nom)} el ${fdt(recibido)}</div>` : `<div class="cp-firma"><div>Entregado por</div><div>Recibí conforme · ${esc(nom)}</div></div>`}
+  </article>`;
+}
+const imprimirExtra = lista => { $('#imprimir').innerHTML = lista.map(p => htmlPagoExtra(p, { recibido: p.recibido_en })).join(''); setTimeout(() => window.print(), 60); };
+// lista de pagos aparte (admin) con anular e imprimir todos
+function tablaPagosExtra(lista, despues) {
+  if (!lista.length) return '<div class="vacio">Aún no se han generado comprobantes.</div>';
+  return `<div class="tscroll"><table class="t"><thead><tr><th>No.</th><th>Empleado</th><th>Detalle</th><th class="r">Monto</th><th></th></tr></thead><tbody>${lista.map(p => `<tr class="click" data-px="${p.id}" style="${p.anulado ? 'opacity:.5' : ''}"><td class="small">${esc(p.numero)}<div class="tiny muted">${fc(p.fecha_pago)}</div></td><td><b>${esc(p.pl_empleados?.nombre || p.datos?.nombre || '')}</b></td><td class="small muted">${esc(p.detalle || '')}</td><td class="r num">${L(p.monto)}</td><td class="r">${p.anulado ? '<span class="chip red">Anulado</span>' : p.recibido_en ? '<span class="chip ok">Recibido</span>' : '<span class="chip warn">Por confirmar</span>'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td></td><td>Total</td><td></td><td class="r">${L(lista.filter(p => !p.anulado).reduce((a, p) => a + +p.monto, 0))}</td><td></td></tr></tfoot></table></div>`;
+}
+function enlazarPagosExtra(m) { $$('[data-px]', m).forEach(tr => tr.onclick = () => location.hash = `#/pago/${tr.dataset.px}`); }
+async function vPagoExtra(id) {
+  cargando();
+  const p = await q(sb.from('pl_pagos_extra').select('*, pl_empleados(nombre,telefono)').eq('id', id).single());
+  const mio = S.yo && p.empleado_id === S.yo.id;
+  const volver = S.admin && !mio ? (p.tipo === 'combustible' ? `#/combustible/${p.periodo_id || ''}` : `#/depreciacion/${String(p.desde).slice(0, 7)}`) : '#/mis-pagos';
+  const m = shell(`<div class="miga"><a href="${volver}">${S.admin && !mio ? TIPO_EXTRA[p.tipo] : 'Mis pagos'}</a></div>
+    <div class="top"><h1>Comprobante</h1><div class="acc"><button class="btn borde" id="img">${ICON.foto}Imagen</button><button class="btn ${S.admin ? 'borde' : 'pri'}" id="imp">${ICON.print}PDF</button>${S.admin && !p.anulado ? '<button class="btn rojo" id="anu">Anular</button>' : ''}</div></div>
+    ${mio && !p.recibido_en && !p.anulado ? `<div class="panel" style="max-width:780px;margin:0 auto 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-color:var(--amarillo);background:#FFFBE6"><span>Cuando recibas este pago, confírmalo.</span><button class="btn pri" id="rec">Recibí conforme</button></div>` : ''}
+    ${htmlPagoExtra(p, { recibido: p.recibido_en })}`);
+  const nombre = `${TIPO_EXTRA[p.tipo]} ${p.numero} ${corto(p.pl_empleados?.nombre || '')}`.replace(/[\\/:*?"<>|]+/g, '');
+  $('#img', m).onclick = () => exportarImagen($('.cp', m), nombre);
+  $('#imp', m).onclick = () => imprimirExtra([p]);
+  $('#rec', m) && ($('#rec', m).onclick = async () => {
+    if (!await confirmar('Recibí conforme', `Confirmas que recibiste ${L(p.monto)} de ${TIPO_EXTRA[p.tipo].toLowerCase()}.`, 'Confirmar')) return;
+    try { await q(sb.rpc('pl_confirmar_recibido_extra', { p_id: id, p_info: navigator.userAgent.slice(0, 180) })); toast('Gracias, quedó confirmado'); vPagoExtra(id); } catch (e) { toast(errMsg(e), true); }
+  });
+  $('#anu', m) && ($('#anu', m).onclick = () => {
+    const h = hoja('Anular comprobante', `<form><p class="small muted" style="margin:0">${esc(p.numero)} · ${esc(p.pl_empleados?.nombre || '')} · ${L(p.monto)}. Queda en el historial como anulado y se puede volver a generar.</p>
+      <label class="f">Motivo<input class="inp" name="motivo" required></label><div class="pie"><button class="btn rojo">Anular</button></div></form>`);
+    $('form', h.el).onsubmit = async e => { e.preventDefault(); try { await q(sb.rpc('pl_anular_pago_extra', { p_id: id, p_motivo: formData(e.target).motivo })); h.cerrar(); toast('Comprobante anulado'); vPagoExtra(id); } catch (er) { toast(errMsg(er), true); } };
+  });
+}
+async function vDepreciacion(mes) {
+  cargando();
+  const hoy = hoyHN();
+  if (!/^\d{4}-\d{2}$/.test(mes || '')) mes = iso(hoy).slice(0, 7);
+  const ini = `${mes}-01`;
+  const [emps, pagos] = await Promise.all([
+    q(sb.from('pl_empleados').select('id,nombre,depreciacion_mensual,metodo_pago,activo').eq('recibe_depreciacion', true).order('nombre')),
+    q(sb.from('pl_pagos_extra').select('*, pl_empleados(nombre)').eq('tipo', 'depreciacion').eq('periodo', mes).order('numero'))]);
+  const meses = []; for (let i = -2; i <= 9; i++) { const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1); meses.push(iso(d).slice(0, 7)); }
+  if (!meses.includes(mes)) meses.unshift(mes);
+  const fin = new Date(+mes.slice(0, 4), +mes.slice(5, 7), 0).getDate();
+  const fpago = `${mes}-${String(Math.min(30, fin)).padStart(2, '0')}`;
+  const pend = emps.filter(e => e.activo && !pagos.some(p => p.empleado_id === e.id && !p.anulado));
+  const m = shell(`<div class="top"><div><h1>Depreciación</h1><div class="muted small">Pago mensual por uso de motocicleta · se paga el ${fl(fpago)}</div></div>
+      <div class="acc"><select class="inp" id="selm" style="width:auto;text-transform:capitalize">${meses.map(x => `<option value="${x}" ${x === mes ? 'selected' : ''}>${nombreMes(x + '-01')}</option>`).join('')}</select>
+      ${pend.length ? `<button class="btn ama" id="gen">Generar comprobantes (${pend.length})</button>` : ''}${pagos.some(p => !p.anulado) ? `<button class="btn borde" id="impt">${ICON.print}Imprimir todos</button>` : ''}</div></div>
+    <div class="panel" style="margin-bottom:14px"><h3 style="margin-bottom:8px">Empleados con depreciación</h3>
+      ${emps.length ? `<table class="t"><tbody>${emps.map(e => `<tr class="click" data-emp="${e.id}" style="${e.activo ? '' : 'opacity:.5'}"><td><b>${esc(e.nombre)}</b>${e.activo ? '' : ' <span class="chip gris">inactivo</span>'}</td><td class="small muted">${e.metodo_pago === 'EFECTIVO' ? 'Efectivo' : 'Transferencia'}</td><td class="r num">${+e.depreciacion_mensual ? L(e.depreciacion_mensual) : '<span class="chip warn">Falta el monto</span>'}</td></tr>`).join('')}</tbody></table>`
+        : '<div class="vacio">Nadie tiene depreciación. Márcala en la ficha del empleado (Editar datos → Pagos de la moto).</div>'}</div>
+    <h2 style="margin:6px 0 10px">Comprobantes de <span style="text-transform:capitalize">${nombreMes(ini)}</span></h2>
+    ${tablaPagosExtra(pagos)}`);
+  $('#selm', m).onchange = e => location.hash = `#/depreciacion/${e.target.value}`;
+  $$('[data-emp]', m).forEach(tr => tr.onclick = () => location.hash = `#/empleado/${tr.dataset.emp}`);
+  enlazarPagosExtra(m);
+  $('#impt', m) && ($('#impt', m).onclick = () => imprimirExtra(pagos.filter(p => !p.anulado)));
+  $('#gen', m) && ($('#gen', m).onclick = async () => {
+    if (!await confirmar('Generar comprobantes', `Depreciación de ${nombreMes(ini)} para ${pend.map(e => esc(corto(e.nombre))).join(', ')}. Fecha de pago: ${fc(fpago)}.`, 'Generar')) return;
+    try { const r = await q(sb.rpc('pl_generar_depreciacion', { p_mes: ini })); toast(`${r.generados} comprobante(s) generados${r.omitidos?.length ? ' · Sin generar: ' + r.omitidos.join(', ') : ''}`, !!r.omitidos?.length && !r.generados); vDepreciacion(mes); } catch (er) { toast(errMsg(er), true); }
   });
 }
 
@@ -1466,6 +1713,7 @@ const DIAS_LARGO = ['domingo','lunes','martes','miércoles','jueves','viernes','
 const addDias = (s, n) => { const d = pf(s); d.setDate(d.getDate() + n); return iso(d); };
 const difDias = (a, b) => Math.round((pf(b) - pf(a)) / 864e5);
 const chipEstado = e => ({ pendiente: '<span class="chip warn">Pendiente</span>', aprobado: '<span class="chip ok">Aprobado</span>', aprobada: '<span class="chip ok">Aprobada</span>', rechazado: '<span class="chip red">Rechazado</span>', rechazada: '<span class="chip red">Rechazada</span>', cancelada: '<span class="chip gris">Cancelada</span>', cancelado: '<span class="chip gris">Cancelado</span>', emitida: '<span class="chip ok">Emitida</span>' }[e] || esc(e));
+const marcajeActivo = () => String(S.par?.marcaje_habilitado || 'no').trim().toLowerCase() === 'si';
 const parSi = k => String(S.par?.[k] ?? 'si').trim().toLowerCase() !== 'no';
 async function parametros() { const r = await q(sb.from('pl_parametros').select('*')); const o = {}; r.forEach(x => o[x.clave] = x.valor); return o; }
 function mapsLink(lat, lng) { return lat != null ? `<a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" rel="noopener" title="Ver en el mapa" style="display:inline-flex;vertical-align:middle">${ICON.gps.replace('<svg', '<svg width="16" height="16"')}</a>` : '<span class="tiny muted">sin GPS</span>'; }
@@ -1975,13 +2223,15 @@ async function vCombustible(perId) {
   const [rows, emps, par] = await Promise.all([
     q(sb.from('pl_odometro').select('*').gte('fecha', rg.desde).lte('fecha', rg.hasta).order('fecha')),
     q(sb.from('pl_empleados').select('id,nombre,recibe_combustible').order('nombre')), parametros()]);
+  const pagosC = await q(sb.from('pl_pagos_extra').select('*, pl_empleados(nombre)').eq('tipo', 'combustible').eq('periodo', per.id).order('numero'));
   const tarifa = +par.tarifa_km || 1.35;
   const ids = [...new Set([...emps.filter(e => e.recibe_combustible).map(e => e.id), ...rows.map(r => r.empleado_id)])];
   const porEmp = id => { const d = {}; rows.filter(r => r.empleado_id === id).forEach(r => (d[r.fecha] = d[r.fecha] || {})[r.tipo] = r); return d; };
   const celda = (r, emp, fecha, tipo) => r ? `<button class="lnk" data-ed="${r.id}">${N(r.lectura)}</button> ${mapsLink(r.lat, r.lng)}${r.corregido ? ' <span class="chip gris" style="padding:0 6px">corregido</span>' : ''}<div class="tiny muted">${fdt(r.registrado_en).split(', ').pop()}</div>` : (per.estado === 'abierta' ? `<button class="lnk tiny" data-add="${emp}|${fecha}|${tipo}">agregar</button>` : '—');
   const m = shell(`<div class="top"><div><h1>Combustible</h1><div class="muted small">Del ${fc(rg.desde)} al ${fc(rg.hasta)} · lecturas con hora y ubicación · L ${tarifa} por km</div></div>
       <div class="acc"><select class="inp" id="selp" style="width:auto">${pers.map(p => `<option value="${p.id}" ${p.id === per.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>
-      ${per.estado === 'abierta' ? '<button class="btn ama" id="aplanilla">Agregar a la planilla</button>' : ''}</div></div>
+      <button class="btn ama" id="gencomb">${pagosC.some(p => !p.anulado) ? 'Actualizar comprobantes' : 'Generar comprobantes'}</button>${pagosC.some(p => !p.anulado) ? `<button class="btn borde" id="impc">${ICON.print}Imprimir todos</button>` : ''}</div></div>
+    <div class="panel" style="margin-bottom:14px"><h3 style="margin-bottom:4px">Comprobantes de combustible</h3><p class="small muted" style="margin:0 0 10px">Se paga aparte de la planilla, en efectivo, el ${fc(per.fecha_pago || per.fecha_fin)}. No aparece en el comprobante de salario.</p>${tablaPagosExtra(pagosC)}</div>
     ${ids.length ? ids.map(id => { const e = emps.find(x => x.id === id); const d = porEmp(id); const km = Object.values(d).reduce((a, x) => a + (x.inicio && x.fin ? +x.fin.lectura - +x.inicio.lectura : 0), 0);
       const fechas = []; for (let f = rg.desde; f <= rg.hasta; f = addDias(f, 1)) if (d[f] || pf(f).getDay() !== 0) fechas.push(f);
       return `<div class="panel" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><h3>${esc(e?.nombre)}</h3><div style="text-align:right"><span class="num">${N(km)} km</span><div class="small muted">${L(Math.round(km * tarifa))}</div></div></div>
@@ -1989,9 +2239,12 @@ async function vCombustible(perId) {
         ${fechas.map(f => { const x = d[f] || {}; return `<tr><td>${DIAS_LARGO[pf(f).getDay()].slice(0, 3)} ${fc(f)}</td><td>${celda(x.inicio, id, f, 'inicio')}</td><td>${celda(x.fin, id, f, 'fin')}</td><td class="r num">${x.inicio && x.fin ? N(+x.fin.lectura - +x.inicio.lectura) : '—'}</td></tr>`; }).join('')}
         </tbody></table></div></div>`; }).join('') : '<div class="vacio"><b>Nadie tiene combustible asignado</b>Marca “Recibe combustible” en la ficha del verificador.</div>'}`);
   $('#selp', m).onchange = e => location.hash = `#/combustible/${e.target.value}`;
-  $('#aplanilla', m) && ($('#aplanilla', m).onclick = async () => {
-    try { const r = await q(sb.rpc('pl_combustible_a_planilla', { p_periodo: per.id })); const inc = r.detalle.filter(x => +x.incompletos).map(x => `${corto(x.nombre)} (${x.incompletos} día sin fin)`); toast(`Combustible agregado a ${r.agregados} empleado(s)${inc.length ? ' · Revisa: ' + inc.join(', ') : ''}`); } catch (er) { toast(errMsg(er), true); }
-  });
+  enlazarPagosExtra(m);
+  $('#impc', m) && ($('#impc', m).onclick = () => imprimirExtra(pagosC.filter(p => !p.anulado)));
+  $('#gencomb', m).onclick = async () => {
+    if (!await confirmar('Comprobantes de combustible', `Se calculan los km del ${fc(rg.desde)} al ${fc(rg.hasta)} a L ${tarifa} por km. Los que ya existen y no están confirmados se actualizan.`, 'Generar')) return;
+    try { const r = await q(sb.rpc('pl_generar_combustible', { p_periodo: per.id })); const inc = r.detalle.filter(x => +x.incompletos).map(x => `${corto(x.nombre)} (${x.incompletos} día sin fin)`); toast(`${r.generados} comprobante(s) listos${inc.length ? ' · Revisa: ' + inc.join(', ') : ''}`); vCombustible(per.id); } catch (er) { toast(errMsg(er), true); }
+  };
   $$('[data-ed]', m).forEach(b => b.onclick = () => {
     const r = rows.find(x => x.id === b.dataset.ed);
     const h = hoja('Corregir lectura', `<form><p class="small muted" style="margin:0">${r.tipo === 'inicio' ? 'Inicio' : 'Fin'} del ${fc(r.fecha)} · registrado ${fdt(r.registrado_en)}</p>
@@ -2011,7 +2264,7 @@ async function vCombustible(perId) {
 }
 
 /* ===================== ADMIN: historial ===================== */
-const TABLAS = { pl_empleados: 'Empleado', pl_periodos: 'Planilla', pl_asistencia: 'Asistencia', pl_adelantos: 'Adelanto', pl_prestamos: 'Préstamo', pl_prestamo_pagos: 'Abono a préstamo', pl_movimientos: 'Línea de planilla', pl_comprobantes: 'Comprobante', pl_vacaciones: 'Vacaciones', pl_odometro: 'Odómetro', pl_parametros: 'Ajuste', pl_admins: 'Administrador', pl_conceptos: 'Concepto', pl_supervisores: 'Supervisor', pl_plantillas: 'Plantilla de cálculo', pl_permisos: 'Permiso', pl_horas_extra: 'Horas extra', pl_constancias: 'Constancia', pl_constancia_solicitudes: 'Solicitud de constancia' };
+const TABLAS = { pl_empleados: 'Empleado', pl_periodos: 'Planilla', pl_asistencia: 'Asistencia', pl_adelantos: 'Adelanto', pl_prestamos: 'Préstamo', pl_prestamo_pagos: 'Abono a préstamo', pl_movimientos: 'Línea de planilla', pl_comprobantes: 'Comprobante', pl_vacaciones: 'Vacaciones', pl_odometro: 'Odómetro', pl_parametros: 'Ajuste', pl_admins: 'Administrador', pl_conceptos: 'Concepto', pl_supervisores: 'Supervisor', pl_plantillas: 'Plantilla de cálculo', pl_permisos: 'Permiso', pl_horas_extra: 'Horas extra', pl_constancias: 'Constancia', pl_marcajes: 'Marcaje', pl_pagos_extra: 'Pago de combustible/depreciación', pl_constancia_solicitudes: 'Solicitud de constancia' };
 const OMITIR = ['actualizado_en', 'generado_en', 'datos', 'creado_en'];
 async function vHistorial() {
   cargando();

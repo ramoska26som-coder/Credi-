@@ -493,6 +493,7 @@ async function conceptos() { if (!S.conceptos) S.conceptos = await q(sb.from('pl
 // En "Mis pagos" no se restan adelantos, vales ni cuotas de préstamos: es dinero que el empleado ya recibió
 const esAnticipo = d => !!d.prestamo_id || /^(adelanto|vales?\b|vale comisiones|préstamo|prestamo)/i.test(String(d.concepto || '').trim());
 const anticipado = c => (c?.deducciones || []).filter(esAnticipo).reduce((a, d) => a + +d.monto, 0);
+const ganado = comp => +comp.neto + anticipado(comp.datos); // ingresos menos penalizaciones y otras deducciones reales
 function resumenFila(c) {
   const ded = c.deducciones || [];
   const adel = ded.filter(d => /^Adelanto|^Vales \/ adelantos/.test(d.concepto)).reduce((a, d) => a + +d.monto, 0);
@@ -874,10 +875,11 @@ async function vEmpleados() {
   const [emps, pers] = await Promise.all([
     q(sb.from('pl_empleados').select('*')),
     q(sb.from('pl_periodos').select('id,nombre,fecha_fin').eq('tipo', 'comisiones').eq('estado', 'cerrada').order('fecha_fin', { ascending: false }).limit(3))]);
-  // Promedio de comisiones: lo ganado (total de ingresos) en los últimos 3 meses de comisiones cerrados ÷ número de meses
+  // Promedio de comisiones: lo ganado en los últimos 3 meses de comisiones cerrados ÷ número de meses
   const perIds = pers.map(p => p.id);
-  const comps = perIds.length ? await q(sb.from('pl_comprobantes').select('empleado_id,total_ingresos').in('periodo_id', perIds).eq('anulado', false)) : [];
-  const sumCom = {}; comps.forEach(c => sumCom[c.empleado_id] = (sumCom[c.empleado_id] || 0) + +c.total_ingresos);
+  const comps = perIds.length ? await q(sb.from('pl_comprobantes').select('empleado_id,neto,datos').in('periodo_id', perIds).eq('anulado', false)) : [];
+  // ganado = neto + adelantos/vales/préstamos (ya recibidos); penalizaciones y otras deducciones sí restan
+  const sumCom = {}; comps.forEach(c => sumCom[c.empleado_id] = (sumCom[c.empleado_id] || 0) + ganado(c));
   const nMeses = perIds.length || 1;
   const filas = emps.map(e => ({ ...e, prom: Math.round((sumCom[e.id] || 0) / nMeses) }));
   filas.forEach(e => e.total = (+e.salario_mensual || 0) + e.prom);
@@ -1567,11 +1569,11 @@ async function vLiquidacion(id) {
   cargando();
   const [e, comps, pres, vac] = await Promise.all([
     q(sb.from('pl_empleados').select('*').eq('id', id).single()),
-    q(sb.from('pl_comprobantes').select('total_ingresos,datos->periodo').eq('empleado_id', id).eq('anulado', false)),
+    q(sb.from('pl_comprobantes').select('neto,datos').eq('empleado_id', id).eq('anulado', false)).then(r => r.map(c => ({ ...c, periodo: c.datos?.periodo, ganado: ganado(c) }))),
     q(sb.from('pl_prestamos_saldo').select('codigo,saldo').eq('empleado_id', id)),
     q(sb.rpc('pl_vacaciones_resumen', { p_emp: id }))]);
   const com = comps.filter(c => c.periodo?.tipo === 'comisiones').sort((a, b) => String(b.periodo.fecha_fin).localeCompare(String(a.periodo.fecha_fin))).slice(0, 6);
-  const promCom = com.length ? Math.round(com.reduce((a, c) => a + +c.total_ingresos, 0) / com.length) : 0;
+  const promCom = com.length ? Math.round(com.reduce((a, c) => a + c.ganado, 0) / com.length) : 0;
   const saldoPres = pres.reduce((a, p) => a + Math.max(0, +p.saldo), 0);
   const m = shell(`<div class="miga"><a href="#/empleado/${id}">${esc(e.nombre)}</a></div>
     <div class="top"><div><h1>Cálculo de liquidación</h1><div class="muted small">Solo administración · cálculo de referencia según el Código del Trabajo de Honduras</div></div><div class="acc"><button class="btn pri" id="imp">${ICON.print}Imprimir</button></div></div>

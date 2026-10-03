@@ -1769,7 +1769,7 @@ async function vRegistrarHoras() {
       <div class="row2"><label class="f">Fecha<input class="inp" type="date" name="fecha" max="${iso(hoyHN())}" min="${addDias(iso(hoyHN()), -31)}" value="${iso(hoyHN())}" required></label><label class="f">Horas<input class="inp" type="number" name="horas" min="0.5" max="16" step="0.5" required></label></div>
       <label class="f">¿Qué trabajo hiciste?<input class="inp" name="motivo" required placeholder="Ej.: cierre de cartera, visitas después del horario"></label>
       ${pago ? '<label class="f">Prefiero<select class="inp" name="pref"><option value="pagar">Que me las paguen</option><option value="compensar">Tomarlas como descanso</option></select></label>'
-        : '<input type="hidden" name="pref" value="compensar"><p class="small muted" style="margin:0">Por ahora las horas extra se compensan con tiempo de descanso; no se pueden pedir pagadas.</p>'}
+        : '<input type="hidden" name="pref" value="compensar">'}
       <button class="btn pri">Registrar horas extra</button></form></div>`);
   $('#fh').onsubmit = async e => { e.preventDefault(); const x = formData(e.target); try { await q(sb.rpc('pl_registrar_horas_extra', { p_fecha: x.fecha, p_horas: +x.horas, p_motivo: x.motivo, p_preferencia: pago ? x.pref : 'compensar' })); toast('Horas extra registradas'); location.hash = '#/mi-tiempo/horas'; } catch (er) { toast(errMsg(er), true); } };
 }

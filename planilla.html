@@ -712,7 +712,7 @@ async function tabMovimientos(cont, per, calc) {
   const nombre = id => emps.find(e => e.id === id)?.nombre || '';
   ids.sort((a, b) => nombre(a).localeCompare(nombre(b)));
   cont.innerHTML = `
-    ${abierta ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap"><span class="small muted">${per.tipo === 'comisiones' ? 'Registra comisiones, bonos y deducciones de cada colaborador. Los préstamos marcados “en comisiones” y los vales/adelantos se agregan solos.' : 'Vacaciones, décimo tercer/cuarto mes, combustible u otras deducciones. El salario, seguro y préstamos se calculan solos.'}</span><div style="display:flex;gap:8px;flex-wrap:wrap">${per.tipo === 'salario' ? `<button class="btn borde" id="d13">Calcular décimo tercer mes</button><button class="btn borde" id="d14">Calcular décimo cuarto mes</button><button class="btn borde" id="comb">${ICON.moto}Agregar combustible</button>` : ''}<button class="btn pri" id="add">${ICON.mas}Agregar línea</button></div></div>` : ''}
+    ${abierta ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap"><span class="small muted">${per.tipo === 'comisiones' ? 'Registra comisiones, bonos y deducciones de cada colaborador. Los préstamos marcados “en comisiones” y los vales/adelantos se agregan solos.' : 'Vacaciones, décimo tercer/cuarto mes, combustible u otras deducciones. El salario, seguro y préstamos se calculan solos.'}</span><div style="display:flex;gap:8px;flex-wrap:wrap">${per.tipo === 'salario' ? `<button class="btn borde" id="d13">Calcular décimo tercer mes</button><button class="btn borde" id="d14">Calcular décimo cuarto mes</button><button class="btn borde" id="comb">${ICON.moto}Agregar combustible</button>` : ''}<button class="btn ama" id="cap">Capturar con plantillas</button><button class="btn pri" id="add">${ICON.mas}Agregar línea</button></div></div>` : ''}
     ${ids.length ? `<div class="lista">${ids.map(id => { const c = calc.find(x => x.empleado_id === id); const ls = porEmp[id] || []; return `
       <div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><h3>${esc(nombre(id))}</h3>${c ? `<span class="num">${L(c.neto)}</span>` : ''}</div>
       ${ls.length ? `<table class="t"><tbody>${ls.map(mv => `<tr class="${abierta ? 'click' : ''}" data-m="${mv.id}"><td style="width:28px"><span class="chip ${mv.tipo === 'ingreso' ? 'ok' : 'red'}" style="padding:0 7px">${mv.tipo === 'ingreso' ? '+' : '−'}</span></td><td>${esc(mv.concepto)}${mv.detalle ? `<div class="tiny muted">${esc(mv.detalle)}</div>` : ''}</td><td class="r num">${L(mv.monto)}</td></tr>`).join('')}</tbody></table>` : '<div class="small muted">Sin líneas manuales</div>'}
@@ -720,6 +720,7 @@ async function tabMovimientos(cont, per, calc) {
       : `<div class="vacio"><b>Sin líneas todavía</b>Agrega la primera comisión o ajuste.</div>`}`;
   if (!abierta) return;
   $('#add', cont).onclick = () => editarMov(per, null, null, emps);
+  $('#cap', cont).onclick = () => capturarPlantillas(per);
   const decimo = t => {
     const y = pf(per.fecha_fin).getFullYear();
     const def = t === '13' ? `${y}-12-31` : `${y}-06-30`;
@@ -963,7 +964,9 @@ async function vEmpleado(id) {
     q(sb.from('pl_prestamos_saldo').select('*').eq('empleado_id', id).order('creado_en')),
     q(sb.from('pl_comprobantes').select('*, pl_periodos(nombre,tipo,fecha_inicio)').eq('empleado_id', id).eq('anulado', false).order('generado_en', { ascending: false })),
     q(sb.from('pl_adelantos').select('*, pl_periodos(nombre)').eq('empleado_id', id).order('fecha', { ascending: false }).limit(20))]);
-  const [vac, vmov, perms, banco, hxs] = await Promise.all([q(sb.rpc('pl_vacaciones_resumen', { p_emp: id })), q(sb.from('pl_vacaciones').select('*').eq('empleado_id', id).order('solicitado_en', { ascending: false }).limit(20)), q(sb.from('pl_permisos').select('*').eq('empleado_id', id).order('desde', { ascending: false }).limit(15)), q(sb.rpc('pl_banco_horas', { p_emp: id })), q(sb.from('pl_horas_extra').select('*').eq('empleado_id', id).order('fecha', { ascending: false }).limit(15))]);
+  const [vac, vmov, perms, banco, hxs, plants] = await Promise.all([q(sb.rpc('pl_vacaciones_resumen', { p_emp: id })), q(sb.from('pl_vacaciones').select('*').eq('empleado_id', id).order('solicitado_en', { ascending: false }).limit(20)), q(sb.from('pl_permisos').select('*').eq('empleado_id', id).order('desde', { ascending: false }).limit(15)), q(sb.rpc('pl_banco_horas', { p_emp: id })), q(sb.from('pl_horas_extra').select('*').eq('empleado_id', id).order('fecha', { ascending: false }).limit(15)), q(sb.from('pl_plantillas').select('*').order('aplica').order('orden'))]);
+  const misPl = plantillasDe(e, 'comisiones', plants).concat(plantillasDe(e, 'salario', plants));
+  const inactivas = plants.filter(p => p.empleado_id === id && !p.activo);
   const m = shell(`<div class="miga"><a href="#/empleados">Empleados</a></div>
     <div class="top"><div><h1>${esc(e.nombre)}</h1><div class="muted small">${esc(e.cargo || 'Sin cargo')} · ingreso ${fc(e.fecha_ingreso)}${e.activo ? '' : ' · <span class="chip gris">inactivo</span>'}</div></div><div class="acc"><button class="btn borde" id="cons">${ICON.doc}Constancia</button><a class="btn borde" href="#/liquidacion/${id}">Liquidación</a><button class="btn borde" id="edit">Editar datos</button></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
@@ -982,6 +985,9 @@ async function vEmpleado(id) {
         : `<p class="small muted" style="margin:0 0 12px">Crea un usuario para que el empleado consulte sus pagos desde su teléfono.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm pri" id="crear">Crear usuario</button><button class="btn sm" id="vinc">Vincular cuenta existente</button></div>`}</div>
     </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:22px 0 10px"><h2>Plantillas de cálculo</h2><button class="btn sm pri" id="nplant">${ICON.mas}Agregar cálculo</button></div>
+    <p class="small muted" style="margin:-4px 0 10px">Al capturar la planilla solo se escriben las cantidades; el monto se calcula con estas reglas.</p>
+    ${tablaPlantillas([...misPl, ...inactivas])}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:22px 0 10px;flex-wrap:wrap"><h2>Vacaciones</h2><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" id="vini">Saldo inicial</button><button class="btn sm" id="vaj">Ajuste</button><button class="btn sm pri" id="vreg">Registrar vacaciones</button></div></div>
     ${htmlResumenVac(vac)}
     ${vmov.length ? `<div class="tscroll" style="margin-top:10px"><table class="t"><tbody>${vmov.map(v => `<tr><td>${v.tipo === 'ajuste' ? 'Ajuste' : `${fc(v.desde)} al ${fc(v.hasta)}`}<div class="tiny muted">${esc(v.nota || v.respuesta || '')}</div></td><td>${chipEstado(v.estado)}</td><td class="r num">${+v.dias > 0 && v.tipo === 'ajuste' ? '+' : ''}${N(v.dias)} días</td></tr>`).join('')}</tbody></table></div>` : ''}
@@ -1015,6 +1021,8 @@ async function vEmpleado(id) {
       <div class="pie"><button class="btn pri">Guardar ajuste</button></div></form>`);
     $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { await q(sb.from('pl_vacaciones').insert({ empleado_id: id, tipo: 'ajuste', dias: +x.dias, estado: 'aprobada', nota: x.nota, resuelto_en: new Date().toISOString() })); h.cerrar(); toast('Ajuste guardado'); rec(); } catch (er) { toast(errMsg(er), true); } };
   };
+  $('#nplant', m).onclick = () => editarPlantilla(null, { empleado_id: id }, rec);
+  $$('[data-pl]', m).forEach(tr => tr.onclick = () => { const p = plants.find(x => x.id === tr.dataset.pl); if (!p.empleado_id) return toast('Es un cálculo del área; se edita en Ajustes'); editarPlantilla(p, {}, rec); });
   $('#hreg', m).onclick = () => {
     const h = hoja('Registrar horas extra', `<form><div class="row2"><label class="f">Fecha<input class="inp" type="date" name="fecha" value="${iso(hoyHN())}" required></label><label class="f">Horas<input class="inp" type="number" name="horas" min="0.5" max="16" step="0.5" required></label></div>
       <label class="f">Trabajo realizado<input class="inp" name="motivo" required></label>
@@ -1169,6 +1177,8 @@ async function vAjustes() {
   const esAdm = new Set(adms.map(a => a.user_id));
   const aut = new Set(adms.filter(a => a.autoriza).map(a => a.user_id));
   const par = await q(sb.from('pl_parametros').select('*').order('clave'));
+  const [plArea, empsA] = await Promise.all([q(sb.from('pl_plantillas').select('*').is('empleado_id', null).order('area').order('orden')), q(sb.from('pl_empleados').select('area,cargo'))]);
+  S.areas = empsA.map(x => x.area || x.cargo).filter(Boolean);
   S.conceptos = null;
   const grupo = (t, titulo) => `<div class="panel"><h3 style="margin-bottom:8px">${titulo}</h3><table class="t"><tbody>${cs.filter(c => c.tipo === t).map(c => `<tr class="click" data-c="${c.id}" style="${c.activo ? '' : 'opacity:.45'}"><td>${esc(c.nombre)}</td><td class="small muted">${{ salario: 'Salario', comisiones: 'Comisiones', ambos: 'Ambas' }[c.aplica]}</td></tr>`).join('')}</tbody></table></div>`;
   const m = shell(`<div class="top"><div><h1>Ajustes</h1><div class="muted small">Catálogo de conceptos para ingresos y deducciones</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Nuevo concepto</button></div></div>
@@ -1176,6 +1186,8 @@ async function vAjustes() {
     <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Administradores de planilla</h3>
       <p class="small muted" style="margin:0 0 10px">Pueden ver y editar todo: planillas, empleados, préstamos, adelantos y comprobantes de todos. El administrador de VerifiCrédito siempre tiene este acceso. Solo aparecen empleados que ya tienen usuario.</p>
       ${conCuenta.length ? `<table class="t"><tbody>${conCuenta.map(e => `<tr><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.usuario || '')}</div></td><td class="r">${e.user_id === S.user.id ? `<span class="chip ok">Tú</span>${aut.has(e.user_id) ? ' <span class="chip warn">Autoriza</span>' : ''}` : `<div style="display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap"><label class="chk"><input type="checkbox" data-adm="${e.user_id}" ${esAdm.has(e.user_id) ? 'checked' : ''}>Administrador</label><label class="chk"><input type="checkbox" data-aut="${e.user_id}" ${aut.has(e.user_id) ? 'checked' : ''} ${esAdm.has(e.user_id) ? '' : 'disabled'}>Autoriza adelantos especiales</label></div>`}</td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Ningún empleado tiene usuario todavía.</p>'}</div>
+    <div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3>Plantillas de cálculo por área o cargo</h3><button class="btn sm pri" id="nparea">${ICON.mas}Agregar</button></div>
+      <p class="small muted" style="margin:0 0 10px">Se aplican a todos los empleados de esa área o cargo, salvo que el empleado tenga su propio cálculo del mismo concepto.</p>${tablaPlantillas(plArea)}</div>
     <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Reglas y datos de la empresa</h3><p class="small muted" style="margin:0 0 10px">Adelantos automáticos, pago de combustible y datos que salen en las constancias.</p>
       <form id="fpar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px">${par.map(x => `<label class="f">${esc(x.descripcion || x.clave)}<input class="inp" name="${esc(x.clave)}" value="${esc(x.valor || '')}"></label>`).join('')}
       <div style="grid-column:1/-1;display:flex;justify-content:flex-end"><button class="btn pri">Guardar reglas</button></div></form></div>
@@ -1191,6 +1203,8 @@ async function vAjustes() {
     $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); const row = { nombre: x.nombre.trim(), tipo: x.tipo, aplica: x.aplica, orden: +x.orden || 100, activo: !!x.activo }; try { if (c.id) await q(sb.from('pl_conceptos').update(row).eq('id', c.id)); else await q(sb.from('pl_conceptos').insert(row)); h.cerrar(); toast('Concepto guardado'); vAjustes(); } catch (er) { toast(errMsg(er), true); } };
   };
   $('#nuevo', m).onclick = () => edit(null);
+  $('#nparea', m).onclick = () => editarPlantilla(null, { area: '' }, vAjustes);
+  $$('[data-pl]', m).forEach(tr => tr.onclick = () => editarPlantilla(plArea.find(x => x.id === tr.dataset.pl), {}, vAjustes));
   $$('tr[data-c]', m).forEach(tr => tr.onclick = () => edit(cs.find(c => c.id === tr.dataset.c)));
   $$('[data-adm]', m).forEach(ch => ch.onchange = async () => {
     try {
@@ -1352,9 +1366,10 @@ async function vMisVacaciones() {
     <h2 style="margin:22px 0 10px">Mis solicitudes</h2>
     ${mis.filter(v => v.tipo === 'solicitud').length ? `<div class="lista">${mis.filter(v => v.tipo === 'solicitud').map(v => `<div class="item" style="cursor:default"><div class="grow"><div class="t">${fc(v.desde)} al ${fc(v.hasta)}</div><div class="s">${N(v.dias)} días${v.respuesta ? ' · ' + esc(v.respuesta) : ''}</div></div>${chipEstado(v.estado)}${v.estado === 'pendiente' ? `<button class="btn sm rojo" data-c="${v.id}">Cancelar</button>` : ''}</div>`).join('')}</div>` : '<div class="vacio">Aún no has solicitado vacaciones.</div>'}`);
   const f = $('#fv', m);
-  const upd = () => { const n = habilesAprox(f.desde.value, f.hasta.value); $('#cuenta', m).textContent = n ? `Aproximadamente ${n} días laborables (sin domingos; los feriados se descuentan al guardar).${n > +(r.disponible_pedir ?? r.saldo) ? ' Es más de lo que tienes acumulado; la gerencia decidirá.' : ''}` : 'Elige las fechas. No cuentan domingos ni feriados.'; };
+  const disp = +(r.disponible_pedir ?? 0);
+  const upd = () => { const n = habilesAprox(f.desde.value, f.hasta.value); const pasa = n > disp; $('#cuenta', m).innerHTML = n ? `Aproximadamente ${n} días laborables (sin domingos; los feriados no cuentan).${pasa ? ` <b style="color:var(--rojo)">Solo tienes ${N(disp)} días disponibles.</b>` : ''}` : `Elige las fechas. Tienes ${N(disp)} días disponibles.`; $('button.pri', f).disabled = !disp || pasa; };
   f.desde.onchange = () => { if (!f.hasta.value || f.hasta.value < f.desde.value) f.hasta.value = f.desde.value; f.hasta.min = f.desde.value; upd(); };
-  f.hasta.onchange = upd;
+  f.hasta.onchange = upd; upd();
   f.onsubmit = async e => { e.preventDefault(); const x = formData(f); try { const res = await q(sb.rpc('pl_solicitar_vacaciones', { p_desde: x.desde, p_hasta: x.hasta, p_nota: x.nota || null })); toast(`Solicitud enviada: ${res.dias} días`); location.hash = '#/mis-solicitudes'; } catch (er) { toast(errMsg(er), true); } };
   $$('[data-c]', m).forEach(b => b.onclick = async () => { try { await q(sb.rpc('pl_cancelar_vacaciones', { p_id: b.dataset.c })); toast('Solicitud cancelada'); vMisVacaciones(); } catch (er) { toast(errMsg(er), true); } });
 }
@@ -1565,6 +1580,100 @@ function resolverHoras(h, aprobar, despues) {
   $$('.segm button', hh.el).forEach(b => b.onclick = () => { $$('.segm button', hh.el).forEach(x => x.classList.toggle('on', x === b)); f.destino.value = b.dataset.v; });
   f.onsubmit = async e => { e.preventDefault(); const x = formData(f); try { await q(sb.rpc('pl_resolver_horas', { p_id: h.id, p_aprobar: aprobar, p_destino: aprobar && extra ? x.destino : null, p_horas: aprobar ? +x.horas : null, p_respuesta: x.resp || null })); hh.cerrar(); toast(aprobar ? 'Aprobado' : 'Rechazado'); despues(); } catch (er) { toast(errMsg(er), true); } };
 }
+
+/* ===================== PLANTILLAS DE CÁLCULO ===================== */
+const CALCULOS = { porcentaje: 'Porcentaje de un monto', unitario: 'Cantidad × valor por unidad', fijo: 'Monto fijo que se escribe' };
+function reglaPlantilla(p) {
+  const f = +p.factor !== 100 ? ` × ${N(p.factor)}%` : '';
+  return p.calculo === 'porcentaje' ? `${N(p.valor)}% del monto${f}` : p.calculo === 'unitario' ? `L ${N(p.valor)} c/u${f}` : 'monto que se escribe';
+}
+function calcPlantilla(p, cantidad) {
+  const c = +cantidad || 0; const f = (+p.factor || 100) / 100;
+  if (p.calculo === 'porcentaje') return { monto: Math.round(c * (+p.valor) / 100 * f), detalle: `L ${N(c)} × ${N(p.valor)}%${+p.factor !== 100 ? ` × ${N(p.factor)}%` : ''}` };
+  if (p.calculo === 'unitario') return { monto: Math.round(c * (+p.valor) * f), detalle: `${N(c)} × L ${N(p.valor)}${+p.factor !== 100 ? ` × ${N(p.factor)}%` : ''}` };
+  return { monto: Math.round(c), detalle: null };
+}
+const areaDe = e => String(e.area || e.cargo || '').trim().toLowerCase();
+function plantillasDe(e, aplica, todas) {
+  const propias = todas.filter(p => p.activo && p.aplica === aplica && p.empleado_id === e.id);
+  const deArea = todas.filter(p => p.activo && p.aplica === aplica && !p.empleado_id && p.area && p.area.trim().toLowerCase() === areaDe(e) && !propias.some(x => x.concepto === p.concepto && x.tipo === p.tipo));
+  return [...propias, ...deArea].sort((a, b) => (a.tipo === b.tipo ? 0 : a.tipo === 'ingreso' ? -1 : 1) || a.orden - b.orden);
+}
+async function capturarPlantillas(per) {
+  const [todas, emps, movs, calc] = await Promise.all([
+    q(sb.from('pl_plantillas').select('*')), q(sb.from('pl_empleados').select('id,nombre,area,cargo,activo,recibe_salario,recibe_comisiones').order('nombre')),
+    q(sb.from('pl_movimientos').select('*').eq('periodo_id', per.id)), q(sb.rpc('pl_calcular', { p_periodo: per.id }))]);
+  const enPer = new Set(calc.map(c => c.empleado_id));
+  const lista = emps.map(e => ({ e, ps: plantillasDe(e, per.tipo, todas) }))
+    .filter(({ e, ps }) => ps.length && e.activo && (enPer.has(e.id) || (per.tipo === 'comisiones' ? e.recibe_comisiones : e.recibe_salario)));
+  const sinPl = emps.filter(e => enPer.has(e.id) && !lista.some(x => x.e.id === e.id));
+  const existente = (e, p) => movs.find(mv => mv.empleado_id === e.id && (mv.plantilla_id === p.id || (mv.concepto === p.concepto && mv.tipo === p.tipo)));
+  const h = hoja(`Capturar ${per.tipo === 'comisiones' ? 'comisiones' : 'líneas'} · ${per.nombre}`, `
+    ${lista.length ? `<p class="small muted" style="margin:0 0 12px">Escribe solo las cantidades (intereses cobrados, cuentas canceladas, traslados…). El cálculo de cada empleado ya está configurado. Deja vacío lo que no aplica.</p>
+    <input class="inp" id="buscar" placeholder="Buscar empleado" style="margin-bottom:12px">
+    <form id="fcap"><div class="lista">${lista.map(({ e, ps }) => `<div class="panel" data-emp="${e.id}" data-nom="${esc(e.nombre.toLowerCase())}"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><h3>${esc(e.nombre)}</h3><span class="num" data-tot>—</span></div>
+      <table class="t"><tbody>${ps.map(p => { const mv = existente(e, p); const val = mv ? (mv.cantidad ?? (p.calculo === 'fijo' ? mv.monto : '')) : ''; return `<tr><td><span class="chip ${p.tipo === 'ingreso' ? 'ok' : 'red'}" style="padding:0 7px">${p.tipo === 'ingreso' ? '+' : '−'}</span> ${esc(p.concepto)}<div class="tiny muted">${reglaPlantilla(p)}${p.empleado_id ? '' : ' · plantilla del área'}</div></td>
+        <td style="width:190px"><input class="inp" type="number" step="any" min="0" inputmode="decimal" data-p="${p.id}" data-e="${e.id}" value="${val ?? ''}" placeholder="${esc(p.etiqueta || (p.calculo === 'fijo' ? 'Monto (L)' : 'Cantidad'))}" title="${esc(p.etiqueta || '')}"></td>
+        <td class="r num" style="width:110px" data-m="${p.id}|${e.id}">—</td></tr>`; }).join('')}</tbody></table></div>`).join('')}</div>
+      ${sinPl.length ? `<p class="small muted">Sin plantilla: ${sinPl.map(e => esc(corto(e.nombre))).join(', ')}. Configúrala en la ficha del empleado o por área en Ajustes.</p>` : ''}
+      <div class="pie" style="position:sticky;bottom:0;background:#fff;padding-top:10px"><span class="small muted" id="resumen" style="margin-right:auto;align-self:center"></span><button class="btn pri">Guardar captura</button></div></form>`
+    : '<div class="vacio"><b>No hay plantillas para este tipo de planilla</b>Configura el cálculo de cada empleado en su ficha (sección Plantillas de cálculo) o por área en Ajustes.</div>'}`, { ancha: true });
+  const f = $('#fcap', h.el); if (!f) return;
+  const pl = id => todas.find(p => p.id === id);
+  const recalcular = () => {
+    let total = 0;
+    $$('[data-emp]', h.el).forEach(box => {
+      let t = 0;
+      $$('input[data-p]', box).forEach(inp => { const p = pl(inp.dataset.p); const r = inp.value === '' ? null : calcPlantilla(p, inp.value); const cel = $(`[data-m="${inp.dataset.p}|${inp.dataset.e}"]`, box); cel.textContent = r ? L(r.monto) : '—'; if (r) t += p.tipo === 'ingreso' ? r.monto : -r.monto; });
+      $('[data-tot]', box).textContent = L(t); total += t;
+    });
+    $('#resumen', h.el).textContent = `Neto capturado: ${L(total)}`;
+  };
+  f.addEventListener('input', recalcular); recalcular();
+  $('#buscar', h.el).oninput = ev => { const t = ev.target.value.trim().toLowerCase(); $$('[data-emp]', h.el).forEach(b => b.hidden = t && !b.dataset.nom.includes(t)); };
+  f.onsubmit = async ev => {
+    ev.preventDefault(); const btn = $('button.pri', f); btn.disabled = true; let n = 0;
+    try {
+      for (const inp of $$('input[data-p]', f)) {
+        const p = pl(inp.dataset.p); const e = { id: inp.dataset.e }; const mv = existente(e, p);
+        if (inp.value === '' || +inp.value === 0) { if (mv && mv.plantilla_id === p.id) { await q(sb.from('pl_movimientos').delete().eq('id', mv.id)); n++; } continue; }
+        const r = calcPlantilla(p, inp.value);
+        const row = { monto: r.monto, detalle: r.detalle, cantidad: +inp.value, plantilla_id: p.id, concepto: p.concepto, tipo: p.tipo, orden: p.orden };
+        if (mv) { if (+mv.monto !== r.monto || +mv.cantidad !== +inp.value || mv.plantilla_id !== p.id) { await q(sb.from('pl_movimientos').update(row).eq('id', mv.id)); n++; } }
+        else { await q(sb.from('pl_movimientos').insert({ ...row, periodo_id: per.id, empleado_id: e.id })); n++; }
+      }
+      h.cerrar(); toast(n ? `Captura guardada (${n} líneas)` : 'Sin cambios'); vPeriodo(per.id, 'movimientos');
+    } catch (er) { btn.disabled = false; toast(errMsg(er), true); }
+  };
+}
+async function editarPlantilla(p, ambito, despues) {
+  const cs = await conceptos();
+  p = p || { aplica: 'comisiones', tipo: 'ingreso', concepto: '', calculo: 'porcentaje', valor: '', factor: 100, etiqueta: '', orden: 100, activo: true, ...ambito };
+  const h = hoja(p.id ? 'Editar cálculo' : 'Nuevo cálculo', `<form>
+    ${p.empleado_id ? '' : `<label class="f">Área o cargo<input class="inp" name="area" list="dl-areas" value="${esc(p.area || '')}" required placeholder="Ej.: Gestor de cobro - Presencial"></label><datalist id="dl-areas">${[...new Set(S.areas || [])].map(a => `<option value="${esc(a)}">`).join('')}</datalist>`}
+    <div class="row2"><label class="f">Planilla<select class="inp" name="aplica"><option value="comisiones" ${p.aplica === 'comisiones' ? 'selected' : ''}>Comisiones</option><option value="salario" ${p.aplica === 'salario' ? 'selected' : ''}>Salario (quincena)</option></select></label>
+      <label class="f">Tipo<select class="inp" name="tipo"><option value="ingreso" ${p.tipo === 'ingreso' ? 'selected' : ''}>Ingreso</option><option value="deduccion" ${p.tipo === 'deduccion' ? 'selected' : ''}>Deducción</option></select></label></div>
+    <label class="f">Concepto<input class="inp" name="concepto" list="dl-con2" value="${esc(p.concepto)}" required></label><datalist id="dl-con2">${cs.map(c => `<option value="${esc(c.nombre)}">`).join('')}</datalist>
+    <label class="f">Cómo se calcula<select class="inp" name="calculo">${Object.entries(CALCULOS).map(([k, t]) => `<option value="${k}" ${p.calculo === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+    <div class="row2"><label class="f" id="lval">Valor<input class="inp" type="number" step="any" min="0" name="valor" value="${p.valor}"></label><label class="f" id="lfac">Participación (%)<input class="inp" type="number" step="any" min="0" max="100" name="factor" value="${p.factor}"></label></div>
+    <label class="f">Qué se escribe al capturar<input class="inp" name="etiqueta" value="${esc(p.etiqueta || '')}" placeholder="Ej.: Intereses cobrados (L), Cuentas canceladas, Traslados"></label>
+    <div class="small muted" id="ejemplo"></div>
+    <label class="chk"><input type="checkbox" name="activo" ${p.activo ? 'checked' : ''}>Activo</label>
+    <div class="pie">${p.id ? '<button type="button" class="btn rojo" id="del">Eliminar</button>' : ''}<button class="btn pri">Guardar cálculo</button></div></form>`);
+  const f = $('form', h.el);
+  const ej = () => { const c = f.calculo.value; $('#lval', h.el).firstChild.textContent = c === 'porcentaje' ? 'Porcentaje (%)' : 'Valor por unidad (L)'; $('#lval', h.el).hidden = c === 'fijo'; $('#lfac', h.el).hidden = c === 'fijo';
+    const pp = { calculo: c, valor: +f.valor.value || 0, factor: +f.factor.value || 100 }; const muestra = c === 'porcentaje' ? 100000 : c === 'unitario' ? 3 : 1500; const r = calcPlantilla(pp, muestra);
+    $('#ejemplo', h.el).textContent = `Ejemplo: si escribes ${N(muestra)} → ${L(r.monto)}${r.detalle ? ` (${r.detalle})` : ''}`; };
+  f.oninput = ej; ej();
+  f.onsubmit = async ev => {
+    ev.preventDefault(); const x = formData(f);
+    const row = { aplica: x.aplica, tipo: x.tipo, concepto: x.concepto.trim(), calculo: x.calculo, valor: +x.valor || 0, factor: +x.factor || 100, etiqueta: x.etiqueta || null, activo: !!x.activo,
+      orden: cs.find(c => c.nombre === x.concepto.trim())?.orden || p.orden || 100, empleado_id: p.empleado_id || null, area: p.empleado_id ? null : (x.area || '').trim() };
+    try { if (p.id) await q(sb.from('pl_plantillas').update(row).eq('id', p.id)); else await q(sb.from('pl_plantillas').insert(row)); h.cerrar(); toast('Cálculo guardado'); despues(); } catch (er) { toast(errMsg(er), true); }
+  };
+  $('#del', h.el) && ($('#del', h.el).onclick = async () => { try { await q(sb.from('pl_plantillas').delete().eq('id', p.id)); h.cerrar(); toast('Cálculo eliminado'); despues(); } catch (er) { toast(errMsg(er), true); } });
+}
+const tablaPlantillas = ps => ps.length ? `<div class="tscroll"><table class="t"><thead><tr><th>Planilla</th><th>Concepto</th><th>Cálculo</th><th>Se escribe</th></tr></thead><tbody>${ps.map(p => `<tr class="click" data-pl="${p.id}" style="${p.activo ? '' : 'opacity:.45'}"><td class="small">${p.aplica === 'comisiones' ? 'Comisiones' : 'Salario'}</td><td><span class="chip ${p.tipo === 'ingreso' ? 'ok' : 'red'}" style="padding:0 7px">${p.tipo === 'ingreso' ? '+' : '−'}</span> ${esc(p.concepto)}${p.area ? `<div class="tiny muted">${esc(p.area)}</div>` : ''}</td><td class="small">${reglaPlantilla(p)}</td><td class="small muted">${esc(p.etiqueta || '')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Sin cálculos configurados.</div>';
 
 /* ===================== ADMIN: solicitudes ===================== */
 async function vSolicitudes() {

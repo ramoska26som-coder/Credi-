@@ -384,7 +384,7 @@ function navItems() {
   if (S.yo) {
     it.push(['#/mis-pagos', 'Mis pagos', ICON.yo]);
     if (!S.admin) {
-      it.push(['#/mi-adelanto', 'Adelantos', ICON.adelanto], ['#/mis-vacaciones', 'Vacaciones', ICON.sol]);
+      it.push(['#/mi-adelanto', 'Adelantos', ICON.adelanto], ['#/mis-vacaciones', 'Vacaciones', ICON.sol], ['#/mis-permisos', 'Permisos', ICON.reloj]);
       if (S.yo.recibe_combustible) it.push(['#/mi-combustible', 'Combustible', ICON.moto]);
       it.push(['#/mis-prestamos', 'Préstamos', ICON.prestamo], ['#/constancia', 'Constancia', ICON.doc]);
     }
@@ -425,10 +425,11 @@ function shell(html) {
 }
 async function refrescarBadge() {
   try {
-    const [a, v] = await Promise.all([
+    const [a, v, pm] = await Promise.all([
       sb.from('pl_adelantos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
-      sb.from('pl_vacaciones').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')]);
-    const n = (a.count || 0) + (v.count || 0);
+      sb.from('pl_vacaciones').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+      sb.from('pl_permisos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')]);
+    const n = (a.count || 0) + (v.count || 0) + (pm.count || 0);
     $$('[data-badge]').forEach(b => { b.textContent = n; b.classList.toggle('hidden', !n); });
   } catch (_) { }
 }
@@ -461,6 +462,7 @@ async function ruta() {
       if (p[0] === 'mis-vacaciones') return vMisVacaciones();
       if (p[0] === 'mi-combustible') return vMiCombustible();
       if (p[0] === 'constancia') return vConstancia();
+      if (p[0] === 'mis-permisos') return vMisPermisos();
     }
     location.hash = S.admin ? '#/planillas' : '#/mis-pagos';
   } catch (e) { console.error(e); shell(`<div class="err">${esc(errMsg(e))}</div>`); }
@@ -646,7 +648,7 @@ function excelPlanilla(per, calc) {
 }
 
 /* ---------- asistencia ---------- */
-const MARCAS = { T: 'Trabajado', F: 'Falta', V: 'Vacaciones', I: 'Incapacidad', P: 'Permiso sin goce', L: 'Libre / descanso', N: 'No laboraba aún' };
+const MARCAS = { T: 'Trabajado', F: 'Falta', V: 'Vacaciones', I: 'Incapacidad', P: 'Permiso sin goce', L: 'Libre / permiso con goce', N: 'No laboraba aún' };
 const HORAS_MARCA = { T: 8, F: 0, V: 8, I: 8, P: 0, L: 8, N: 0 };
 async function tabAsistencia(cont, per) {
   const abierta = per.estado === 'abierta';
@@ -918,7 +920,7 @@ async function vEmpleado(id) {
     q(sb.from('pl_prestamos_saldo').select('*').eq('empleado_id', id).order('creado_en')),
     q(sb.from('pl_comprobantes').select('*, pl_periodos(nombre,tipo,fecha_inicio)').eq('empleado_id', id).eq('anulado', false).order('generado_en', { ascending: false })),
     q(sb.from('pl_adelantos').select('*, pl_periodos(nombre)').eq('empleado_id', id).order('fecha', { ascending: false }).limit(20))]);
-  const [vac, vmov] = await Promise.all([q(sb.rpc('pl_vacaciones_resumen', { p_emp: id })), q(sb.from('pl_vacaciones').select('*').eq('empleado_id', id).order('solicitado_en', { ascending: false }).limit(20))]);
+  const [vac, vmov, perms] = await Promise.all([q(sb.rpc('pl_vacaciones_resumen', { p_emp: id })), q(sb.from('pl_vacaciones').select('*').eq('empleado_id', id).order('solicitado_en', { ascending: false }).limit(20)), q(sb.from('pl_permisos').select('*').eq('empleado_id', id).order('desde', { ascending: false }).limit(15))]);
   const m = shell(`<div class="miga"><a href="#/empleados">Empleados</a></div>
     <div class="top"><div><h1>${esc(e.nombre)}</h1><div class="muted small">${esc(e.cargo || 'Sin cargo')} · ingreso ${fc(e.fecha_ingreso)}${e.activo ? '' : ' · <span class="chip gris">inactivo</span>'}</div></div><div class="acc"><button class="btn borde" id="cons">${ICON.doc}Constancia</button><a class="btn borde" href="#/liquidacion/${id}">Liquidación</a><button class="btn borde" id="edit">Editar datos</button></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
@@ -940,6 +942,8 @@ async function vEmpleado(id) {
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:22px 0 10px;flex-wrap:wrap"><h2>Vacaciones</h2><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" id="vini">Saldo inicial</button><button class="btn sm" id="vaj">Ajuste</button><button class="btn sm pri" id="vreg">Registrar vacaciones</button></div></div>
     ${htmlResumenVac(vac)}
     ${vmov.length ? `<div class="tscroll" style="margin-top:10px"><table class="t"><tbody>${vmov.map(v => `<tr><td>${v.tipo === 'ajuste' ? 'Ajuste' : `${fc(v.desde)} al ${fc(v.hasta)}`}<div class="tiny muted">${esc(v.nota || v.respuesta || '')}</div></td><td>${chipEstado(v.estado)}</td><td class="r num">${+v.dias > 0 && v.tipo === 'ajuste' ? '+' : ''}${N(v.dias)} días</td></tr>`).join('')}</tbody></table></div>` : ''}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:22px 0 10px"><h2>Permisos</h2><button class="btn sm pri" id="preg">Registrar permiso</button></div>
+    ${perms.length ? `<div class="tscroll"><table class="t"><tbody>${perms.map(p => `<tr><td>${rangoPermiso(p)}<div class="tiny muted">${esc(p.motivo)}</div></td><td class="small">${tipoPermiso(p)}</td><td class="r">${chipEstado(p.estado)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Sin permisos</div>'}
     <h2 style="margin:22px 0 10px">Préstamos</h2>
     <div style="display:flex;justify-content:flex-end;margin:-38px 0 10px"><button class="btn sm" id="npres">${ICON.mas}Nuevo préstamo</button></div>
     ${pres.length ? `<div class="lista">${pres.map(p => itemPrestamo(p, true)).join('')}</div>` : '<div class="vacio">Sin préstamos</div>'}
@@ -964,6 +968,25 @@ async function vEmpleado(id) {
       <label class="f">Días<input class="inp" type="number" step="0.5" name="dias" required></label><label class="f">Motivo<input class="inp" name="nota" required></label>
       <div class="pie"><button class="btn pri">Guardar ajuste</button></div></form>`);
     $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { await q(sb.from('pl_vacaciones').insert({ empleado_id: id, tipo: 'ajuste', dias: +x.dias, estado: 'aprobada', nota: x.nota, resuelto_en: new Date().toISOString() })); h.cerrar(); toast('Ajuste guardado'); rec(); } catch (er) { toast(errMsg(er), true); } };
+  };
+  $('#preg', m).onclick = () => {
+    const h = hoja('Registrar permiso', `<form><div class="segm"><button type="button" class="on" data-v="1">Con goce de salario</button><button type="button" data-v="0">Sin goce de salario</button></div><input type="hidden" name="goce" value="1">
+      <div class="row2"><label class="f">Desde<input class="inp" type="date" name="desde" required></label><label class="f">Hasta<input class="inp" type="date" name="hasta"></label></div>
+      <label class="f">Horas (solo si es parte de un día)<input class="inp" type="number" name="horas" min="0.5" max="7.5" step="0.5"></label>
+      <label class="f">Motivo<input class="inp" name="motivo" required></label>
+      <p class="small muted" style="margin:0">Queda aprobado y se aplica a la asistencia de la planilla abierta.</p>
+      <div class="pie"><button class="btn pri">Registrar permiso</button></div></form>`);
+    const f = $('form', h.el);
+    $$('.segm button', h.el).forEach(b => b.onclick = () => { $$('.segm button', h.el).forEach(x => x.classList.toggle('on', x === b)); f.goce.value = b.dataset.v; });
+    f.onsubmit = async ev => {
+      ev.preventDefault(); const x = formData(f); const horas = +x.horas || null; const hasta = horas ? x.desde : (x.hasta || x.desde);
+      try {
+        const dias = horas ? Math.round(horas / 8 * 100) / 100 : await q(sb.rpc('pl__dias_habiles', { p_desde: x.desde, p_hasta: hasta }));
+        const p = await q(sb.from('pl_permisos').insert({ empleado_id: id, goce: x.goce === '1', desde: x.desde, hasta, horas, dias, motivo: x.motivo }).select().single());
+        await q(sb.rpc('pl_resolver_permiso', { p_id: p.id, p_aprobar: true, p_respuesta: 'Registrado por administración' }));
+        h.cerrar(); toast('Permiso registrado'); rec();
+      } catch (er) { toast(errMsg(er), true); }
+    };
   };
   $('#vreg', m).onclick = () => {
     const h = hoja('Registrar vacaciones', `<form><div class="row2"><label class="f">Desde<input class="inp" type="date" name="desde" required></label><label class="f">Hasta<input class="inp" type="date" name="hasta" required></label></div>
@@ -1141,6 +1164,7 @@ async function vMisPagos() {
     <div class="acciones">
       <a class="accion" href="#/mi-adelanto">${ICON.adelanto}<span>Pedir adelanto</span></a>
       <a class="accion" href="#/mis-vacaciones">${ICON.sol}<span>Vacaciones</span></a>
+      <a class="accion" href="#/mis-permisos">${ICON.reloj}<span>Permisos</span></a>
       ${S.yo.recibe_combustible ? `<a class="accion" href="#/mi-combustible">${ICON.moto}<span>Odómetro</span></a>` : ''}
       <a class="accion" href="#/mis-prestamos">${ICON.prestamo}<span>Préstamos</span></a>
       <a class="accion" href="#/constancia">${ICON.doc}<span>Constancia</span></a>
@@ -1188,7 +1212,7 @@ async function vMisPrestamos() {
 const DIAS_LARGO = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 const addDias = (s, n) => { const d = pf(s); d.setDate(d.getDate() + n); return iso(d); };
 const difDias = (a, b) => Math.round((pf(b) - pf(a)) / 864e5);
-const chipEstado = e => ({ pendiente: '<span class="chip warn">Pendiente</span>', aprobado: '<span class="chip ok">Aprobado</span>', aprobada: '<span class="chip ok">Aprobada</span>', rechazado: '<span class="chip red">Rechazado</span>', rechazada: '<span class="chip red">Rechazada</span>', cancelada: '<span class="chip gris">Cancelada</span>' }[e] || esc(e));
+const chipEstado = e => ({ pendiente: '<span class="chip warn">Pendiente</span>', aprobado: '<span class="chip ok">Aprobado</span>', aprobada: '<span class="chip ok">Aprobada</span>', rechazado: '<span class="chip red">Rechazado</span>', rechazada: '<span class="chip red">Rechazada</span>', cancelada: '<span class="chip gris">Cancelada</span>', cancelado: '<span class="chip gris">Cancelado</span>' }[e] || esc(e));
 async function parametros() { const r = await q(sb.from('pl_parametros').select('*')); const o = {}; r.forEach(x => o[x.clave] = x.valor); return o; }
 function mapsLink(lat, lng) { return lat != null ? `<a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" rel="noopener" title="Ver en el mapa" style="display:inline-flex;vertical-align:middle">${ICON.gps.replace('<svg', '<svg width="16" height="16"')}</a>` : '<span class="tiny muted">sin GPS</span>'; }
 function obtenerGPS() {
@@ -1345,15 +1369,56 @@ async function vConstancia() {
   $$('[data-c]', m).forEach(b => b.onclick = () => { const c = prev.find(x => x.id === b.dataset.c); imprimirConstancia({ ...c.datos, folio: c.folio }); });
 }
 
+/* ===================== PERMISOS ===================== */
+const tipoPermiso = p => p.goce ? 'Con goce de salario' : 'Sin goce de salario';
+const rangoPermiso = p => p.horas ? `${fc(p.desde)} · ${N(p.horas)} h` : p.desde === p.hasta ? fc(p.desde) : `${fc(p.desde)} al ${fc(p.hasta)}`;
+async function vMisPermisos() {
+  cargando();
+  const mis = await q(sb.from('pl_permisos').select('*').eq('empleado_id', S.yo.id).order('solicitado_en', { ascending: false }).limit(30));
+  const m = shell(`<div class="top"><div><h1>Permisos</h1><div class="muted small">Con goce no se descuenta del salario; sin goce se descuentan las horas o días</div></div></div>
+    <div class="panel"><form id="fp" style="display:grid;gap:12px"><h3>Solicitar permiso</h3>
+      <div class="segm" data-g><button type="button" class="on" data-v="1">Con goce de salario</button><button type="button" data-v="0">Sin goce de salario</button></div>
+      <div class="segm" data-d><button type="button" class="on" data-v="dia">Días completos</button><button type="button" data-v="horas">Unas horas</button></div>
+      <input type="hidden" name="goce" value="1"><input type="hidden" name="modo" value="dia">
+      <div class="row2"><label class="f" id="ldesde">Desde<input class="inp" type="date" name="desde" min="${iso(hoyHN())}" required></label><label class="f" id="lhasta">Hasta<input class="inp" type="date" name="hasta" min="${iso(hoyHN())}"></label>
+        <label class="f hidden" id="lhoras">Horas<input class="inp" type="number" name="horas" min="0.5" max="7.5" step="0.5"></label></div>
+      <label class="f">Motivo<input class="inp" name="motivo" required placeholder="Ej.: cita médica, trámite en el RNP"></label>
+      <p class="small muted" style="margin:0">La gerencia decide si el permiso es con o sin goce al aprobarlo.</p>
+      <button class="btn pri">Solicitar permiso</button></form></div>
+    <h2 style="margin:22px 0 10px">Mis permisos</h2>
+    ${mis.length ? `<div class="lista">${mis.map(p => `<div class="item" style="cursor:default"><div class="grow"><div class="t">${rangoPermiso(p)}</div><div class="s">${tipoPermiso(p)} · ${esc(p.motivo)}${p.respuesta ? ' · ' + esc(p.respuesta) : ''}</div></div>${chipEstado(p.estado)}${p.estado === 'pendiente' ? `<button class="btn sm rojo" data-c="${p.id}">Cancelar</button>` : ''}</div>`).join('')}</div>` : '<div class="vacio">Aún no has solicitado permisos.</div>'}`);
+  const f = $('#fp', m);
+  $$('[data-g] button', m).forEach(b => b.onclick = () => { $$('[data-g] button', m).forEach(x => x.classList.toggle('on', x === b)); f.goce.value = b.dataset.v; });
+  $$('[data-d] button', m).forEach(b => b.onclick = () => { $$('[data-d] button', m).forEach(x => x.classList.toggle('on', x === b)); f.modo.value = b.dataset.v; const h = b.dataset.v === 'horas'; $('#lhasta', m).classList.toggle('hidden', h); $('#lhoras', m).classList.toggle('hidden', !h); $('#ldesde', m).firstChild.textContent = h ? 'Fecha' : 'Desde'; f.horas.required = h; });
+  f.desde.onchange = () => { if (!f.hasta.value || f.hasta.value < f.desde.value) f.hasta.value = f.desde.value; f.hasta.min = f.desde.value; };
+  f.onsubmit = async e => {
+    e.preventDefault(); const x = formData(f); const horas = x.modo === 'horas' ? +x.horas : null;
+    try { const r = await q(sb.rpc('pl_solicitar_permiso', { p_goce: x.goce === '1', p_desde: x.desde, p_hasta: horas ? x.desde : (x.hasta || x.desde), p_horas: horas, p_motivo: x.motivo })); toast(`Permiso solicitado${horas ? '' : `: ${N(r.dias)} día(s)`}`); vMisPermisos(); } catch (er) { toast(errMsg(er), true); }
+  };
+  $$('[data-c]', m).forEach(b => b.onclick = async () => { try { await q(sb.rpc('pl_cancelar_permiso', { p_id: b.dataset.c })); toast('Permiso cancelado'); vMisPermisos(); } catch (er) { toast(errMsg(er), true); } });
+}
+function resolverPermiso(p, aprobar, despues) {
+  const h = hoja(aprobar ? 'Aprobar permiso' : 'Rechazar permiso', `<form><p class="small muted" style="margin:0">${esc(p.pl_empleados?.nombre || '')} · ${rangoPermiso(p)} · ${esc(p.motivo)}</p>
+    ${aprobar ? `<div class="segm"><button type="button" data-v="1" class="${p.goce ? 'on' : ''}">Con goce de salario</button><button type="button" data-v="0" class="${p.goce ? '' : 'on'}">Sin goce de salario</button></div><input type="hidden" name="goce" value="${p.goce ? 1 : 0}">
+      <p class="small muted" style="margin:0">Sin goce: se descuentan ${p.horas ? `${N(p.horas)} horas` : 'esos días'} en la planilla. Con goce: no se descuenta nada.</p>` : ''}
+    <label class="f">${aprobar ? 'Comentario (opcional)' : 'Motivo del rechazo'}<input class="inp" name="resp" ${aprobar ? '' : 'required'}></label>
+    <div class="pie"><button class="btn ${aprobar ? 'pri' : 'rojo'}">${aprobar ? 'Aprobar permiso' : 'Rechazar permiso'}</button></div></form>`);
+  const f = $('form', h.el);
+  $$('.segm button', h.el).forEach(b => b.onclick = () => { $$('.segm button', h.el).forEach(x => x.classList.toggle('on', x === b)); f.goce.value = b.dataset.v; });
+  f.onsubmit = async e => { e.preventDefault(); const x = formData(f); try { await q(sb.rpc('pl_resolver_permiso', { p_id: p.id, p_aprobar: aprobar, p_goce: aprobar ? x.goce === '1' : null, p_respuesta: x.resp || null })); h.cerrar(); toast(aprobar ? 'Permiso aprobado' : 'Permiso rechazado'); despues(); } catch (er) { toast(errMsg(er), true); } };
+}
+
 /* ===================== ADMIN: solicitudes ===================== */
 async function vSolicitudes() {
   cargando();
-  const [ad, vac, adR, vacR] = await Promise.all([
+  const [ad, vac, adR, vacR, pm, pmR] = await Promise.all([
     q(sb.from('pl_adelantos').select('*, pl_empleados(nombre,salario_mensual)').eq('estado', 'pendiente').order('creado_en')),
     q(sb.from('pl_vacaciones').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
     q(sb.from('pl_adelantos').select('*, pl_empleados(nombre)').eq('origen', 'empleado').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
-    q(sb.from('pl_vacaciones').select('*, pl_empleados(nombre)').eq('tipo', 'solicitud').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15))]);
-  const m = shell(`<div class="top"><div><h1>Solicitudes</h1><div class="muted small">Adelantos que necesitan autorización y vacaciones por aprobar</div></div></div>
+    q(sb.from('pl_vacaciones').select('*, pl_empleados(nombre)').eq('tipo', 'solicitud').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
+    q(sb.from('pl_permisos').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
+    q(sb.from('pl_permisos').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15))]);
+  const m = shell(`<div class="top"><div><h1>Solicitudes</h1><div class="muted small">Adelantos que necesitan autorización, vacaciones y permisos por aprobar</div></div></div>
     <h2 style="margin-bottom:10px">Adelantos por autorizar</h2>
     ${!S.autoriza && ad.length ? '<p class="small muted" style="margin:-4px 0 10px">Solo quien tiene permiso de autorizar (gerencia) puede aprobarlos. Se configura en Ajustes.</p>' : ''}
     ${ad.length ? `<div class="lista">${ad.map(a => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(a.pl_empleados?.nombre)} · ${L(a.monto)}</div><div class="s">${a.tipo === 'comisiones' ? 'Adelanto de comisiones' : 'Adelanto de salario'} · ${fdt(a.creado_en)}${a.descripcion && !/^Adelanto de/.test(a.descripcion) ? ' · ' + esc(a.descripcion) : ''}</div><div class="tiny" style="color:#8A6A00">${esc(a.motivo_revision || '')}</div></div>
@@ -1361,9 +1426,12 @@ async function vSolicitudes() {
     <h2 style="margin:22px 0 10px">Vacaciones por aprobar</h2>
     ${vac.length ? `<div class="lista">${vac.map(v => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(v.pl_empleados?.nombre)} · ${N(v.dias)} días</div><div class="s">${fc(v.desde)} al ${fc(v.hasta)}${v.nota ? ' · ' + esc(v.nota) : ''}</div></div>
       <div style="display:flex;gap:6px"><button class="btn sm rojo" data-vr="${v.id}">Rechazar</button><button class="btn sm pri" data-va="${v.id}">Aprobar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay vacaciones pendientes.</div>'}
+    <h2 style="margin:22px 0 10px">Permisos por aprobar</h2>
+    ${pm.length ? `<div class="lista">${pm.map(p => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(p.pl_empleados?.nombre)} · ${rangoPermiso(p)}</div><div class="s">${tipoPermiso(p)} · ${esc(p.motivo)}</div></div>
+      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-pr="${p.id}">Rechazar</button><button class="btn sm pri" data-pa="${p.id}">Aprobar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay permisos pendientes.</div>'}
     <h2 style="margin:22px 0 10px">Resueltas recientemente</h2>
     <div class="tscroll"><table class="t"><tbody>
-      ${[...adR.map(a => ({ f: a.resuelto_en, t: `${a.tipo === 'comisiones' ? 'Adelanto comisiones' : 'Adelanto'} ${L(a.monto)}${a.automatico ? ' (automático)' : ''}`, n: a.pl_empleados?.nombre, e: a.estado })), ...vacR.map(v => ({ f: v.resuelto_en, t: `Vacaciones ${fc(v.desde)}–${fc(v.hasta)}`, n: v.pl_empleados?.nombre, e: v.estado }))]
+      ${[...adR.map(a => ({ f: a.resuelto_en, t: `${a.tipo === 'comisiones' ? 'Adelanto comisiones' : 'Adelanto'} ${L(a.monto)}${a.automatico ? ' (automático)' : ''}`, n: a.pl_empleados?.nombre, e: a.estado })), ...vacR.map(v => ({ f: v.resuelto_en, t: `Vacaciones ${fc(v.desde)}–${fc(v.hasta)}`, n: v.pl_empleados?.nombre, e: v.estado })), ...pmR.map(p => ({ f: p.resuelto_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce ${rangoPermiso(p)}`, n: p.pl_empleados?.nombre, e: p.estado }))]
         .sort((a, b) => String(b.f).localeCompare(String(a.f))).slice(0, 20).map(x => `<tr><td class="small">${fdt(x.f)}</td><td><b>${esc(x.n)}</b><div class="tiny muted">${x.t}</div></td><td class="r">${chipEstado(x.e)}</td></tr>`).join('') || '<tr><td class="muted">Sin movimientos</td></tr>'}
     </tbody></table></div>`);
   const resolverAd = (a, aprobar) => {
@@ -1385,6 +1453,8 @@ async function vSolicitudes() {
   $$('[data-r]', m).forEach(b => b.onclick = () => resolverAd(ad.find(x => x.id === b.dataset.r), false));
   $$('[data-va]', m).forEach(b => b.onclick = () => resolverVac(vac.find(x => x.id === b.dataset.va), true));
   $$('[data-vr]', m).forEach(b => b.onclick = () => resolverVac(vac.find(x => x.id === b.dataset.vr), false));
+  $$('[data-pa]', m).forEach(b => b.onclick = () => resolverPermiso(pm.find(x => x.id === b.dataset.pa), true, vSolicitudes));
+  $$('[data-pr]', m).forEach(b => b.onclick = () => resolverPermiso(pm.find(x => x.id === b.dataset.pr), false, vSolicitudes));
 }
 
 /* ===================== ADMIN: combustible ===================== */
@@ -1393,18 +1463,19 @@ async function vCombustible(perId) {
   const pers = await q(sb.from('pl_periodos').select('*').eq('tipo', 'salario').order('fecha_inicio', { ascending: false }).limit(12));
   const per = pers.find(p => p.id === perId) || pers.find(p => p.estado === 'abierta') || pers[0];
   if (!per) return shell('<div class="vacio"><b>Sin planillas de salario</b>Crea una planilla para ver el combustible del período.</div>');
+  const rg = (await q(sb.rpc('pl_combustible_rango', { p_periodo: per.id })))[0] || { desde: per.fecha_inicio, hasta: per.fecha_fin };
   const [rows, emps, par] = await Promise.all([
-    q(sb.from('pl_odometro').select('*').gte('fecha', per.fecha_inicio).lte('fecha', per.fecha_fin).order('fecha')),
+    q(sb.from('pl_odometro').select('*').gte('fecha', rg.desde).lte('fecha', rg.hasta).order('fecha')),
     q(sb.from('pl_empleados').select('id,nombre,recibe_combustible').order('nombre')), parametros()]);
   const tarifa = +par.tarifa_km || 1.35;
   const ids = [...new Set([...emps.filter(e => e.recibe_combustible).map(e => e.id), ...rows.map(r => r.empleado_id)])];
   const porEmp = id => { const d = {}; rows.filter(r => r.empleado_id === id).forEach(r => (d[r.fecha] = d[r.fecha] || {})[r.tipo] = r); return d; };
   const celda = (r, emp, fecha, tipo) => r ? `<button class="lnk" data-ed="${r.id}">${N(r.lectura)}</button> ${mapsLink(r.lat, r.lng)}${r.corregido ? ' <span class="chip gris" style="padding:0 6px">corregido</span>' : ''}<div class="tiny muted">${fdt(r.registrado_en).split(', ').pop()}</div>` : (per.estado === 'abierta' ? `<button class="lnk tiny" data-add="${emp}|${fecha}|${tipo}">agregar</button>` : '—');
-  const m = shell(`<div class="top"><div><h1>Combustible</h1><div class="muted small">Lecturas del odómetro con hora y ubicación · L ${tarifa} por km</div></div>
+  const m = shell(`<div class="top"><div><h1>Combustible</h1><div class="muted small">Del ${fc(rg.desde)} al ${fc(rg.hasta)} · lecturas con hora y ubicación · L ${tarifa} por km</div></div>
       <div class="acc"><select class="inp" id="selp" style="width:auto">${pers.map(p => `<option value="${p.id}" ${p.id === per.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>
       ${per.estado === 'abierta' ? '<button class="btn ama" id="aplanilla">Agregar a la planilla</button>' : ''}</div></div>
     ${ids.length ? ids.map(id => { const e = emps.find(x => x.id === id); const d = porEmp(id); const km = Object.values(d).reduce((a, x) => a + (x.inicio && x.fin ? +x.fin.lectura - +x.inicio.lectura : 0), 0);
-      const fechas = []; for (let f = per.fecha_inicio; f <= per.fecha_fin; f = addDias(f, 1)) if (d[f] || pf(f).getDay() !== 0) fechas.push(f);
+      const fechas = []; for (let f = rg.desde; f <= rg.hasta; f = addDias(f, 1)) if (d[f] || pf(f).getDay() !== 0) fechas.push(f);
       return `<div class="panel" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><h3>${esc(e?.nombre)}</h3><div style="text-align:right"><span class="num">${N(km)} km</span><div class="small muted">${L(Math.round(km * tarifa))}</div></div></div>
         <div style="overflow-x:auto"><table class="t"><thead><tr><th>Fecha</th><th>Inicio</th><th>Fin</th><th class="r">Km</th></tr></thead><tbody>
         ${fechas.map(f => { const x = d[f] || {}; return `<tr><td>${DIAS_LARGO[pf(f).getDay()].slice(0, 3)} ${fc(f)}</td><td>${celda(x.inicio, id, f, 'inicio')}</td><td>${celda(x.fin, id, f, 'fin')}</td><td class="r num">${x.inicio && x.fin ? N(+x.fin.lectura - +x.inicio.lectura) : '—'}</td></tr>`; }).join('')}

@@ -221,6 +221,10 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .accion svg{width:24px;height:24px;color:var(--azul)}
 .accion:hover{border-color:#B9CDEE}
 .chips{display:flex;flex-wrap:wrap;gap:4px}
+.cont-item{flex-wrap:wrap}
+.cont-acc{display:flex;gap:6px;flex:none}
+.cont-acc .num{min-width:110px;justify-content:center}
+@media (max-width:560px){.cont-acc{width:100%}.cont-acc button{flex:1}}
 .sep-estado{display:flex;align-items:center;gap:12px;margin:22px 0 10px;font-family:Poppins;font-weight:700;font-size:15px;color:var(--tinta)}
 .sep-estado:first-of-type{margin-top:6px}
 .sep-estado:after{content:"";flex:1;height:3px;border-radius:3px;background:var(--linea)}
@@ -686,7 +690,7 @@ async function vPeriodo(id, tab) {
   const [per, calc] = await Promise.all([q(sb.from('pl_periodos').select('*').eq('id', id).single()), q(sb.rpc('pl_calcular', { p_periodo: id }))]);
   const abierta = per.estado === 'abierta';
   const T = calc.reduce((a, c) => ({ ing: a.ing + +c.total_ingresos, ded: a.ded + +c.total_deducciones, neto: a.neto + +c.neto }), { ing: 0, ded: 0, neto: 0 });
-  const tabs = [['resumen', 'Planilla general'], ...(per.tipo === 'salario' ? [['asistencia', 'Asistencia']] : []), ['movimientos', per.tipo === 'salario' ? 'Otros ingresos y deducciones' : 'Comisiones y deducciones'], ['adelantos', 'Adelantos'], ['comprobantes', 'Comprobantes']];
+  const tabs = [['resumen', 'Planilla general'], ...(per.tipo === 'salario' ? [['asistencia', 'Asistencia']] : []), ['movimientos', per.tipo === 'salario' ? 'Otros ingresos y deducciones' : 'Comisiones y deducciones'], ['adelantos', 'Adelantos'], ['comprobantes', 'Comprobantes'], ['contable', 'Contabilidad']];
   const m = shell(`
     <div class="miga"><a href="#/planillas">Planillas</a></div>
     <div class="top"><div><h1>${esc(per.nombre)}</h1><div class="muted small">${rango(per.fecha_inicio, per.fecha_fin)} · pago ${fc(per.fecha_pago)} · ${esc(per.codigo)} · ${abierta ? '<span class="chip warn">Abierta · vista previa</span>' : `<span class="chip ok">Cerrada ${per.cerrado_en ? 'el ' + fc(per.cerrado_en.slice(0, 10)) : ''}</span>`}</div></div>
@@ -695,6 +699,7 @@ async function vPeriodo(id, tab) {
     <div class="tabs">${tabs.map(([k, t]) => `<a href="#/planilla/${id}/${k}" class="${tab === k ? 'on' : ''}">${t}</a>`).join('')}</div>
     <div id="tab"></div>`);
   const cont = $('#tab', m);
+  const tOn = $('.tabs a.on', m); if (tOn) tOn.parentElement.scrollLeft = tOn.offsetLeft - 16;
   $('#cerrar', m) && ($('#cerrar', m).onclick = async () => {
     if (!await confirmar('Cerrar planilla', `Se generarán ${calc.length} comprobantes por ${L(T.neto)}, se aplicarán las cuotas de préstamos y los empleados podrán ver su pago. Podrás reabrirla si hace falta corregir algo.`, 'Cerrar planilla')) return;
     try { const n = await q(sb.rpc('pl_cerrar_periodo', { p_periodo: id })); toast(`${n} comprobantes generados`); vPeriodo(id, 'comprobantes'); } catch (e) { toast(errMsg(e), true); }
@@ -709,6 +714,7 @@ async function vPeriodo(id, tab) {
   if (tab === 'movimientos') return tabMovimientos(cont, per, calc);
   if (tab === 'adelantos') return tabAdelantosPeriodo(cont, per);
   if (tab === 'comprobantes') return tabComprobantes(cont, per, calc);
+  if (tab === 'contable') return tabContable(cont, per, calc, T);
 }
 
 function editarPeriodo(per) {
@@ -973,6 +979,48 @@ async function editarMov(per, mv, empId, emps) {
 }
 
 /* ---------- adelantos dentro del período ---------- */
+/* ===================== CONTABILIDAD: textos para copiar ===================== */
+async function copiarTexto(t) {
+  try { await navigator.clipboard.writeText(t); }
+  catch (_) { const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (__) { } ta.remove(); }
+  toast('Copiado');
+}
+const montoPlano = n => (Math.round((+n || 0) * 100) / 100).toFixed(2);
+async function tabContable(cont, per, calc, T) {
+  cont.innerHTML = '<div class="cargando">Cargando…</div>';
+  const [par, ad, comb] = await Promise.all([
+    parametros(),
+    q(sb.from('pl_adelantos').select('*, pl_empleados(nombre)').eq('periodo_id', per.id).order('fecha')),
+    per.tipo === 'salario' ? q(sb.from('pl_pagos_extra').select('*, pl_empleados(nombre)').eq('tipo', 'combustible').eq('periodo', per.id).eq('anulado', false).order('numero')) : Promise.resolve([])]);
+  const ini = pf(per.fecha_inicio);
+  const com = per.tipo === 'comisiones';
+  const quincena = /^1/.test(per.nombre) || ini.getDate() <= 15 ? 'primera' : 'segunda';
+  const periodo = String(per.nombre || '').replace(/^1ª/, 'primera').replace(/^2ª/, 'segunda').replace(/^Comisiones/, 'comisiones');
+  const base = { periodo, quincena, mes: MESES[ini.getMonth()], anio: ini.getFullYear(), banco: par.contab_banco || 'BAC INVERSIONES' };
+  const llenar = (tpl, extra = {}) => String(tpl || '').replace(/\{(\w+)\}/g, (m0, k) => (extra[k] ?? base[k] ?? m0));
+  const def = (k, d) => (par[k] && par[k].trim()) ? par[k] : d;
+  const banco = calc.filter(c => c.metodo_pago !== 'EFECTIVO').reduce((a, c) => a + +c.neto, 0);
+  const efectivo = calc.filter(c => c.metodo_pago === 'EFECTIVO').reduce((a, c) => a + +c.neto, 0);
+  const adels = ad.filter(a => a.estado !== 'rechazado' && a.estado !== 'pendiente');
+  const grupos = [
+    ['Gasto total de planilla', [{ t: llenar(def('contab_txt_gasto', 'Pago de planilla {periodo} a colaboradores.')), m: T.ing }]],
+    ['Pagado por banco', [{ t: llenar(def(com ? 'contab_txt_banco_com' : 'contab_txt_banco', com ? 'Ingreso de fondos entre {banco} a CAJA, Pago de comisiones de {mes} a colaboradores {anio}.' : 'Ingreso de fondos entre {banco} a CAJA, Pago de {quincena} quincena de {mes} a colaboradores {anio}.')), m: banco },
+      ...(efectivo > 0 ? [{ t: llenar('Pago en efectivo de planilla {periodo} a colaboradores.'), m: efectivo }] : [])]],
+    [`Adelantos de ${com ? 'comisiones' : 'salario'} (${adels.length})`, adels.map(a => ({ t: llenar(def('contab_txt_adelanto', 'Pago de adelanto de {tipo} ({nombre})'), { nombre: a.pl_empleados?.nombre || '', corto: corto(a.pl_empleados?.nombre || ''), tipo: a.tipo === 'comisiones' ? 'comisiones' : 'salario', fecha: fc(a.fecha) }), m: a.monto, f: a.fecha }))],
+    ...(com ? [] : [[`Combustible (${comb.length})`, comb.map(c => ({ t: llenar(def('contab_txt_combustible', 'Pago de combustible - {corto}'), { nombre: c.pl_empleados?.nombre || '', corto: corto(c.pl_empleados?.nombre || '') }), m: c.monto }))]]),
+    ['Total de deducciones', [{ t: llenar(def(com ? 'contab_txt_deducciones_com' : 'contab_txt_deducciones', com ? 'Deduccion de comisiones del mes de {mes} {anio}' : 'Deduccion de salario de la {quincena} quincena de mes de {mes}')), m: T.ded }]],
+  ];
+  const todas = grupos.flatMap(([, l]) => l);
+  cont.innerHTML = `<div class="panel" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="small muted" style="flex:1;min-width:220px">${per.estado !== 'cerrada' ? '<span class="chip warn">Planilla abierta</span> los montos pueden cambiar hasta que la cierres. ' : ''}Toca <b>Copiar</b> en el texto o en el monto y pégalo en el sistema contable. Los textos se cambian en Ajustes (los que empiezan con “Contabilidad”).</div>
+      <button class="btn borde" id="ctodo">Copiar todo (texto y monto)</button></div>
+    ${grupos.map(([tit, l]) => `<h3 style="margin:16px 0 8px">${tit}</h3>${l.length ? `<div class="lista">${l.map(x => { const i = todas.indexOf(x); return `<div class="item cont-item" style="cursor:default"><div class="grow" style="min-width:0"><div class="t" style="font-weight:500;white-space:normal">${esc(x.t)}</div>${x.f ? `<div class="tiny muted">${fc(x.f)}</div>` : ''}</div>
+      <div class="cont-acc"><button class="btn sm borde" data-ct="${i}" title="Copiar texto">Copiar texto</button><button class="btn sm pri num" data-cm="${i}" title="Copiar monto">${L(x.m)}</button></div></div>`; }).join('')}</div>` : '<div class="vacio" style="padding:14px">No hay en esta planilla.</div>'}`).join('')}`;
+  $$('[data-ct]', cont).forEach(b => b.onclick = () => copiarTexto(todas[+b.dataset.ct].t));
+  $$('[data-cm]', cont).forEach(b => b.onclick = () => copiarTexto(montoPlano(todas[+b.dataset.cm].m)));
+  $('#ctodo', cont).onclick = () => copiarTexto(todas.map(x => `${x.t}\t${montoPlano(x.m)}`).join('\n'));
+}
+
 async function tabAdelantosPeriodo(cont, per) {
   const ad = await q(sb.from('pl_adelantos').select('*, pl_empleados(nombre)').eq('periodo_id', per.id).order('fecha'));
   const abierta = per.estado === 'abierta';

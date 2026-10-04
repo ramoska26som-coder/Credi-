@@ -210,6 +210,34 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .accion svg{width:24px;height:24px;color:var(--azul)}
 .accion:hover{border-color:#B9CDEE}
 .chips{display:flex;flex-wrap:wrap;gap:4px}
+.sep-estado{display:flex;align-items:center;gap:12px;margin:22px 0 10px;font-family:Poppins;font-weight:700;font-size:15px;color:var(--tinta)}
+.sep-estado:first-of-type{margin-top:6px}
+.sep-estado:after{content:"";flex:1;height:3px;border-radius:3px;background:var(--linea)}
+.sep-estado.abierta:after{background:var(--amarillo)}
+.sep-estado.cerrada:after{background:#19A35B}
+.sep-estado small{order:2;font-family:Inter;font-weight:500;font-size:12px;color:var(--gris)}
+.sep-estado:after{order:3}
+.item-abierta{border-left:4px solid var(--amarillo)}
+.pl-img{position:fixed;left:-10000px;top:0;width:1240px;background:#fff;color:#0A2A66;padding:36px 40px;font-family:Inter,Arial,sans-serif;font-size:13px}
+.pl-img .cab{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #0A2A66;padding-bottom:12px;position:relative}
+.pl-img .cab:after{content:"";position:absolute;left:0;right:0;bottom:-7px;height:3px;background:#FFD400}
+.pl-img .marca{font-size:30px;color:#0A2A66}.pl-img .marca .p{color:#1877F2}
+.pl-img h2{font-size:20px;margin:0}
+.pl-img .meta{display:grid;grid-template-columns:repeat(5,auto);gap:4px 26px;margin:20px 0 14px;font-size:12.5px}
+.pl-img .meta span{color:#5B6B8C;display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.pl-img table{width:100%;border-collapse:collapse}
+.pl-img th{background:#0A2A66;color:#fff;font-weight:600;font-size:11.5px;padding:7px 8px;text-align:left}
+.pl-img td{padding:6px 8px;border-bottom:1px solid #E3E9F4;font-size:12.5px}
+.pl-img tr:nth-child(even) td{background:#F7FAFF}
+.pl-img .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pl-img tfoot td{font-weight:700;background:#FFF6CC!important;border-top:2px solid #0A2A66}
+.pl-img .bloques{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:18px}
+.pl-img .bloque h4{font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;color:#5B6B8C}
+.pl-img .bloque div{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted #D5DEEE}
+.pl-img .firmas{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:56px;text-align:center;font-size:12px}
+.pl-img .firmas div{border-top:1px solid #0A2A66;padding-top:6px}
+.pl-img .pie{margin-top:22px;font-size:10.5px;color:#7A88A6;display:flex;justify-content:space-between}
+.pl-img .borrador{position:absolute;top:40%;left:0;right:0;text-align:center;font-family:Poppins;font-weight:800;font-size:110px;color:rgba(230,57,70,.10);transform:rotate(-18deg);pointer-events:none}
 .selfie{position:relative;background:#0A2A66;border-radius:14px;overflow:hidden;aspect-ratio:3/4;max-height:60vh;margin:0 auto;display:grid;place-items:center}
 .selfie video,.selfie img{width:100%;height:100%;object-fit:cover}
 .selfie video{transform:scaleX(-1)}
@@ -578,12 +606,12 @@ async function vPlanillas() {
   const m = shell(`
     <div class="top"><div><h1>Planillas</h1><div class="muted small">Quincenas de salario y meses de comisiones</div></div>
       <div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Nueva planilla</button></div></div>
-    ${per.length ? `<div class="lista">${per.map(p => `
-      <a class="item" href="#/planilla/${p.id}">
+    ${per.length ? [['abierta', 'Abiertas', 'En preparación: se pueden editar'], ['cerrada', 'Cerradas', 'Comprobantes generados']].map(([est, tit, sub]) => { const l = per.filter(p => (p.estado === 'cerrada') === (est === 'cerrada')); return l.length ? `<div class="sep-estado ${est}"><span>${tit} · ${l.length}</span><small>${sub}</small></div><div class="lista">${l.map(p => `
+      <a class="item ${est === 'abierta' ? 'item-abierta' : ''}" href="#/planilla/${p.id}">
         <div class="pago" style="flex:1"><div class="ic ${p.tipo === 'salario' ? 's' : 'c'}">${p.tipo === 'salario' ? 'Q' : '%'}</div>
           <div class="grow"><div class="t">${esc(p.nombre)}</div><div class="s">${rango(p.fecha_inicio, p.fecha_fin)} · pago ${fc(p.fecha_pago)} · ${esc(p.codigo)}</div></div>
           <div style="text-align:right">${p.estado === 'cerrada' ? `<span class="chip ok">Cerrada</span><div class="num small" style="margin-top:4px">${L(tot[p.id])}</div>` : '<span class="chip warn">Abierta</span>'}</div></div>
-      </a>`).join('')}</div>` : `<div class="vacio"><b>Aún no hay planillas</b>Crea la primera quincena o mes de comisiones.</div>`}`);
+      </a>`).join('')}</div>` : ''; }).join('') : `<div class="vacio"><b>Aún no hay planillas</b>Crea la primera quincena o mes de comisiones.</div>`}`);
   $('#nuevo', m).onclick = () => nuevaPlanilla(per);
 }
 
@@ -695,12 +723,41 @@ function tabResumen(cont, per, calc, T) {
         ${Object.entries(bancos).map(([b, v]) => `<div class="cp-dato"><span>Transferencia ${esc(b)}</span><span>${L(v)}</span></div>`).join('')}
         <div class="cp-dato" style="border:0"><span><b>Total transferencias</b></span><span>${L(T.neto - ef)}</span></div></div>
       <div class="panel" style="display:flex;flex-direction:column;gap:8px;justify-content:center">
+        <button class="btn borde" id="plimg">${ICON.foto}Imagen de la planilla</button>
         <button class="btn borde" id="xls">${ICON.excel}Descargar Excel</button>
         <button class="btn borde" id="imp">${ICON.print}Imprimir todos los comprobantes</button></div>
     </div>`;
   $$('tr[data-e]', cont).forEach(tr => tr.onclick = () => location.hash = `#/comp/${per.id}/${tr.dataset.e}`);
   $('#imp', cont).onclick = () => imprimir(calc.map(c => ({ c, numero: c.numero })), per);
   $('#xls', cont).onclick = () => excelPlanilla(per, calc);
+  $('#plimg', cont).onclick = () => imagenPlanilla(per, calc);
+}
+
+async function imagenPlanilla(per, calc) {
+  let par = S.par || {}; try { par = await parametros(); } catch (_) { }
+  const filas = calc.map((c, i) => ({ c, i, ...resumenFila(c) }));
+  const sum = f => filas.reduce((a, x) => a + (+f(x) || 0), 0);
+  const conceptos = tipo => { const o = {}; calc.forEach(c => (c[tipo] || []).forEach(x => { o[x.concepto] = (o[x.concepto] || 0) + (+x.monto || 0); })); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
+  const ef = calc.filter(c => c.metodo_pago === 'EFECTIVO').reduce((a, c) => a + +c.neto, 0);
+  const bancos = {}; calc.filter(c => c.metodo_pago !== 'EFECTIVO').forEach(c => { const b = c.banco || 'Sin banco'; bancos[b] = (bancos[b] || 0) + +c.neto; });
+  const abierta = per.estado !== 'cerrada';
+  const el = document.createElement('div'); el.className = 'pl-img';
+  el.innerHTML = `${abierta ? '<div class="borrador">BORRADOR</div>' : ''}
+    <div class="cab"><div><div class="marca">más<span class="p">pisto</span></div><div style="font-size:12px;color:#5B6B8C;margin-top:2px">${esc(par.empresa_nombre || 'Más Pisto Financiera')}${par.empresa_rtn ? ' · RTN ' + esc(par.empresa_rtn) : ''}</div></div>
+      <div style="text-align:right"><h2>${per.tipo === 'comisiones' ? 'PLANILLA DE COMISIONES' : 'PLANILLA DE SALARIOS'}</h2><div style="font-size:13px;margin-top:2px">${esc(per.nombre)}</div></div></div>
+    <div class="meta"><div><span>Código</span>${esc(per.codigo)}</div><div><span>Período</span>${fc(per.fecha_inicio)} al ${fc(per.fecha_fin)}</div><div><span>Fecha de pago</span>${fc(per.fecha_pago)}</div><div><span>Empleados</span>${calc.length}</div><div><span>Estado</span>${abierta ? 'Abierta (borrador)' : `Cerrada${per.cerrado_en ? ' el ' + fc(per.cerrado_en.slice(0, 10)) : ''}`}</div></div>
+    <table><thead><tr><th>#</th><th>Empleado</th><th>Cargo</th><th class="r">Ingresos</th><th class="r">Adelantos</th><th class="r">Préstamos</th><th class="r">Otras ded.</th><th class="r">Total ded.</th><th class="r">Neto a pagar</th><th>Forma de pago</th><th>Cuenta</th></tr></thead>
+      <tbody>${filas.map(({ c, i, adel, pres, otras }) => `<tr><td>${i + 1}</td><td><b>${esc(c.nombre)}</b></td><td>${esc(c.cargo || '')}</td><td class="r">${L(c.total_ingresos)}</td><td class="r">${adel ? L(adel) : '—'}</td><td class="r">${pres ? L(pres) : '—'}</td><td class="r">${otras > 0.004 ? L(otras) : '—'}</td><td class="r">${L(c.total_deducciones)}</td><td class="r"><b>${L(c.neto)}</b></td><td>${c.metodo_pago === 'EFECTIVO' ? 'Efectivo' : 'Transf. ' + esc(c.banco || '')}</td><td>${esc(c.metodo_pago === 'EFECTIVO' ? '' : (c.cuenta || ''))}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td></td><td>TOTALES</td><td></td><td class="r">${L(sum(x => x.c.total_ingresos))}</td><td class="r">${L(sum(x => x.adel))}</td><td class="r">${L(sum(x => x.pres))}</td><td class="r">${L(sum(x => Math.max(0, x.otras)))}</td><td class="r">${L(sum(x => x.c.total_deducciones))}</td><td class="r">${L(sum(x => x.c.neto))}</td><td colspan="2"></td></tr></tfoot></table>
+    <div class="bloques">
+      <div class="bloque"><h4>Ingresos por concepto</h4>${conceptos('ingresos').map(([k, v]) => `<div><span>${esc(k)}</span><b>${L(v)}</b></div>`).join('') || '<div><span>—</span></div>'}</div>
+      <div class="bloque"><h4>Deducciones por concepto</h4>${conceptos('deducciones').map(([k, v]) => `<div><span>${esc(k)}</span><b>${L(v)}</b></div>`).join('') || '<div><span>Sin deducciones</span></div>'}</div>
+      <div class="bloque"><h4>Forma de pago</h4><div><span>Efectivo</span><b>${L(ef)}</b></div>${Object.entries(bancos).map(([b, v]) => `<div><span>Transferencia ${esc(b)}</span><b>${L(v)}</b></div>`).join('')}<div style="border:0"><span><b>Total a pagar</b></span><b>${L(sum(x => x.c.neto))}</b></div></div>
+    </div>
+    <div class="firmas"><div>Elaborado por</div><div>Revisado por</div><div>Autorizado por${par.firma_nombre ? `<br><b>${esc(par.firma_nombre)}</b>${par.firma_cargo ? ' · ' + esc(par.firma_cargo) : ''}` : ''}</div></div>
+    <div class="pie"><span>Generado el ${fdt(new Date().toISOString())}${S.yo ? ' por ' + esc(S.yo.nombre) : S.user?.email ? ' por ' + esc(S.user.email) : ''}</span><span>Sistema de Planilla · Más Pisto</span></div>`;
+  document.body.appendChild(el);
+  try { await exportarImagen(el, `Planilla ${per.codigo} ${per.nombre}`.replace(/[\\/:*?"<>|]+/g, ''), '#FFFFFF'); } finally { setTimeout(() => el.remove(), 500); }
 }
 
 function excelPlanilla(per, calc) {
@@ -985,13 +1042,13 @@ function htmlComprobante(c, { numero, borrador, recibido } = {}) {
 }
 
 // Exporta un elemento (comprobante) como imagen PNG; en el teléfono abre "Compartir" (WhatsApp, galería…)
-async function exportarImagen(el, nombre) {
+async function exportarImagen(el, nombre, fondo = '#F7FAFF') {
   if (!window.html2canvas) return toast('Cargando, intenta de nuevo en un momento', true);
   if (!el) return;
   toast('Generando imagen…');
   try {
     await document.fonts?.ready;
-    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#F7FAFF', useCORS: true, logging: false });
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: fondo, useCORS: true, logging: false, windowWidth: Math.max(el.scrollWidth, 1300) });
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     const archivo = new File([blob], `${nombre}.png`, { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [archivo] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {

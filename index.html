@@ -1564,8 +1564,13 @@ function calcRefi(s, c){
   const tard3 = pagos.filter(p => p.dif > 3).length, tard7 = pagos.filter(p => p.dif >= 7).length;
   const total = pagos.filter(p => p.valor != null && !isNaN(p.valor)).length;
   const manual = s.pct_manual != null && s.pct_manual !== '';
-  const pctAprob = manual ? +s.pct_manual : (tard3 > 5 ? 0 : Math.max(0, 1 - tard3 * 0.1));
-  const limCalc = mround(sugerido * pctAprob, 1000);
+  // Penalización por pagos tardíos (>3 días):
+  //  0–1 → sin efecto · 2 → se mantiene el límite actual aunque aplique para más · 3+ → −10% por cada tardío sobre el límite actual
+  const baseMantiene = limAct > 0 ? Math.min(sugerido, limAct) : sugerido;
+  const pctAprob = manual ? +s.pct_manual : (tard3 > 5 ? 0 : tard3 >= 3 ? Math.max(0, 1 - tard3 * 0.1) : 1);
+  const basePen = manual ? sugerido : tard3 >= 2 ? baseMantiene : sugerido;
+  const limCalc = mround(basePen * pctAprob, 1000);
+  const penTxt = manual ? 'manual' : tard3 > 5 ? 'más de 5 tardíos: bloqueado' : tard3 >= 3 ? `−${tard3 * 10}% sobre límite actual ${L(baseMantiene)}` : tard3 === 2 ? `2 tardíos: mantiene límite actual ${L(baseMantiene)}` : tard3 === 1 ? '1 tardío: sin efecto' : 'sin pagos tardíos';
   // Después del dictamen manda el monto autorizado (puede haberse ajustado manualmente)
   const autorizado = !!(s.dictamen_en && s.monto_aprobado);
   const limAprob = autorizado ? +s.monto_aprobado : limCalc;
@@ -1597,11 +1602,11 @@ function calcRefi(s, c){
     if (tard3 > 0) motivos.push(`${tard3} pago(s) tardío(s)`); if (prom < P.ingreso_minimo) motivos.push('ingreso bajo el mínimo'); }
   else dictamen = 'APROBADO AUTOMÁTICO';
   const en3 = () => { const d = new Date(hoy + 'T12:00'); d.setMonth(d.getMonth() + 3); return fDate(d); };
-  const proxAum = tard3 > 5 ? 'Bloqueado por mora' : pctAprob < 1 ? en3() : (prom && limAct / prom >= 0.68 ? 'Máximo alcanzado' : en3());
+  const proxAum = tard3 > 5 ? 'Bloqueado por mora' : (pctAprob < 1 || tard3 >= 2) ? en3() : (prom && limAct / prom >= 0.68 ? 'Máximo alcanzado' : en3());
   const r2 = prom ? limAprob / prom : 0;
   const proxLim = tard3 > 5 ? null : Math.min(P.techo_refi || 30000, mround(prom * (r2 < 0.4 ? 0.5 : r2 < 0.7 ? 0.8 : 1), 1000));
   const peldano = (antig == null || antig < 90) ? '50% (menos de 90 días)' : diasAum < 90 ? 'Se mantiene (último aumento hace menos de 90 días)' : `${Math.round(factor * 100)}%`;
-  return { elegido, limCalc, autorizado, prefCalc, yaPref, prefMotivo, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob,
+  return { elegido, limCalc, autorizado, prefCalc, yaPref, prefMotivo, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob, penTxt, basePen,
     limAprob, disponible, pref, tasaNueva, cuotas, plazoMin, dictamen, motivos, proxAum, proxLim, techo, sinFecha: !s.fecha_ingreso };
 }
 function dictamenRefiHTML(r){
@@ -1670,7 +1675,7 @@ function refiResHTML(s, r){
       <div class="box"><div class="l">Antigüedad</div><div class="v" style="font-size:16px">${antTxt}</div></div>
       <div class="box"><div class="l">Peldaño aplicado</div><div class="v" style="font-size:15px">${r.peldano}</div></div>
       <div class="box"><div class="l">Límite sugerido</div><div class="v">${L(r.sugerido)}</div></div>
-      <div class="box"><div class="l">% aprobado del sugerido</div><div class="v">${Math.round(r.pctAprob * 100)}%</div><div class="small muted">${r.manual ? 'manual' : 'por comportamiento'}</div></div>
+      <div class="box"><div class="l">% aprobado ${r.basePen !== r.sugerido ? 'del límite actual' : 'del sugerido'}</div><div class="v">${Math.round(r.pctAprob * 100)}%</div><div class="small muted">${esc(r.penTxt)}</div></div>
       <div class="box"><div class="l">Límite aprobado</div><div class="v">${L(r.limAprob)}</div>
         ${r.autorizado ? `<div class="small" style="font-weight:600;color:var(--brand)">${autorizadoPor(s, 'ajuste_monto')}</div>${r.limCalc !== r.limAprob ? `<div class="small muted">Calculado: ${L(r.limCalc)}</div>` : ''}` : ''}</div>
       <div class="box" style="${r.disponible < (S.params.disponible_minimo ?? 2000) ? 'background:var(--red-bg)' : ''}"><div class="l">Disponible (monto libre)</div><div class="v">${L(r.disponible)}</div>${r.elegido != null && r.elegido !== r.limAprob ? `<div class="small" style="font-weight:600;color:var(--brand)">Cliente toma ${L(r.elegido)}</div>` : ''}</div>

@@ -113,6 +113,26 @@ table.t{width:100%;border-collapse:collapse;font-size:14px}
 table.t th{font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--ink2);text-align:left;padding:6px 6px;border-bottom:1px solid var(--line)}
 table.t td{padding:7px 6px;white-space:nowrap;border-bottom:1px solid var(--line)}
 table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums}
+/* Historial */
+.hfd > summary{cursor:pointer;font:700 13px Poppins,Inter,sans-serif;color:var(--ink2);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.hf{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 10px;align-items:end}
+.hf label{font-size:11.5px;font-weight:700;color:var(--ink2);display:block;margin-bottom:3px}
+.hf select,.hf input{padding:7px 9px;font-size:13.5px}
+.htot{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin:10px 2px}
+.htot b{font-family:Poppins,Inter,sans-serif}
+.tbl-wrap{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+table.ht{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+table.ht th{position:sticky;top:0;z-index:1;background:var(--bg);font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--ink2);text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+table.ht th:hover{color:var(--brand-dk)}
+table.ht th.on{color:var(--brand-dk)}
+table.ht td{padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+table.ht tbody tr{cursor:pointer}
+table.ht tbody tr:hover td{background:var(--rb,rgba(24,119,242,.06))}
+table.ht .num{text-align:right;font-variant-numeric:tabular-nums}
+table.ht tfoot td{position:sticky;bottom:0;background:var(--bg);font-weight:700;border-top:2px solid var(--line)}
+table.ht td.cli{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+table.ht td.nota{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:var(--ink2)}
+.hpag{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:8px;font-size:13px}
 .addrow{display:grid;grid-template-columns:1.2fr 1fr auto auto;gap:6px;margin-top:8px}
 @media (max-width:420px){.addrow{grid-template-columns:1fr 1fr}.addrow .seg{grid-column:1/-1}}
 .res{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
@@ -509,13 +529,14 @@ function tabsRol(){
     verificadas:['verificadas','Mis verificaciones', s => s.verificado_en && s.verificador_id === S.me.id],
     desembolsos:['desembolsos','Desembolsos', s => s.estado === 'desembolso_pendiente' || (s.estado === 'desembolsada' && dias(s.desembolsado_en, 7))],
     todas:['todas','Todas', s => true],
+    historial:['historial','Historial'],
     tablero:['tablero','Tablero', s => false],
     stats:['stats','Estadísticas'], usuarios:['usuarios','Usuarios'], params:['params','Parámetros']
   };
-  const m = { asesor:['tablero','solicitudes','revisadas','proceso','todas','stats'],
-    analista:['tablero','analisis','desembolsos','todas','stats'],
-    verificador:['verificar','tablero','verificadas','stats'],
-    admin:['tablero','solicitudes','revisadas','analisis','verificar','desembolsos','todas','stats','usuarios','params'] };
+  const m = { asesor:['tablero','solicitudes','revisadas','proceso','todas','historial','stats'],
+    analista:['tablero','analisis','desembolsos','todas','historial','stats'],
+    verificador:['verificar','tablero','verificadas','historial','stats'],
+    admin:['tablero','solicitudes','revisadas','analisis','verificar','desembolsos','todas','historial','stats','usuarios','params'] };
   return m[rol()].map(k => T[k]);
 }
 function pintarTabs(){
@@ -534,8 +555,9 @@ function pintarTabs(){
 // ================== Listas ==================
 function pintar(){
   const tab = tabsRol().find(t => t[0] === S.tab);
-  $('#main').classList.toggle('wide', S.tab === 'tablero');
+  $('#main').classList.toggle('wide', ['tablero','historial'].includes(S.tab));
   if (S.tab === 'tablero') return pintarTablero();
+  if (S.tab === 'historial') return pintarHistorial();
   if (S.tab === 'stats') return pintarStats();
   if (S.tab === 'usuarios') return pintarUsuarios();
   if (S.tab === 'params') return pintarParams();
@@ -2003,6 +2025,123 @@ setInterval(() => {
     else el.textContent = fmtDur(v);
   });
 }, 30000);
+
+// ================== Historial (tabla con filtros y orden) ==================
+const H_COLS = [
+  { k:'fecha', t:'Fecha', v:s => hFecha(s), h:s => { const f = hFecha(s); return f ? `${fDate(f)}<div class="small muted">${new Date(f).toLocaleTimeString('es-HN',{timeZone:TZ,hour:'numeric',minute:'2-digit'})}</div>` : '—'; }, csv:s => hFecha(s) ? new Date(hFecha(s)).toLocaleString('es-HN',{timeZone:TZ}) : '' },
+  { k:'codigo', t:'Código', v:s => s.codigo },
+  { k:'cliente', t:'Cliente', v:s => s.nombre_cliente, h:s => `<b>${esc(s.nombre_cliente)}</b>${s.dni ? `<div class="small muted">${esc(s.dni)}</div>` : ''}`, cls:'cli' },
+  { k:'dni', t:'Identidad', v:s => s.dni || '', oculta:true },
+  { k:'tipo', t:'Tipo', v:s => TIPO[s.tipo] || s.tipo, h:s => tipoChip(s.tipo) },
+  { k:'estado', t:'Estado', v:s => EST[s.estado]?.t || s.estado, h:s => chip(s.estado) + (s.en_espera ? ' ' + esperaChip(s) : '') },
+  { k:'asesor', t:'Asesor', v:s => nombre(s.asesor_id) },
+  { k:'analista', t:'Analista', v:s => s.analista_id ? nombre(s.analista_id) : '' },
+  { k:'verificador', t:'Verificador', v:s => s.verificador_id ? nombre(s.verificador_id) : '' },
+  { k:'forma', t:'Desembolso', v:s => s.forma_desembolso ? (s.forma_desembolso === 'efectivo' ? 'Efectivo' : 'Transferencia') : '' },
+  { k:'aprobado', t:'Aprobado', v:s => s.monto_aprobado != null ? +s.monto_aprobado : null, num:true, sum:true },
+  { k:'prestamo', t:'Préstamo', v:s => s.monto_solicitado != null || s.monto_aprobado != null ? +(s.monto_solicitado || s.monto_aprobado) : null, num:true, sum:true },
+  { k:'saldo', t:'Saldo anterior', v:s => s.tipo !== 'nuevo' && (s.saldo_capital != null || s.saldo_intereses != null) ? (+s.saldo_capital || 0) + (+s.saldo_intereses || 0) : null, num:true, sum:true },
+  { k:'entregado', t:'Entregado', v:s => s.estado === 'desembolsada' ? montoLibre(s) : null, num:true, sum:true },
+  { k:'colocado', t:'Capital colocado', v:s => s.estado === 'desembolsada' ? capitalColocado(s) : null, num:true, sum:true },
+  { k:'sector', t:'Sector / ciudad', v:s => [sectorDe(s), ciudadDe(s)].filter(Boolean).join(' · ') },
+  { k:'tiempo', t:'Tiempo hábil', v:s => s.duracion_total_habil_seg ?? null, h:s => s.duracion_total_habil_seg != null ? fmtDur(s.duracion_total_habil_seg) : '—', num:true, csv:s => s.duracion_total_habil_seg != null ? Math.round(s.duracion_total_habil_seg / 60) + ' min' : '' },
+  { k:'nota', t:'Motivo / nota', v:s => s.estado === 'denegada' ? (s.dictamen_nota || '') : s.estado === 'desistida' ? (s.motivo_cierre || '') : (s.datos_cliente?.comentario || s.espera_motivo || ''), cls:'nota' },
+  { k:'origen', t:'Origen', v:s => s.importado ? 'Histórico Excel' : 'App', oculta:true }
+];
+// Fecha según la base elegida: solicitud (creación) o cierre (desembolso / rechazo / cancelación)
+const hFecha = s => S.h.base === 'solicitud' ? s.creado_en : (s.estado === 'desembolsada' ? (s.desembolsado_en || s.cerrado_en) : s.cerrado_en);
+function hRangos(){
+  const d = new Date(hoyHN() + 'T12:00'); const dc = new Date(d); dc.setDate(dc.getDate() - 8);
+  const mk = i => { const x = new Date(dc.getFullYear(), dc.getMonth() - i, 1, 12); const r = rango(`m:${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`); return [r[0], r[2]]; };
+  return { hoy:['Hoy', rango('hoy')], mes:['Mes contable actual', mk(0)], mesant:['Mes contable anterior', mk(1)], d30:['Últimos 30 días', rango('30d')], todo:['Todo', ['', '']] };
+}
+function hFiltrar(){
+  const f = S.h, q = norm(f.q || '');
+  return S.sols.filter(s => {
+    const fe = hFecha(s), dia = fe ? diaHN(fe) : null;
+    if ((f.desde || f.hasta) && !dia) return false;
+    if (f.desde && dia < f.desde) return false;
+    if (f.hasta && dia > f.hasta) return false;
+    if (f.estado === 'abiertas' ? CERRADAS.includes(s.estado) : f.estado === 'cerradas' ? !CERRADAS.includes(s.estado) : f.estado === 'espera' ? !s.en_espera : f.estado && s.estado !== f.estado) return false;
+    if (f.tipo && s.tipo !== f.tipo) return false;
+    if (f.asesor && s.asesor_id !== f.asesor) return false;
+    if (f.verificador && (f.verificador === 'sin' ? s.verificador_id : s.verificador_id !== f.verificador)) return false;
+    if (f.forma && s.forma_desembolso !== f.forma) return false;
+    if (f.origen && (f.origen === 'excel') !== !!s.importado) return false;
+    if (q && ![s.nombre_cliente, s.codigo, s.dni, s.telefono, sectorDe(s), ciudadDe(s)].some(v => norm(v || '').includes(q))) return false;
+    return true;
+  });
+}
+function hOrdenar(l){
+  const c = H_COLS.find(x => x.k === S.h.sort) || H_COLS[0], dir = S.h.dir;
+  return l.slice().sort((a, b) => { const va = c.v(a), vb = c.v(b);
+    const na = va == null || va === '', nb = vb == null || vb === ''; if (na || nb) return na === nb ? 0 : na ? 1 : -1;   // vacíos siempre al final
+    return (typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'es', { numeric:true })) * dir; });
+}
+function pintarHistorial(){
+  const R = hRangos();
+  if (!S.h) S.h = { base:'cierre', preset:'mes', desde:R.mes[1][0], hasta:R.mes[1][1], estado:'', tipo:'', asesor:'', verificador:'', forma:'', origen:'', q:'', sort:'fecha', dir:-1, page:0, size:100 };
+  const f = S.h;
+  const lista = hOrdenar(hFiltrar());
+  const cols = H_COLS.filter(c => !c.oculta);
+  const pags = Math.max(1, Math.ceil(lista.length / f.size)); if (f.page >= pags) f.page = pags - 1;
+  const vis = lista.slice(f.page * f.size, (f.page + 1) * f.size);
+  const sum = k => { const c = H_COLS.find(x => x.k === k); return lista.reduce((a, s) => a + (+c.v(s) || 0), 0); };
+  const des = lista.filter(s => s.estado === 'desembolsada');
+  const users = rs => Object.values(S.perfiles).filter(p => rs.includes(p.rol)).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const opt = (v, t, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(t)}</option>`;
+  $('#main').innerHTML = `
+    <div class="card" style="padding:12px">
+      <div class="filters" style="margin-bottom:8px">${Object.entries(R).map(([k, [t]]) => `<button data-hp="${k}" class="${f.preset === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <details class="hfd" ${f.abierto ?? (innerWidth > 700) ? 'open' : ''}><summary>Filtros${(() => { const n = ['estado','tipo','asesor','verificador','forma','origen','q'].filter(k => f[k]).length; return n ? ` <span class="parada">${n}</span>` : ''; })()}</summary>
+      <div class="hf">
+        <div><label>Fecha de</label><select data-hf="base">${opt('cierre','Cierre / desembolso',f.base)}${opt('solicitud','Solicitud (creación)',f.base)}</select></div>
+        <div><label>Desde</label><input type="date" data-hf="desde" value="${f.desde}"></div>
+        <div><label>Hasta</label><input type="date" data-hf="hasta" value="${f.hasta}"></div>
+        <div><label>Estado</label><select data-hf="estado">${opt('','Todos',f.estado)}${opt('abiertas','Abiertas (en proceso)',f.estado)}${opt('cerradas','Cerradas',f.estado)}${opt('espera','En espera',f.estado)}${Object.entries(EST).map(([k, v]) => opt(k, v.t, f.estado)).join('')}</select></div>
+        <div><label>Tipo</label><select data-hf="tipo">${opt('','Todos',f.tipo)}${Object.entries(TIPO).map(([k, t]) => opt(k, t, f.tipo)).join('')}</select></div>
+        <div><label>Asesor</label><select data-hf="asesor">${opt('','Todos',f.asesor)}${users(['asesor','admin']).map(p => opt(p.id, p.nombre, f.asesor)).join('')}</select></div>
+        <div><label>Verificador</label><select data-hf="verificador">${opt('','Todos',f.verificador)}${opt('sin','Sin verificador',f.verificador)}${users(['verificador']).map(p => opt(p.id, p.nombre, f.verificador)).join('')}</select></div>
+        <div><label>Forma de desembolso</label><select data-hf="forma">${opt('','Todas',f.forma)}${opt('efectivo','Efectivo',f.forma)}${opt('transferencia','Transferencia',f.forma)}</select></div>
+        <div><label>Origen</label><select data-hf="origen">${opt('','App + histórico Excel',f.origen)}${opt('app','Solo app',f.origen)}${opt('excel','Solo histórico Excel',f.origen)}</select></div>
+        <div style="grid-column:span 2"><label>Buscar</label><input data-hf="q" value="${esc(f.q)}" placeholder="Nombre, código, identidad, teléfono o sector"></div>
+        <div style="display:flex;gap:6px"><button class="btn sm ghost" id="hLimpiar">Limpiar</button><button class="btn sm pri" id="hCsv">⬇ Excel (CSV)</button></div>
+      </div></details>
+    </div>
+    <div class="htot"><span><b>${lista.length}</b> solicitud(es)</span><span>Desembolsadas <b>${des.length}</b></span>
+      <span>Préstamos <b>${L(des.reduce((a, s) => a + (+(s.monto_solicitado || s.monto_aprobado) || 0), 0))}</b></span>
+      <span>Entregado <b>${L(sum('entregado'))}</b></span><span>Capital colocado <b style="color:var(--green)">${L(sum('colocado'))}</b></span>
+      <span class="muted">Clic en un encabezado para ordenar · clic en una fila para abrir</span></div>
+    ${lista.length ? `<div class="tbl-wrap"><table class="ht"><thead><tr>${cols.map(c => `<th data-hs="${c.k}" class="${c.num ? 'num' : ''} ${f.sort === c.k ? 'on' : ''}">${c.t}${f.sort === c.k ? (f.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr></thead>
+      <tbody>${vis.map(s => `<tr data-id="${s.id}" style="${rcVars(colorDe(s.estado))}">${cols.map(c => { const v = c.v(s);
+        const cell = c.h ? c.h(s) : c.num ? (v == null ? '—' : L(v)) : (v === '' || v == null ? '—' : esc(v));
+        return `<td class="${c.num ? 'num' : ''} ${c.cls || ''}"${c.cls === 'nota' && v ? ` title="${esc(v)}"` : ''}>${cell}</td>`; }).join('')}</tr>`).join('')}</tbody>
+      <tfoot><tr>${cols.map((c, i) => `<td class="${c.num ? 'num' : ''}">${i === 0 ? 'Total' : c.sum ? L(sum(c.k)) : ''}</td>`).join('')}</tr></tfoot></table></div>
+      ${pags > 1 ? `<div class="hpag"><button class="btn sm ghost" data-pg="-1" ${f.page ? '' : 'disabled'}>‹ Anterior</button><span>Página ${f.page + 1} de ${pags} · ${f.size} por página</span><button class="btn sm ghost" data-pg="1" ${f.page < pags - 1 ? '' : 'disabled'}>Siguiente ›</button></div>` : ''}`
+      : '<div class="empty">No hay solicitudes con estos filtros.</div>'}`;
+  const M = $('#main');
+  M.querySelector('.hfd').addEventListener('toggle', e => { f.abierto = e.target.open; });
+  M.querySelectorAll('[data-hp]').forEach(b => b.onclick = () => { f.preset = b.dataset.hp; [f.desde, f.hasta] = R[f.preset][1]; f.page = 0; pintarHistorial(); });
+  M.querySelectorAll('[data-hf]').forEach(el => {
+    const k = el.dataset.hf, ev = el.tagName === 'INPUT' && el.type !== 'date' ? 'input' : 'change';
+    el.addEventListener(ev, () => { f[k] = el.value; if (k === 'desde' || k === 'hasta') f.preset = ''; f.page = 0;
+      const pos = el.selectionStart; pintarHistorial();
+      if (k === 'q'){ const n = M.querySelector('[data-hf="q"]'); n.focus(); n.setSelectionRange(pos, pos); } });
+  });
+  M.querySelectorAll('[data-hs]').forEach(th => th.onclick = () => { const k = th.dataset.hs;
+    if (f.sort === k) f.dir = -f.dir; else { f.sort = k; f.dir = H_COLS.find(c => c.k === k).num || k === 'fecha' ? -1 : 1; } f.page = 0; pintarHistorial(); });
+  M.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => { f.page += +b.dataset.pg; pintarHistorial(); M.querySelector('.tbl-wrap')?.scrollTo(0, 0); });
+  M.querySelectorAll('tbody tr[data-id]').forEach(tr => tr.onclick = () => abrirDetalle(+tr.dataset.id));
+  $('#hLimpiar').onclick = () => { S.h = null; pintarHistorial(); };
+  $('#hCsv').onclick = () => {
+    const cel = v => { const t = v == null ? '' : String(v); return /[",;\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const filas = [H_COLS.map(c => c.t).join(',')].concat(lista.map(s => H_COLS.map(c => cel(c.csv ? c.csv(s) : c.v(s))).join(',')));
+    const blob = new Blob(['﻿' + filas.join('\r\n')], { type:'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `historial_${f.desde || 'inicio'}_${f.hasta || hoyHN()}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    toast(`${lista.length} fila(s) exportadas`);
+  };
+}
 
 // ================== Estadísticas ==================
 const MESES_C = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];

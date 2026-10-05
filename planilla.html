@@ -246,7 +246,7 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .pl-img tr:nth-child(even) td{background:#F7FAFF}
 .pl-img .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pl-img tfoot td{font-weight:700;background:#FFF6CC!important;border-top:2px solid #0A2A66}
-.pl-img .bloques{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:18px}
+.pl-img .bloques{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:18px}
 .pl-img .bloque h4{font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;color:#5B6B8C}
 .pl-img .bloque div{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted #D5DEEE}
 .pl-img .firmas{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:56px;text-align:center;font-size:12px}
@@ -779,7 +779,6 @@ async function imagenPlanilla(per, calc) {
       <tfoot><tr><td></td><td>TOTALES</td><td></td><td class="r">${L(sum(x => x.c.total_ingresos))}</td><td class="r">${L(sum(x => x.adel))}</td><td class="r">${L(sum(x => x.pres))}</td><td class="r">${L(sum(x => Math.max(0, x.otras)))}</td><td class="r">${L(sum(x => x.c.total_deducciones))}</td><td class="r">${L(sum(x => x.c.neto))}</td><td colspan="2"></td></tr></tfoot></table>
     <div class="bloques">
       <div class="bloque"><h4>Ingresos por concepto</h4>${conceptos('ingresos').map(([k, v]) => `<div><span>${esc(k)}</span><b>${L(v)}</b></div>`).join('') || '<div><span>—</span></div>'}</div>
-      <div class="bloque"><h4>Deducciones por concepto</h4>${conceptos('deducciones').map(([k, v]) => `<div><span>${esc(k)}</span><b>${L(v)}</b></div>`).join('') || '<div><span>Sin deducciones</span></div>'}</div>
       <div class="bloque"><h4>Forma de pago</h4><div><span>Efectivo</span><b>${L(ef)}</b></div>${Object.entries(bancos).map(([b, v]) => `<div><span>Transferencia ${esc(b)}</span><b>${L(v)}</b></div>`).join('')}<div style="border:0"><span><b>Total a pagar</b></span><b>${L(sum(x => x.c.neto))}</b></div></div>
     </div>
     <div class="firmas"><div>Elaborado por</div><div>Revisado por</div><div>Autorizado por${par.firma_nombre ? `<br><b>${esc(par.firma_nombre)}</b>${par.firma_cargo ? ' · ' + esc(par.firma_cargo) : ''}` : ''}</div></div>

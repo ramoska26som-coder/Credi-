@@ -484,7 +484,7 @@ function navItems() {
     ['#/prestamos', 'Préstamos', ICON.prestamo, A], ['#/adelantos', 'Adelantos', ICON.adelanto, A], ['#/combustible', 'Combustible', ICON.moto, A], ['#/depreciacion', 'Depreciación', ICON.dep, A], ['#/historial', 'Historial', ICON.reloj, A], ['#/ajustes', 'Ajustes', ICON.ajustes, A]);
   const marcaje = marcajeActivo();
   if (S.admin && marcaje) it.splice(1, 0, ['#/marcajes', 'Marcajes', ICON.marca, A]);
-  if (S.supervisor) it.push(['#/asistencia', 'Asistencia', ICON.planilla, 'Supervisión']);
+  if (S.supervisor) it.push(['#/asistencia', 'Asistencia', ICON.planilla, 'Supervisión'], ['#/solicitudes', 'Solicitudes', ICON.bandeja, 'Supervisión'], ['#/vacaciones', 'Vacaciones', ICON.sol, 'Supervisión']);
   if (S.supervisor && marcaje) it.push(['#/marcajes', 'Marcajes', ICON.marca, 'Supervisión']);
   if (S.yo && marcaje) it.push(['#/marcar', 'Marcar', ICON.marca, M]);
   if (S.yo) it.push(['#/mi-tiempo', 'Mi tiempo', ICON.sol, M], ['#/mis-pagos', 'Mis pagos', ICON.yo, M], ['#/mis-solicitudes', 'Mis solicitudes', ICON.bandeja, M], ['#/mis-prestamos', 'Mis préstamos', ICON.prestamo, M]);
@@ -499,7 +499,7 @@ function seccion(h) {
 // 5 accesos de la barra inferior (móvil), según el rol; el resto queda en el menú lateral
 const FAVORITOS = {
   admin: ['#/planillas', '#/solicitudes', '#/empleados', '#/marcajes', '#/prestamos', '#/adelantos', '#/combustible'],
-  supervisor: ['#/asistencia', '#/marcajes', '#/marcar', '#/mis-pagos', '#/mis-solicitudes', '#/mi-tiempo'],
+  supervisor: ['#/asistencia', '#/solicitudes', '#/vacaciones', '#/marcajes', '#/marcar', '#/mis-pagos', '#/mis-solicitudes', '#/mi-tiempo'],
   empleado: ['#/marcar', '#/mi-tiempo', '#/mis-pagos', '#/mis-solicitudes', '#/mis-prestamos'],
 };
 const CORTO = { 'Mis solicitudes': 'Solicitudes', 'Mis préstamos': 'Préstamos', 'Mis pagos': 'Pagos', 'Mi tiempo': 'Mi tiempo' };
@@ -533,12 +533,21 @@ function shell(html) {
   $('#sidex').onclick = () => abrir(false);
   $$('a', side).forEach(a => a.addEventListener('click', () => abrir(false)));
   document.body.classList.remove('menu-abierto');
-  if (S.admin) refrescarBadge();
+  if (S.admin || S.supervisor) refrescarBadge();
   return $('#main');
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') document.body.classList.remove('menu-abierto'); });
 async function refrescarBadge() {
   try {
+    if (!S.admin) {
+      const [pm, hx, vc] = await Promise.all([
+        sb.from('pl_vacaciones').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente').neq('empleado_id', S.yo?.id || '00000000-0000-0000-0000-000000000000'),
+        sb.from('pl_permisos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente').neq('empleado_id', S.yo?.id || '00000000-0000-0000-0000-000000000000'),
+        sb.from('pl_horas_extra').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente').neq('empleado_id', S.yo?.id || '00000000-0000-0000-0000-000000000000')]);
+      const n = (pm.count || 0) + (hx.count || 0) + (vc.count || 0);
+      $$('[data-badge]').forEach(b => { b.textContent = n; b.classList.toggle('hidden', !n); });
+      return;
+    }
     const [a, v, pm, hx, cs] = await Promise.all([
       sb.from('pl_adelantos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       sb.from('pl_vacaciones').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
@@ -559,7 +568,6 @@ async function ruta() {
     if (S.admin) {
       if (p[0] === 'planillas') return vPlanillas();
       if (p[0] === 'planilla') return vPeriodo(p[1], p[2] || 'resumen');
-      if (p[0] === 'solicitudes') return vSolicitudes();
       if (p[0] === 'empleados') return vEmpleados();
       if (p[0] === 'empleado') return vEmpleado(p[1]);
       if (p[0] === 'prestamos') return vPrestamos();
@@ -571,6 +579,8 @@ async function ruta() {
       if (p[0] === 'ajustes') return vAjustes();
       if (p[0] === 'comp') return vComprobanteAdmin(p[1], p[2]);
     }
+    if ((S.admin || S.supervisor) && p[0] === 'solicitudes') return vSolicitudes();
+    if ((S.admin || S.supervisor) && p[0] === 'vacaciones') return vVacacionesSup(p[1]);
     if (S.supervisor && p[0] === 'asistencia') return vAsistenciaSup(p[1]);
     if ((S.admin || S.supervisor) && p[0] === 'marcajes') return vMarcajes(p[1]);
     if (S.yo && p[0] === 'marcar') return vMarcar();
@@ -1295,18 +1305,8 @@ async function vEmpleado(id) {
     const h = hoja('Constancia de trabajo', `<form><label class="f">Dirigida a<input class="inp" name="dirigido" placeholder="A quien interese"></label>${e.recibe_comisiones ? '<label class="chk"><input type="checkbox" name="com" checked>Incluir promedio de comisiones</label>' : ''}<div class="pie"><button class="btn pri">Generar e imprimir</button></div></form>`);
     $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { const d = await q(sb.rpc('pl_generar_constancia', { p_dirigido: x.dirigido || null, p_comisiones: !!x.com, p_emp: id })); h.cerrar(); imprimirConstancia(d); } catch (er) { toast(errMsg(er), true); } };
   };
-  $('#vini', m).onclick = () => {
-    const h = hoja('Saldo inicial de vacaciones', `<form><p class="small muted" style="margin:0">Días que el empleado tenía disponibles a la fecha de corte. Desde esa fecha el sistema suma automáticamente los días de cada aniversario y resta las vacaciones aprobadas.</p>
-      <div class="row2"><label class="f">Días disponibles<input class="inp" type="number" step="0.5" name="dias" value="${+e.vac_saldo_inicial}" required></label><label class="f">A la fecha<input class="inp" type="date" name="corte" value="${e.vac_fecha_corte || iso(hoyHN())}" required></label></div>
-      <div class="pie"><button class="btn pri">Guardar saldo inicial</button></div></form>`);
-    $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { await q(sb.from('pl_empleados').update({ vac_saldo_inicial: +x.dias, vac_fecha_corte: x.corte }).eq('id', id)); h.cerrar(); toast('Saldo inicial guardado'); rec(); } catch (er) { toast(errMsg(er), true); } };
-  };
-  $('#vaj', m).onclick = () => {
-    const h = hoja('Ajuste de vacaciones', `<form><p class="small muted" style="margin:0">Usa números negativos para restar (por ejemplo, días pagados en efectivo) y positivos para sumar.</p>
-      <label class="f">Días<input class="inp" type="number" step="0.5" name="dias" required></label><label class="f">Motivo<input class="inp" name="nota" required></label>
-      <div class="pie"><button class="btn pri">Guardar ajuste</button></div></form>`);
-    $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { await q(sb.from('pl_vacaciones').insert({ empleado_id: id, tipo: 'ajuste', dias: +x.dias, estado: 'aprobada', nota: x.nota, resuelto_en: new Date().toISOString() })); h.cerrar(); toast('Ajuste guardado'); rec(); } catch (er) { toast(errMsg(er), true); } };
-  };
+  $('#vini', m).onclick = () => vacSaldoInicial(e, () => rec());
+  $('#vaj', m).onclick = () => vacAjuste(id, () => rec());
   $('#nplant', m).onclick = () => editarPlantilla(null, { empleado_id: id }, rec);
   $$('[data-pl]', m).forEach(tr => tr.onclick = () => { const p = plants.find(x => x.id === tr.dataset.pl); if (!p.empleado_id) return toast('Es un cálculo del área; se edita en Ajustes'); editarPlantilla(p, {}, rec); });
   $('#hreg', m).onclick = () => {
@@ -1344,20 +1344,7 @@ async function vEmpleado(id) {
       } catch (er) { toast(errMsg(er), true); }
     };
   };
-  $('#vreg', m).onclick = () => {
-    const h = hoja('Registrar vacaciones', `<form><div class="row2"><label class="f">Desde<input class="inp" type="date" name="desde" required></label><label class="f">Hasta<input class="inp" type="date" name="hasta" required></label></div>
-      <label class="f">Nota<input class="inp" name="nota"></label><p class="small muted" style="margin:0">Quedan aprobadas de una vez y se marcan como “V” en la asistencia de la planilla abierta.</p>
-      <div class="pie"><button class="btn pri">Registrar vacaciones</button></div></form>`);
-    $('form', h.el).onsubmit = async ev => {
-      ev.preventDefault(); const x = formData(ev.target);
-      try {
-        const dias = await q(sb.rpc('pl__dias_habiles', { p_desde: x.desde, p_hasta: x.hasta }));
-        const v = await q(sb.from('pl_vacaciones').insert({ empleado_id: id, tipo: 'solicitud', desde: x.desde, hasta: x.hasta, dias, estado: 'pendiente', nota: x.nota || 'Registrado por administración' }).select().single());
-        await q(sb.rpc('pl_resolver_vacaciones', { p_id: v.id, p_aprobar: true }));
-        h.cerrar(); toast(`Vacaciones registradas: ${dias} días`); rec();
-      } catch (er) { toast(errMsg(er), true); }
-    };
-  };
+  $('#vreg', m).onclick = () => vacRegistrar(id, () => rec());
   $$('[data-p]', m).forEach(b => b.onclick = () => detallePrestamo(pres.find(p => p.id === b.dataset.p)));
   const rec = () => vEmpleado(id);
   $('#crear', m) && ($('#crear', m).onclick = () => {
@@ -1478,7 +1465,7 @@ async function vAjustes() {
   const m = shell(`<div class="top"><div><h1>Ajustes</h1><div class="muted small">Catálogo de conceptos para ingresos y deducciones</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Nuevo concepto</button></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">${grupo('ingreso', 'Ingresos')}${grupo('deduccion', 'Deducciones')}</div>
     <div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">Accesos</h3>
-      <p class="small muted" style="margin:0 0 10px">Pueden ver y editar todo: planillas, empleados, préstamos, adelantos y comprobantes de todos. El administrador de VerifiCrédito siempre tiene este acceso. El <b>supervisor de asistencia</b> solo marca asistencia de todos (faltas, llegadas tarde, horas extra); no ve salarios, comprobantes ni préstamos. Solo aparecen empleados que ya tienen usuario.</p>
+      <p class="small muted" style="margin:0 0 10px">Pueden ver y editar todo: planillas, empleados, préstamos, adelantos y comprobantes de todos. El administrador de VerifiCrédito siempre tiene este acceso. El <b>supervisor de asistencia</b> marca la asistencia de todos (faltas, llegadas tarde, horas extra), ve los marcajes y administra vacaciones, permisos y horas extra (no las suyas); no ve salarios, comprobantes ni préstamos. Solo aparecen empleados que ya tienen usuario.</p>
       ${conCuenta.length ? `<table class="t"><tbody>${conCuenta.map(e => `<tr><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.usuario || '')}</div></td><td class="r">${e.user_id === S.user.id ? `<span class="chip ok">Tú</span>${aut.has(e.user_id) ? ' <span class="chip warn">Autoriza</span>' : ''}` : `<div style="display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap"><label class="chk"><input type="checkbox" data-adm="${e.user_id}" ${esAdm.has(e.user_id) ? 'checked' : ''}>Administrador</label><label class="chk"><input type="checkbox" data-aut="${e.user_id}" ${aut.has(e.user_id) ? 'checked' : ''} ${esAdm.has(e.user_id) ? '' : 'disabled'}>Autoriza adelantos especiales</label><label class="chk"><input type="checkbox" data-sup="${e.user_id}" ${sup.has(e.user_id) ? 'checked' : ''} ${esAdm.has(e.user_id) ? 'disabled title="Los administradores ya manejan la asistencia"' : ''}>Supervisor de asistencia</label></div>`}</td></tr>`).join('')}</tbody></table>` : '<p class="small muted">Ningún empleado tiene usuario todavía.</p>'}</div>
     <div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><h3>Plantillas de cálculo por área o cargo</h3><button class="btn sm pri" id="nparea">${ICON.mas}Agregar</button></div>
       <p class="small muted" style="margin:0 0 10px">Se aplican a todos los empleados de esa área o cargo, salvo que el empleado tenga su propio cálculo del mismo concepto.</p>${tablaPlantillas(plArea)}</div>
@@ -1729,6 +1716,62 @@ async function vMarcajes(fecha) {
       <form style="margin-top:12px;display:grid;gap:10px"><label class="f">Anular este marcaje (motivo)<input class="inp" name="motivo" required placeholder="Ej.: marcó por error, foto no corresponde"></label><div class="pie"><button class="btn rojo">Anular marcaje</button></div></form>`);
     $('form', h.el).onsubmit = async ev => { ev.preventDefault(); try { await q(sb.rpc('pl_anular_marcaje', { p_id: r.id, p_motivo: formData(ev.target).motivo })); h.cerrar(); toast('Marcaje anulado; el empleado puede volver a marcar'); vMarcajes(fecha); } catch (er) { toast(errMsg(er), true); } };
   });
+}
+
+/* ===================== VACACIONES: gestión (admin y supervisión) ===================== */
+function vacSaldoInicial(e, despues) {
+  const h = hoja('Saldo inicial de vacaciones', `<form><p class="small muted" style="margin:0">${esc(e.nombre || '')}: días que tenía disponibles a la fecha de corte. Desde esa fecha el sistema suma automáticamente los días de cada aniversario y resta las vacaciones aprobadas.</p>
+    <div class="row2"><label class="f">Días disponibles<input class="inp" type="number" step="0.5" name="dias" value="${+(e.vac_saldo_inicial ?? e.saldo_inicial ?? 0)}" required></label><label class="f">A la fecha<input class="inp" type="date" name="corte" value="${e.vac_fecha_corte || e.fecha_corte || iso(hoyHN())}" required></label></div>
+    <div class="pie"><button class="btn pri">Guardar saldo inicial</button></div></form>`);
+  $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { await q(sb.rpc('pl_vac_saldo_inicial', { p_emp: e.id, p_dias: +x.dias, p_corte: x.corte })); h.cerrar(); toast('Saldo inicial guardado'); despues(); } catch (er) { toast(errMsg(er), true); } };
+}
+function vacAjuste(empId, despues) {
+  const h = hoja('Ajuste de vacaciones', `<form><p class="small muted" style="margin:0">Usa números negativos para restar (por ejemplo, días pagados en efectivo) y positivos para sumar.</p>
+    <label class="f">Días<input class="inp" type="number" step="0.5" name="dias" required></label><label class="f">Motivo<input class="inp" name="nota" required></label>
+    <div class="pie"><button class="btn pri">Guardar ajuste</button></div></form>`);
+  $('form', h.el).onsubmit = async ev => { ev.preventDefault(); const x = formData(ev.target); try { await q(sb.from('pl_vacaciones').insert({ empleado_id: empId, tipo: 'ajuste', dias: +x.dias, estado: 'aprobada', nota: x.nota, resuelto_en: new Date().toISOString(), resuelto_por: S.user.id })); h.cerrar(); toast('Ajuste guardado'); despues(); } catch (er) { toast(errMsg(er), true); } };
+}
+function vacRegistrar(empId, despues) {
+  const h = hoja('Registrar vacaciones', `<form><div class="row2"><label class="f">Desde<input class="inp" type="date" name="desde" required></label><label class="f">Hasta<input class="inp" type="date" name="hasta" required></label></div>
+    <label class="f">Nota<input class="inp" name="nota"></label><p class="small muted" style="margin:0">Quedan aprobadas de una vez y se marcan como “V” en la asistencia de la planilla abierta.</p>
+    <div class="pie"><button class="btn pri">Registrar vacaciones</button></div></form>`);
+  const f = $('form', h.el);
+  f.desde.onchange = () => { if (!f.hasta.value || f.hasta.value < f.desde.value) f.hasta.value = f.desde.value; f.hasta.min = f.desde.value; };
+  f.onsubmit = async ev => {
+    ev.preventDefault(); const x = formData(f);
+    try {
+      const dias = await q(sb.rpc('pl__dias_habiles', { p_desde: x.desde, p_hasta: x.hasta }));
+      const v = await q(sb.from('pl_vacaciones').insert({ empleado_id: empId, tipo: 'solicitud', desde: x.desde, hasta: x.hasta, dias, estado: 'pendiente', nota: x.nota || 'Registrado por administración' }).select().single());
+      await q(sb.rpc('pl_resolver_vacaciones', { p_id: v.id, p_aprobar: true }));
+      h.cerrar(); toast(`Vacaciones registradas: ${dias} días`); despues();
+    } catch (er) { toast(errMsg(er), true); }
+  };
+}
+async function vVacacionesSup(empSel) {
+  cargando();
+  const emps = (await q(sb.rpc('pl_lista_empleados'))).filter(e => e.activo);
+  const res = await Promise.all(emps.map(e => q(sb.rpc('pl_vacaciones_resumen', { p_emp: e.id })).catch(() => null)));
+  const filas = emps.map((e, i) => ({ e, r: res[i] }));
+  const propio = e => !S.admin && S.yo && e.id === S.yo.id;
+  const m = shell(`<div class="top"><div><h1>Vacaciones</h1><div class="muted small">Saldo de cada empleado · toca un nombre para registrar vacaciones, ajustes o el saldo inicial</div></div></div>
+    <div class="tscroll"><table class="t"><thead><tr><th>Empleado</th><th class="r">Disponibles</th><th class="r">Por aprobar</th><th class="r">Gozados</th><th>Próximo aniversario</th></tr></thead><tbody>
+      ${filas.map(({ e, r }) => `<tr class="click" data-ve="${e.id}"><td><b>${esc(e.nombre)}</b><div class="tiny muted">${esc(e.cargo || '')}${propio(e) ? ' · tus vacaciones las gestiona administración' : ''}</div></td>
+        ${!r || r.sin_fecha_ingreso ? '<td colspan="4" class="small muted">Falta la fecha de ingreso</td>' : `<td class="r num">${N(r.disponible_pedir ?? r.saldo)}</td><td class="r">${+r.pendientes ? `<span class="chip warn">${N(r.pendientes)}</span>` : '—'}</td><td class="r">${N(r.gozados)}</td><td class="small">${fc(r.proximo?.fecha)}</td>`}</tr>`).join('')}
+    </tbody></table></div>`);
+  const abrir = id => {
+    const { e, r } = filas.find(x => x.e.id === id) || {}; if (!e) return;
+    const h = hoja(`Vacaciones · ${corto(e.nombre)}`, `<div id="vdet"><div class="cargando">Cargando…</div></div>`, { ancha: true });
+    (async () => {
+      const mov = await q(sb.from('pl_vacaciones').select('*').eq('empleado_id', id).order('solicitado_en', { ascending: false }).limit(30));
+      const det = $('#vdet', h.el); if (!det) return;
+      det.innerHTML = `${r ? htmlResumenVac(r) : ''}
+        ${propio(e) ? '<p class="small muted">Tus propias vacaciones las registra o aprueba administración.</p>' : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0"><button class="btn sm" data-x="ini">Saldo inicial</button><button class="btn sm" data-x="aj">Ajuste</button><button class="btn sm pri" data-x="reg">Registrar vacaciones</button></div>`}
+        ${mov.length ? `<div class="tscroll"><table class="t"><tbody>${mov.map(v => `<tr><td>${v.tipo === 'ajuste' ? 'Ajuste' : `${fc(v.desde)} al ${fc(v.hasta)}`}<div class="tiny muted">${esc(v.nota || v.respuesta || '')}</div></td><td>${chipEstado(v.estado)}</td><td class="r num">${+v.dias > 0 && v.tipo === 'ajuste' ? '+' : ''}${N(v.dias)} días</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Sin movimientos de vacaciones.</div>'}`;
+      const luego = () => { h.cerrar(); vVacacionesSup(id); };
+      $$('[data-x]', det).forEach(b => b.onclick = () => ({ ini: () => vacSaldoInicial({ ...e, ...(r || {}) }, luego), aj: () => vacAjuste(id, luego), reg: () => vacRegistrar(id, luego) })[b.dataset.x]());
+    })();
+  };
+  $$('[data-ve]', m).forEach(tr => tr.onclick = () => abrir(tr.dataset.ve));
 }
 
 /* ===================== PAGOS APARTE: combustible y depreciación ===================== */
@@ -2272,41 +2315,49 @@ const tablaPlantillas = ps => ps.length ? `<div class="tscroll"><table class="t"
 /* ===================== ADMIN: solicitudes ===================== */
 async function vSolicitudes() {
   cargando();
+  const sup = !S.admin; // supervisión: solo permisos y horas extra
+  const nada = Promise.resolve([]);
   const [ad, vac, adR, vacR, pm, pmR, hx, hxR, cs, csR] = await Promise.all([
-    q(sb.from('pl_adelantos').select('*, pl_empleados(nombre,salario_mensual)').eq('estado', 'pendiente').order('creado_en')),
+    sup ? nada : q(sb.from('pl_adelantos').select('*, pl_empleados(nombre,salario_mensual)').eq('estado', 'pendiente').order('creado_en')),
     q(sb.from('pl_vacaciones').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
-    q(sb.from('pl_adelantos').select('*, pl_empleados(nombre)').eq('origen', 'empleado').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
+    sup ? nada : q(sb.from('pl_adelantos').select('*, pl_empleados(nombre)').eq('origen', 'empleado').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
     q(sb.from('pl_vacaciones').select('*, pl_empleados(nombre)').eq('tipo', 'solicitud').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
     q(sb.from('pl_permisos').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
     q(sb.from('pl_permisos').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
     q(sb.from('pl_horas_extra').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
     q(sb.from('pl_horas_extra').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
-    q(sb.from('pl_constancia_solicitudes').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
-    q(sb.from('pl_constancia_solicitudes').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15))]);
+    sup ? nada : q(sb.from('pl_constancia_solicitudes').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
+    sup ? nada : q(sb.from('pl_constancia_solicitudes').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15))]);
   const todasS = [...ad, ...vac, ...adR, ...vacR, ...pm, ...pmR, ...hx, ...hxR, ...cs, ...csR];
+  if (sup) { // la supervisión no lee la tabla de empleados (salarios); trae solo nombres
+    let nombres = []; try { nombres = await q(sb.rpc('pl_nombres_empleados')); } catch (_) { }
+    todasS.forEach(x => { if (!x.pl_empleados?.nombre) x.pl_empleados = { nombre: nombres.find(n => n.id === x.empleado_id)?.nombre || '' }; });
+  }
+  const propia = x => !S.admin && S.yo && x.empleado_id === S.yo.id;
+  const botones = (x, r, a) => propia(x) ? '<span class="tiny muted">Tu solicitud: la aprueba administración</span>' : `<div style="display:flex;gap:6px"><button class="btn sm rojo" data-${r}="${x.id}">Rechazar</button><button class="btn sm pri" data-${a}="${x.id}">Aprobar</button></div>`;
   const uids = [...new Set(todasS.flatMap(x => [x.creado_por, x.solicitado_por, x.resuelto_por]).filter(Boolean))];
   let usuarios = [];
   try { usuarios = uids.length ? await q(sb.rpc('pl_nombres_usuarios', { p_ids: uids })) : []; } catch (_) { }
   const nomU = id => { if (!id) return null; const u = usuarios.find(x => x.id === id); return u ? corto(u.nombre) : 'usuario desconocido'; };
   const regEn = x => x.creado_en || x.solicitado_en, regPor = x => x.creado_por || x.solicitado_por;
   const linea = x => `<div class="tiny muted" style="margin-top:2px">${ICON.reloj.replace('<svg', '<svg width="12" height="12" style="vertical-align:-1px"')} Registrado ${fdt(regEn(x))} por <b>${esc(nomU(regPor(x)) || (x.origen === 'admin' ? 'administración' : 'el empleado'))}</b></div>`;
-  const m = shell(`<div class="top"><div><h1>Solicitudes</h1><div class="muted small">Adelantos que necesitan autorización, vacaciones, permisos, horas extra y constancias por atender</div></div></div>
-    <h2 style="margin-bottom:10px">Adelantos por autorizar</h2>
+  const m = shell(`<div class="top"><div><h1>Solicitudes</h1><div class="muted small">${sup ? 'Vacaciones, permisos y horas extra por aprobar' : 'Adelantos que necesitan autorización, vacaciones, permisos, horas extra y constancias por atender'}</div></div></div>
+    ${sup ? '' : `<h2 style="margin-bottom:10px">Adelantos por autorizar</h2>
     ${!S.autoriza && ad.length ? '<p class="small muted" style="margin:-4px 0 10px">Solo quien tiene permiso de autorizar (gerencia) puede aprobarlos. Se configura en Ajustes.</p>' : ''}
     ${ad.length ? `<div class="lista">${ad.map(a => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(a.pl_empleados?.nombre)} · ${L(a.monto)}</div><div class="s">${a.tipo === 'comisiones' ? 'Adelanto de comisiones' : 'Adelanto de salario'} ${a.descripcion && !/^Adelanto de/.test(a.descripcion) ? ' · ' + esc(a.descripcion) : ''}</div><div class="tiny" style="color:#8A6A00">${esc(a.motivo_revision || '')}</div>${linea(a)}</div>
-      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-r="${a.id}" ${S.autoriza ? '' : 'disabled'}>Rechazar</button><button class="btn sm pri" data-a="${a.id}" ${S.autoriza ? '' : 'disabled'}>Autorizar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay adelantos pendientes.</div>'}
-    <h2 style="margin:22px 0 10px">Vacaciones por aprobar</h2>
+      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-r="${a.id}" ${S.autoriza ? '' : 'disabled'}>Rechazar</button><button class="btn sm pri" data-a="${a.id}" ${S.autoriza ? '' : 'disabled'}>Autorizar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay adelantos pendientes.</div>'}`}
+    <h2 style="margin:${sup ? '0' : '22px'} 0 10px">Vacaciones por aprobar</h2>
     ${vac.length ? `<div class="lista">${vac.map(v => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(v.pl_empleados?.nombre)} · ${N(v.dias)} días</div><div class="s">${fc(v.desde)} al ${fc(v.hasta)}${v.nota ? ' · ' + esc(v.nota) : ''}</div>${linea(v)}</div>
-      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-vr="${v.id}">Rechazar</button><button class="btn sm pri" data-va="${v.id}">Aprobar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay vacaciones pendientes.</div>'}
+      ${botones(v, 'vr', 'va')}</div>`).join('')}</div>` : '<div class="vacio">No hay vacaciones pendientes.</div>'}
     <h2 style="margin:22px 0 10px">Permisos por aprobar</h2>
     ${pm.length ? `<div class="lista">${pm.map(p => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(p.pl_empleados?.nombre)} · ${rangoPermiso(p)}</div><div class="s">${tipoPermiso(p)} · ${esc(p.motivo)}</div>${linea(p)}</div>
-      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-pr="${p.id}">Rechazar</button><button class="btn sm pri" data-pa="${p.id}">Aprobar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay permisos pendientes.</div>'}
+      ${botones(p, 'pr', 'pa')}</div>`).join('')}</div>` : '<div class="vacio">No hay permisos pendientes.</div>'}
     <h2 style="margin:22px 0 10px">Horas extra y descansos por aprobar</h2>
     ${hx.length ? `<div class="lista">${hx.map(h => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(h.pl_empleados?.nombre)} · ${N(h.horas)} h</div><div class="s">${etiquetaHoras(h)} · ${fc(h.fecha)} · ${esc(h.motivo)}</div>${linea(h)}</div>
-      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-hr="${h.id}">Rechazar</button><button class="btn sm pri" data-ha="${h.id}">Aprobar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay horas extra pendientes.</div>'}
-    <h2 style="margin:22px 0 10px">Constancias por emitir</h2>
+      ${botones(h, 'hr', 'ha')}</div>`).join('')}</div>` : '<div class="vacio">No hay horas extra pendientes.</div>'}
+    ${sup ? '' : `<h2 style="margin:22px 0 10px">Constancias por emitir</h2>
     ${cs.length ? `<div class="lista">${cs.map(c => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(c.pl_empleados?.nombre)}</div><div class="s">Dirigida a: ${esc(c.dirigido_a || 'A quien interese')}${c.incluye_comisiones ? ' · con comisiones' : ''}${c.motivo ? ' · ' + esc(c.motivo) : ''}</div>${linea(c)}</div>
-      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-cr="${c.id}">Rechazar</button><button class="btn sm pri" data-ce="${c.id}">Emitir</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay constancias pendientes.</div>'}
+      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-cr="${c.id}">Rechazar</button><button class="btn sm pri" data-ce="${c.id}">Emitir</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay constancias pendientes.</div>'}`}
     <h2 style="margin:22px 0 10px">Resueltas recientemente</h2>
     <div class="tscroll"><table class="t"><tbody>
       ${[...adR.map(a => ({ f: a.resuelto_en, t: `${a.tipo === 'comisiones' ? 'Adelanto comisiones' : 'Adelanto'} ${L(a.monto)}${a.automatico ? ' (automático)' : ''}`, n: a.pl_empleados?.nombre, e: a.estado, x: a })), ...vacR.map(v => ({ f: v.resuelto_en, t: `Vacaciones ${fc(v.desde)}–${fc(v.hasta)}`, n: v.pl_empleados?.nombre, e: v.estado, x: v })), ...pmR.map(p => ({ f: p.resuelto_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce ${rangoPermiso(p)}`, n: p.pl_empleados?.nombre, e: p.estado, x: p })), ...hxR.map(h => ({ f: h.resuelto_en, t: `${etiquetaHoras(h)} ${fc(h.fecha)} · ${N(h.horas)} h`, n: h.pl_empleados?.nombre, e: h.estado, x: h })), ...csR.map(c => ({ f: c.resuelto_en || c.solicitado_en, t: `Constancia · ${esc(c.dirigido_a || 'A quien interese')}`, n: c.pl_empleados?.nombre, e: c.estado, x: c }))]

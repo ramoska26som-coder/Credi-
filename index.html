@@ -1571,7 +1571,13 @@ function calcRefi(s, c){
   const limAprob = autorizado ? +s.monto_aprobado : limCalc;
   const elegido = autorizado && s.monto_solicitado ? +s.monto_solicitado : null;
   const disponible = (elegido ?? limAprob) - (+s.saldo_capital || 0) - (+s.saldo_intereses || 0);
-  const prefCalc = tard3 < 3 && tard7 === 0 && prom > (P.umbral_tasa_preferencial || 20000) && antig != null && antig > 120;
+  // Si ya tiene tasa preferencial (10.5% nivelado o menos / 16% solo interés) la conserva sin importar el salario,
+  // salvo que tenga más de 2 pagos tardíos
+  const ta = s.tasa_actual != null && s.tasa_actual !== '' ? +s.tasa_actual : null;
+  const yaPref = ta != null && (ta <= 0.105 + 1e-9 || Math.abs(ta - 0.16) < 1e-9);
+  const prefNueva = tard3 < 3 && tard7 === 0 && prom > (P.umbral_tasa_preferencial || 20000) && antig != null && antig > 120;
+  const prefCalc = yaPref ? tard3 <= 2 : prefNueva;
+  const prefMotivo = yaPref ? (tard3 <= 2 ? 'Mantiene la preferencial que ya tenía' : `Pierde la preferencial: ${tard3} pagos tardíos (máx. 2)`) : '';
   // Después del dictamen manda lo que quedó autorizado (puede haberse ajustado manualmente)
   const pref = s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : prefCalc;
   const tasaNiv = pref ? 0.105 : 0.14, tasaSI = pref ? 0.16 : 0.20;
@@ -1595,7 +1601,7 @@ function calcRefi(s, c){
   const r2 = prom ? limAprob / prom : 0;
   const proxLim = tard3 > 5 ? null : Math.min(P.techo_refi || 30000, mround(prom * (r2 < 0.4 ? 0.5 : r2 < 0.7 ? 0.8 : 1), 1000));
   const peldano = (antig == null || antig < 90) ? '50% (menos de 90 días)' : diasAum < 90 ? 'Se mantiene (último aumento hace menos de 90 días)' : `${Math.round(factor * 100)}%`;
-  return { elegido, limCalc, autorizado, prefCalc, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob,
+  return { elegido, limCalc, autorizado, prefCalc, yaPref, prefMotivo, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob,
     limAprob, disponible, pref, tasaNueva, cuotas, plazoMin, dictamen, motivos, proxAum, proxLim, techo, sinFecha: !s.fecha_ingreso };
 }
 function dictamenRefiHTML(r){
@@ -1669,7 +1675,8 @@ function refiResHTML(s, r){
         ${r.autorizado ? `<div class="small" style="font-weight:600;color:var(--brand)">${autorizadoPor(s, 'ajuste_monto')}</div>${r.limCalc !== r.limAprob ? `<div class="small muted">Calculado: ${L(r.limCalc)}</div>` : ''}` : ''}</div>
       <div class="box" style="${r.disponible < (S.params.disponible_minimo ?? 2000) ? 'background:var(--red-bg)' : ''}"><div class="l">Disponible (monto libre)</div><div class="v">${L(r.disponible)}</div>${r.elegido != null && r.elegido !== r.limAprob ? `<div class="small" style="font-weight:600;color:var(--brand)">Cliente toma ${L(r.elegido)}</div>` : ''}</div>
       <div class="box"><div class="l">Pagos tardíos &gt;3 / ≥7 días</div><div class="v">${r.tard3} / ${r.tard7}</div><div class="small muted">de ${r.total} pagos</div></div>
-      <div class="box"><div class="l">Tasa ${r.pref ? 'preferencial' : 'nueva'}</div><div class="v">${(r.tasaNueva * 100).toFixed(1).replace('.0','')}%</div><div class="small muted">${s.tasa_actual != null ? 'actual ' + (+s.tasa_actual * 100).toFixed(1).replace('.0','') + '%' : ''}${r.pref ? ' · preferencial' : ' · normal'}</div>
+      <div class="box"><div class="l">Tasa ${r.pref ? 'preferencial' : 'nueva'}</div><div class="v">${(r.tasaNueva * 100).toFixed(1).replace('.0','')}%</div><div class="small muted">${s.tasa_actual != null ? 'actual ' + (+s.tasa_actual * 100).toFixed(1).replace('.0','') + '%' + (r.yaPref ? ' (preferencial)' : '') : ''}${r.pref ? ' · preferencial' : ' · normal'}</div>
+        ${r.prefMotivo ? `<div class="small" style="font-weight:600;color:${r.prefCalc ? 'var(--green)' : 'var(--red)'}">${r.prefMotivo}</div>` : ''}
         ${s.dictamen_en ? `<div class="small" style="font-weight:600;color:var(--brand)">${autorizadoPor(s, 'ajuste_tasa')}</div>${r.prefCalc !== r.pref ? `<div class="small muted">Calculada: ${r.prefCalc ? 'preferencial' : 'normal'}</div>` : ''}` : ''}</div>
       <div class="box"><div class="l">Próximo aumento</div><div class="v" style="font-size:15px">${r.proxAum}</div></div>
       <div class="box"><div class="l">Próximo límite</div><div class="v">${r.proxLim == null ? 'BLOQUEADO' : L(r.proxLim)}</div></div>

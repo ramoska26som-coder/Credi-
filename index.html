@@ -45,6 +45,15 @@ header.top .row{display:flex;align-items:center;gap:10px}
 header.top h1{font-size:19px;margin:0;flex:1;font-weight:800;letter-spacing:-.3px;line-height:1.05}
 header.top h1 .plus{color:var(--accent)} header.top h1 small{display:block;font:600 10px/1.4 Inter,sans-serif;letter-spacing:1.4px;text-transform:uppercase;opacity:.85}
 header.top .who{font-size:12px;opacity:.9;text-align:right}
+/* Conexión / sin señal */
+.netpill{border:0;border-radius:999px;padding:5px 10px;font:700 11.5px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+.netpill.off{background:#FFD400;color:#0A2A66}
+.netpill.pend{background:rgba(255,255,255,.2);color:#fff}
+.netpill.err{background:#fde8e6;color:#b42318}
+.netbar{background:#FFF4C2;color:#6b4e00;font-size:12.5px;padding:6px 16px;text-align:center;border-bottom:1px solid #f0d66a}
+.netbar b{color:#0A2A66}
+.ob-item{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:13px}
+.ob-item.err{border-color:var(--red);background:var(--red-bg)}
 .iconbtn{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:10px;padding:7px 10px;font-size:14px}
 nav.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:10px -16px 0;padding:0 12px}
 nav.tabs::-webkit-scrollbar{display:none}
@@ -345,11 +354,13 @@ table.ht td.nota{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:va
     <div class="row">
       <h1>Más Pisto<span class="plus">+</span><small>VerifiCrédito</small></h1>
       <div class="who"><div id="whoName"></div><div id="whoRol"></div></div>
+      <button class="netpill hidden" id="netPill"></button>
       <button class="iconbtn" id="btnBell" title="Notificaciones">🔔</button>
       <button class="iconbtn" id="btnOut" title="Salir">⎋</button>
     </div>
     <nav class="tabs" id="tabs"></nav>
   </header>
+  <div class="netbar hidden" id="netBar"></div>
   <main id="main"></main>
   <button class="fab hidden" id="fab">＋ Nueva solicitud</button>
 </div>
@@ -360,11 +371,18 @@ table.ht td.nota{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:va
 </div>
 
 <script>
+// App disponible sin señal (sw.js debe estar junto a index.html). Va primero para registrarse aunque falle otra cosa.
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
 // ================== Configuración ==================
 const SB_URL = 'https://edmvfqelxsxevpmxgbav.supabase.co';
 const SB_KEY = 'sb_publishable_lgTmmLtUESDDyX2sff6ArQ_z65Ti9d6';
 const TZ = 'America/Tegucigalpa';
-const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+// Con señal débil las peticiones pueden quedarse colgadas: se cortan a los 20 s y se tratan como "sin conexión"
+const fetchT = (url, opt = {}) => { const ac = new AbortController(), t = setTimeout(() => ac.abort(), 20000);
+  if (opt.signal){ if (opt.signal.aborted) ac.abort(); else opt.signal.addEventListener('abort', () => ac.abort()); }
+  return fetch(url, { ...opt, signal: ac.signal }).finally(() => clearTimeout(t)); };
+const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true }, global: { fetch: fetchT } });
+
 
 // ================== Catálogos ==================
 const EST = {
@@ -385,7 +403,7 @@ const ACC = { creada:'Creó la solicitud', enviada_analisis:'Envió a análisis'
 const CERRADAS = ['desembolsada','denegada','rechazada_verificacion','desistida'];
 
 const S = { user:null, me:null, perfiles:{}, params:{}, sols:[], com:{}, tab:null, q:'', filtroTodas:'abiertas',
-  det:null, detData:null, replyTo:null, statsRange:'mes', dirty:false, feriados:new Set(), feriadosRows:[], boardDay:null, boardTodos:true };
+  det:null, detData:null, replyTo:null, detCache:{}, cmCache:{}, offline:false, syncAt:null, statsRange:'mes', dirty:false, feriados:new Set(), feriadosRows:[], boardDay:null, boardTodos:true };
 
 // ================== Utilidades ==================
 const $ = s => document.querySelector(s);
@@ -404,6 +422,7 @@ function hace(d){
 const chip = e => `<span class="chip c-${EST[e]?.c||'gray'}">${esc(EST[e]?.t||e)}</span>`;
 const tipoChip = t => `<span class="chip ${t==='nuevo'?'c-blue':t==='reingreso'?'c-teal':t==='refinanciamiento'?'c-violet':'c-amber'}">${TIPO[t]||esc(t)}</span>`;
 const nombre = id => S.perfiles[id]?.nombre || '—';
+const pendChip = s => s._pend ? '<span class="chip c-amber" title="Hecho sin señal; se enviará al volver la conexión">⟳ por enviar</span>' : '';
 const esperaChip = s => s.en_espera ? `<span class="chip c-gray" title="${esc(s.espera_motivo||'')}" style="border:1px solid var(--gray)">⏸ En espera</span>` : '';
 const iniciales = n => (n||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
 const AVC = ['#2a78d6','#eb6834','#1baf7a','#c98500','#d55181','#6a3fb5','#0e7c6b','#b42318'];
@@ -422,7 +441,220 @@ async function fnUsuarios(body){
   if (data?.error) throw new Error(data.error);
   return data;
 }
-async function rpc(fn, args){ const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
+// ================== Modo sin conexión ==================
+// Caché local (IndexedDB): última copia de los datos para trabajar sin señal
+const KV = (() => { let dbp;
+  const open = () => dbp || (dbp = new Promise((ok, ko) => { const r = indexedDB.open('verificredito', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); }));
+  const tx = async (m, f) => { const db = await open(); return new Promise((ok, ko) => { const t = db.transaction('kv', m), q = f(t.objectStore('kv'));
+    t.oncomplete = () => ok(q && q.result); t.onerror = () => ko(t.error); }); };
+  return { get: k => tx('readonly', st => st.get(k)).catch(() => undefined), set: (k, v) => tx('readwrite', st => st.put(v, k)).catch(() => {}),
+    del: k => tx('readwrite', st => st.delete(k)).catch(() => {}) }; })();
+const ck = k => `${S.me?.id || S.user?.id || 'x'}:${k}`;
+const esRed = e => !navigator.onLine || /failed to fetch|networkerror|load failed|network request|aborterror|aborted|fetch/i.test(String(e?.message || '') + ' ' + String(e?.name || '') + ' ' + String(e?.details || '') + ' ' + (typeof e === 'string' ? e : ''));
+// Cola de cambios hechos sin señal (se envían en orden al volver la conexión)
+const OB_KEY = () => 'vc_outbox_' + (S.me?.id || ''), OBF_KEY = () => 'vc_fallidos_' + (S.me?.id || ''), MAP_KEY = () => 'vc_tmpmap_' + (S.me?.id || '');
+const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e){ return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const outbox = () => lsGet(OB_KEY(), []), fallidos = () => lsGet(OBF_KEY(), []);
+// Acciones que se pueden hacer sin señal (las de administración requieren conexión)
+const COLA = new Set(['crear_solicitud','enviar_analisis','dictaminar','completar_solicitud','guardar_item','finalizar_verificacion','marcar_desembolsada','desistir',
+  'poner_en_espera','reanudar','guardar_ubicacion','asignar_verificador','actualizar_datos_refi','actualizar_datos_analisis','registrar_reconocimiento','regresar_a_revisadas']);
+const OB_DESC = { crear_solicitud:'Crear solicitud', enviar_analisis:'Enviar a análisis', dictaminar:'Dictamen', completar_solicitud:'Completar con el cliente',
+  guardar_item:'Verificación', finalizar_verificacion:'Cerrar verificación', marcar_desembolsada:'Marcar desembolsada', desistir:'Cerrar (desistió)',
+  poner_en_espera:'Poner en espera', reanudar:'Reanudar', guardar_ubicacion:'Ubicación', asignar_verificador:'Asignar verificador',
+  actualizar_datos_refi:'Datos del préstamo', actualizar_datos_analisis:'Datos de análisis', registrar_reconocimiento:'Reconocimiento de deuda',
+  regresar_a_revisadas:'Regresar a revisadas', 'ins:ingresos':'Agregar ingreso', 'upd:ingresos':'Editar ingreso', 'del:ingresos':'Borrar ingreso', 'ins:comentarios':'Comentario' };
+const opSid = op => op.t === 'rpc' ? (op.args.p_id ?? op.tmpId) : (op.row?.solicitud_id ?? op.sid);
+function opDesc(op){ const sid = opSid(op), so = S.sols.find(x => x.id === sid);
+  return `${OB_DESC[op.t === 'rpc' ? op.fn : op.t + ':' + op.tabla] || op.fn || op.tabla}${so ? ' · ' + so.nombre_cliente : op.args?.p_nombre ? ' · ' + op.args.p_nombre : ''}`; }
+async function rpc(fn, args){
+  // Si ya hay cambios en cola (o no hay señal) se encola para respetar el orden
+  if (COLA.has(fn) && (!navigator.onLine || outbox().length || JSON.stringify(args || {}).match(/"p_id":-\d/))) return encolar({ t:'rpc', fn, args });
+  try { const { data, error } = await sb.rpc(fn, args); if (error) throw error; marcarConexion(true); return data; }
+  catch(e){ if (COLA.has(fn) && esRed(e)){ marcarConexion(false); return encolar({ t:'rpc', fn, args }); } if (esRed(e)) { marcarConexion(false); throw new Error('Sin conexión: esta acción necesita señal'); } throw e; }
+}
+// Escrituras directas a tablas (ingresos, comentarios) con el mismo respaldo sin señal
+async function dbw(op){
+  if (!navigator.onLine || outbox().length || (op.row?.solicitud_id < 0) || op.id < 0) return encolar(op);
+  try { const r = await ejecutarOp(op, lsGet(MAP_KEY(), {})); marcarConexion(true); return r; }
+  catch(e){ if (esRed(e)){ marcarConexion(false); return encolar(op); } throw e; }
+}
+function encolar(op){
+  op.uid = Date.now() + '-' + Math.random().toString(36).slice(2, 7); op.ts = new Date().toISOString();
+  if (op.t === 'rpc' && op.fn === 'crear_solicitud') op.tmpId = -Date.now();
+  if (op.t === 'ins') op.tmpId = -(Date.now() * 10 + Math.floor(Math.random() * 10));
+  const r = aplicarOp(op, true);   // valida y aplica en pantalla; lanza error si no procede
+  lsSet(OB_KEY(), outbox().concat(op));
+  guardarCache(); indicadorRed(); programarEnvio(4000);
+  toast('📴 Sin señal: guardado en el teléfono. Se enviará solo al volver la conexión.');
+  return r;
+}
+const ahoraISO = () => new Date().toISOString();
+// Aplica localmente el efecto esperado de una acción (también se re-aplica sobre datos recargados mientras siga en cola)
+function aplicarOp(op, nuevo){
+  const det = id => (S.detCache[id] = S.detCache[id] || { ing:[], items:[], evs:[] });
+  const sol = id => S.sols.find(x => x.id === id);
+  const evento = (id, accion, de, a, nota) => { const d = det(id); if (!d.evs.some(e => e._op === op.uid)) d.evs.push({ id:'o' + op.uid, _op:op.uid, solicitud_id:id, usuario_id:S.me.id, accion, de_estado:de, a_estado:a, nota:nota || null, creado_en:op.ts, pendiente:true }); };
+  const est = (s, e, extra = {}) => { if (!s) return; const de = s.estado; if (de !== e) Object.assign(s, { estado:e, estado_desde:op.ts }); Object.assign(s, extra, { actualizado_en:op.ts, _pend:true });
+    if (['desembolsada','denegada','rechazada_verificacion','desistida'].includes(e)) s.cerrado_en = s.cerrado_en || op.ts; return de; };
+  if (op.t === 'ins' && op.tabla === 'ingresos'){ const d = det(op.row.solicitud_id); if (!d.ing.some(i => i.id === op.tmpId)) d.ing.push({ ...op.row, id:op.tmpId, _pend:true }); d.ing.sort((a, b) => a.fecha < b.fecha ? -1 : 1); return op.tmpId; }
+  if (op.t === 'upd' && op.tabla === 'ingresos'){ Object.values(S.detCache).forEach(d => d.ing.forEach(i => { if (i.id === op.id) Object.assign(i, op.row, { _pend:true }); })); return; }
+  if (op.t === 'del' && op.tabla === 'ingresos'){ Object.values(S.detCache).forEach(d => { d.ing = d.ing.filter(i => i.id !== op.id); }); return; }
+  if (op.t === 'ins' && op.tabla === 'comentarios'){ const l = (S.cmCache[op.row.solicitud_id] = S.cmCache[op.row.solicitud_id] || []); if (!l.some(c => c.id === op.tmpId)) l.push({ ...op.row, id:op.tmpId, autor_id:S.me.id, creado_en:op.ts, _pend:true }); S.com[op.row.solicitud_id] = l.length; return; }
+  const a = op.args || {}, s = sol(a.p_id);
+  switch (op.fn){
+    case 'crear_solicitud': {
+      if (nuevo && String(a.p_dni || '').replace(/\D/g,'').length !== 13) throw new Error('Ingrese el número de identidad (13 dígitos)');
+      if (!sol(op.tmpId)) S.sols.unshift({ id:op.tmpId, codigo:'Pendiente de enviar', tipo:a.p_tipo, nombre_cliente:a.p_nombre, telefono:a.p_telefono, dni:a.p_dni, estado:a.p_enviar ? 'en_analisis' : 'borrador',
+        tipo_pago:'Quincenal', rubro_especial:false, datos_cliente:{}, asesor_id:a.p_asesor || S.me.id, creado_en:op.ts, actualizado_en:op.ts, estado_desde:op.ts, fecha_ingreso:a.p_fecha_ingreso, pagos_historial:[], plan_pago:'nivelado', _pend:true, _tmp:true });
+      evento(op.tmpId, 'creada', null, 'borrador'); return op.tmpId; }
+    case 'enviar_analisis':
+      if (nuevo && s?.tipo === 'nuevo' && !det(s.id).ing.some(i => i.categoria === 'salario')) throw new Error('Agregue al menos un ingreso (salario) antes de enviar a análisis');
+      evento(a.p_id, 'enviada_analisis', s?.estado, 'en_analisis'); est(s, 'en_analisis'); return;
+    case 'dictaminar': {
+      const d = a.p_dictamen === 'devolver' ? 'borrador' : a.p_dictamen;
+      if (nuevo && a.p_dictamen === 'aprobada' && !a.p_monto) throw new Error('Indique el monto aprobado');
+      if (nuevo && a.p_dictamen !== 'aprobada' && !a.p_nota) throw new Error(a.p_dictamen === 'denegada' ? 'Indique el motivo de la denegación' : 'Indique qué debe corregir el asesor');
+      evento(a.p_id, a.p_dictamen === 'devolver' ? 'devuelta_asesor' : 'dictamen_' + a.p_dictamen, s?.estado, d, a.p_nota);
+      est(s, d, a.p_dictamen === 'devolver' ? {} : { analista_id:S.me.id, dictamen_en:op.ts, dictamen_nota:a.p_nota, monto_aprobado:a.p_dictamen === 'aprobada' ? a.p_monto : null,
+        saldo_capital:a.p_saldo_capital ?? s?.saldo_capital, saldo_intereses:a.p_saldo_intereses ?? s?.saldo_intereses }); return; }
+    case 'completar_solicitud': {
+      if (!s) return;
+      const req = s.tipo === 'nuevo' ? ['domicilio'].concat(a.p_act_trabajo ? ['trabajo'] : []) : [].concat(a.p_act_domicilio ? ['domicilio'] : [], a.p_act_trabajo ? ['trabajo'] : []);
+      if (a.p_forma === 'efectivo') req.push('entrega_efectivo');
+      const destino = s.tipo !== 'nuevo' && a.p_forma === 'transferencia' && !req.length ? 'desembolso_pendiente' : 'por_verificar';
+      const d = det(s.id); if (!d.items.length || nuevo) d.items = req.map((it, i) => ({ id:-(i + 1), solicitud_id:s.id, item:it, completado:false }));
+      evento(s.id, destino === 'por_verificar' ? 'enviada_verificacion' : 'enviada_desembolso', s.estado, destino);
+      est(s, destino, { forma_desembolso:a.p_forma, cuenta_banco:a.p_cuenta, actualizar_domicilio:a.p_act_domicilio, actualizar_trabajo:a.p_act_trabajo, verificador_id:a.p_verificador ?? s.verificador_id, monto_solicitado:a.p_monto_solicitado || s.monto_aprobado });
+      return destino; }
+    case 'guardar_item': { const it = det(a.p_id).items.find(i => i.item === a.p_item);
+      if (it) Object.assign(it, { completado:a.p_completado, nota:a.p_nota, lat:a.p_lat ?? it.lat, lng:a.p_lng ?? it.lng, actualizado_por:S.me.id, actualizado_en:op.ts, _pend:true }); return; }
+    case 'finalizar_verificacion': {
+      if (!s) return;
+      if (nuevo && a.p_resultado === 'ok'){ const f = det(s.id).items.filter(i => !i.completado).length; if (f) throw new Error(`Faltan ${f} ítem(s) por completar`); }
+      if (nuevo && a.p_resultado !== 'ok' && !a.p_nota) throw new Error('Indique el motivo del rechazo');
+      const d = a.p_resultado === 'ok' ? (s.forma_desembolso === 'efectivo' ? 'desembolsada' : 'desembolso_pendiente') : 'rechazada_verificacion';
+      evento(s.id, 'verificacion_' + a.p_resultado, s.estado, d, a.p_nota);
+      est(s, d, { verificado_en:op.ts, verificacion_nota:a.p_nota, verificador_id:s.verificador_id || S.me.id, desembolsado_en:d === 'desembolsada' ? op.ts : s.desembolsado_en }); return d; }
+    case 'marcar_desembolsada':
+      if (nuevo && !a.p_referencia) throw new Error('Indique la referencia de la transferencia');
+      evento(a.p_id, 'desembolsada', s?.estado, 'desembolsada', a.p_referencia); est(s, 'desembolsada', { desembolso_referencia:a.p_referencia, desembolsado_en:op.ts }); return;
+    case 'desistir': evento(a.p_id, 'desistida', s?.estado, 'desistida', a.p_motivo); est(s, 'desistida', { motivo_cierre:a.p_motivo, en_espera:false }); return;
+    case 'regresar_a_revisadas': evento(a.p_id, 'regresada_revisadas', s?.estado, 'aprobada', a.p_nota); est(s, 'aprobada'); return;
+    case 'poner_en_espera': if (s) Object.assign(s, { en_espera:true, espera_motivo:a.p_motivo, espera_desde:op.ts, espera_por:S.me.id, _pend:true }); evento(a.p_id, 'en_espera', null, null, a.p_motivo); return;
+    case 'reanudar': if (s) Object.assign(s, { en_espera:false, espera_motivo:null, espera_desde:null, _pend:true }); evento(a.p_id, 'reanudada', null, null, null); return;
+    case 'guardar_ubicacion': { if (!s) return; const k = a.p_lugar === 'domicilio' ? 'dom' : 'trab';
+      Object.assign(s, { [k + '_lat']:a.p_lat, [k + '_lng']:a.p_lng, [k + '_sector']:a.p_sector || null, [k + '_ciudad']:a.p_ciudad || null, [k + '_ref']:a.p_ref || null, _pend:true }); return; }
+    case 'asignar_verificador': if (s) Object.assign(s, { verificador_id:a.p_verificador, _pend:true }); return;
+    case 'actualizar_datos_refi': if (s) Object.assign(s, a.p_datos || {}, { _pend:true }); return;
+    case 'actualizar_datos_analisis': if (s) Object.assign(s, { tipo_pago:a.p_tipo_pago, rubro_especial:a.p_rubro_especial }, a.p_nombre ? { nombre_cliente:a.p_nombre } : {}, a.p_telefono != null ? { telefono:a.p_telefono } : {}, { _pend:true }); return;
+    default: return;
+  }
+}
+// Reemplaza ids temporales (creados sin señal) por los reales del servidor
+function mapear(v, map){ if (Array.isArray(v)) return v.map(x => mapear(x, map));
+  if (v && typeof v === 'object'){ const o = {}; for (const [k, x] of Object.entries(v)) o[k] = (['p_id','solicitud_id'].includes(k) && typeof x === 'number' && x < 0) ? (map['s' + x] ?? x) : mapear(x, map); return o; } return v; }
+async function ejecutarOp(op, map){
+  if (op.t === 'rpc'){
+    const args = mapear(op.args, map);
+    if (typeof args.p_id === 'number' && args.p_id < 0) throw new Error('La solicitud original no se pudo crear');
+    const { data, error } = await sb.rpc(op.fn, args); if (error) throw error;
+    if (op.fn === 'crear_solicitud' && op.tmpId) map['s' + op.tmpId] = data;
+    return data;
+  }
+  const row = op.row ? mapear(op.row, map) : null;
+  if (row && row.solicitud_id < 0) throw new Error('La solicitud original no se pudo crear');
+  const id = typeof op.id === 'number' && op.id < 0 ? map['r' + op.id] : op.id;
+  if (op.t === 'ins'){ const { data, error } = await sb.from(op.tabla).insert(row).select('id').maybeSingle(); if (error) throw error; if (op.tmpId && data?.id) map['r' + op.tmpId] = data.id; return data?.id; }
+  if (op.t === 'upd'){ if (id == null) throw new Error('El registro original no se pudo crear'); const { data, error } = await sb.from(op.tabla).update(row).eq('id', id).select('id'); if (error) throw error; if (!data?.length) throw new Error('No se pudo guardar el cambio (verifique permisos o el estado de la solicitud)'); return; }
+  if (op.t === 'del'){ if (id == null) return; const { error } = await sb.from(op.tabla).delete().eq('id', id); if (error) throw error; return; }
+}
+let enviando = false, tEnvio = null;
+function programarEnvio(ms){ clearTimeout(tEnvio); tEnvio = setTimeout(enviarPendientes, ms); }
+async function enviarPendientes(){
+  if (enviando || !S.me || !outbox().length) return;
+  if (!navigator.onLine){ programarEnvio(15000); return; }
+  enviando = true; indicadorRed();
+  const map = lsGet(MAP_KEY(), {}); let ok = 0, err = 0;
+  try {
+    while (outbox().length){
+      const op = outbox()[0];
+      try { await ejecutarOp(op, map); ok++; }
+      catch(e){
+        if (esRed(e)){ marcarConexion(false); programarEnvio(15000); break; }
+        err++; lsSet(OBF_KEY(), fallidos().concat({ ...op, error:errMsg(e), desc:opDesc(op) }));
+      }
+      lsSet(MAP_KEY(), map); lsSet(OB_KEY(), outbox().filter(x => x.uid !== op.uid));
+    }
+  } finally { enviando = false; }
+  if (ok || err){
+    if (ok) toast(`✔ ${ok} cambio(s) hechos sin señal ya se enviaron`);
+    if (err) toast(`⚠ ${err} cambio(s) no se pudieron aplicar. Toque el aviso de arriba para revisarlos.`, true);
+    marcarConexion(true);
+    // Si había una solicitud temporal abierta, pasa a la real
+    if (S.det < 0 && map['s' + S.det]) S.det = map['s' + S.det];
+    await recargarTodo();
+  }
+  indicadorRed();
+}
+function marcarConexion(ok){
+  const antes = S.offline; S.offline = !ok;
+  if (ok){ S.syncAt = new Date(); if (antes) programarEnvio(500); }
+  if (antes !== S.offline) indicadorRed();
+}
+function indicadorRed(){
+  const pill = $('#netPill'), bar = $('#netBar'); if (!pill) return;
+  const n = outbox().length, f = fallidos().length, off = S.offline || !navigator.onLine;
+  pill.classList.toggle('hidden', !off && !n && !f);
+  pill.className = 'netpill ' + (f ? 'err' : off ? 'off' : 'pend') + (!off && !n && !f ? ' hidden' : '');
+  pill.textContent = f ? `⚠ ${f} con error` : off ? `📴 Sin señal${n ? ' · ' + n : ''}` : enviando ? `⟳ Enviando ${n}…` : `⟳ ${n} por enviar`;
+  bar.classList.toggle('hidden', !off);
+  if (off) bar.innerHTML = `📴 <b>Sin señal.</b> Mostrando datos guardados${S.syncAt ? ' a las ' + new Date(S.syncAt).toLocaleTimeString('es-HN', { timeZone:TZ, hour:'numeric', minute:'2-digit' }) : ''}. Puede seguir trabajando: ${n ? `<b>${n} cambio(s)</b> esperan señal para enviarse.` : 'los cambios se guardan en el teléfono y se envían solos.'}`;
+}
+function verPendientes(){
+  const l = outbox(), f = fallidos();
+  const w = dialogo(`<h3>Cambios sin enviar</h3>
+    ${S.offline ? '<div class="alert warn small">Sin señal. Se enviarán automáticamente cuando vuelva la conexión.</div>' : ''}
+    ${l.length ? l.map(op => `<div class="ob-item"><b>${esc(opDesc(op))}</b><div class="small muted">Hecho ${fDT(op.ts)}</div></div>`).join('') : '<div class="small muted">No hay cambios esperando.</div>'}
+    ${f.length ? `<h4 class="sec">No se pudieron aplicar</h4><div class="small muted">El servidor los rechazó (por ejemplo, alguien más ya cambió la solicitud). Revise y vuelva a hacerlos si hace falta.</div>
+      ${f.map((op, i) => `<div class="ob-item err"><b>${esc(op.desc || opDesc(op))}</b><div class="small">${esc(op.error)}</div><div class="small muted">Hecho ${fDT(op.ts)}</div>
+        <div class="btns" style="margin-top:6px"><button class="btn sm ghost" data-reint="${i}">Reintentar</button><button class="btn sm ghost" data-desc="${i}">Descartar</button></div></div>`).join('')}` : ''}
+    <div class="btns">${l.length && navigator.onLine ? '<button class="btn pri" id="obAhora">Enviar ahora</button>' : ''}<button class="btn ghost" data-close>Cerrar</button></div>`);
+  w.querySelectorAll('[data-desc]').forEach(b => b.onclick = () => { const x = fallidos(); x.splice(+b.dataset.desc, 1); lsSet(OBF_KEY(), x); cerrarDialogo(w); indicadorRed(); recargarTodo(); });
+  w.querySelectorAll('[data-reint]').forEach(b => b.onclick = () => { const x = fallidos(); const [op] = x.splice(+b.dataset.reint, 1); lsSet(OBF_KEY(), x);
+    delete op.error; delete op.desc; lsSet(OB_KEY(), outbox().concat(op)); cerrarDialogo(w); indicadorRed(); enviarPendientes(); });
+  if (w.querySelector('#obAhora')) w.querySelector('#obAhora').onclick = () => { cerrarDialogo(w); enviarPendientes(); };
+}
+async function guardarCache(){
+  if (!S.me) return;
+  KV.set(ck('sols'), S.sols.filter(x => !x._tmp)); KV.set(ck('evs'), S.evs); KV.set(ck('com'), S.com);
+  KV.set(ck('det'), S.detCache); KV.set(ck('cm'), S.cmCache);
+}
+// Re-aplica sobre los datos cargados los cambios que siguen en cola
+function aplicarPendientes(){ outbox().forEach(op => { try { aplicarOp(op, false); } catch(e){} }); }
+async function recargarTodo(){
+  await cargarSolicitudes(); pintarTabs();
+  if (!$('#sheet').classList.contains('hidden') && S.det != null && S.sols.some(x => x.id === S.det)){ if (!S.dirty) await abrirDetalle(S.det, true); }
+  else if ($('#sheet').classList.contains('hidden')) pintar();
+}
+// Precarga el detalle de las solicitudes abiertas para poder abrirlas sin señal
+let tPre = 0;
+async function precargarDetalles(){
+  if (Date.now() - tPre < 90000) return; tPre = Date.now();
+  const ids = S.sols.filter(x => !CERRADAS.includes(x.estado) && x.id > 0).slice(0, 200).map(x => x.id);
+  if (!ids.length) return;
+  try {
+    const [ing, it, ev] = await Promise.all([sb.from('ingresos').select('*').in('solicitud_id', ids).order('fecha'),
+      sb.from('verificacion_items').select('*').in('solicitud_id', ids).order('id'), sb.from('eventos').select('*').in('solicitud_id', ids).order('creado_en')]);
+    if (ing.error || it.error || ev.error) return;
+    ids.forEach(id => { S.detCache[id] = { ing:ing.data.filter(x => x.solicitud_id === id), items:it.data.filter(x => x.solicitud_id === id), evs:ev.data.filter(x => x.solicitud_id === id) }; });
+    aplicarPendientes(); guardarCache();
+  } catch(e){}
+}
+window.addEventListener('online', () => { marcarConexion(true); enviarPendientes(); setTimeout(() => { if (!outbox().length) recargarTodo(); suscribir(); }, 800); });
+window.addEventListener('offline', () => marcarConexion(false));
+setInterval(() => { if (outbox().length) enviarPendientes(); }, 30000);
 async function run(btn, fn){
   if (btn) btn.disabled = true;
   try { return await fn(); } catch(e){ console.error(e); toast(errMsg(e), true); } finally { if (btn) btn.disabled = false; }
@@ -459,18 +691,28 @@ function calcular(ingresos, tipoPago, rubro){
 
 // ================== Sesión ==================
 async function init(){
-  const { data:{ session } } = await sb.auth.getSession();
+  let session = null;
+  try { ({ data:{ session } } = await sb.auth.getSession()); } catch(e){}
+  const ult = localStorage.getItem('vc_ult_uid');
+  // Sin señal y con sesión previa en este teléfono: entra con los datos guardados
+  if (!session && ult && !navigator.onLine) session = { user:{ id:ult }, offline:true };
   if (!session) return mostrarLogin();
   S.user = session.user;
-  const { data: me } = await sb.from('perfiles').select('*').eq('id', S.user.id).maybeSingle();
+  let me = null, errMe = null;
+  if (!session.offline){ const r = await sb.from('perfiles').select('*').eq('id', S.user.id).maybeSingle(); me = r.data; errMe = r.error; }
+  if (session.offline || (errMe && esRed(errMe))){ me = await KV.get(S.user.id + ':me'); S.offline = true;
+    if (!me) { toast('Sin señal y sin datos guardados en este teléfono. Conéctese para entrar la primera vez.', true); return mostrarLogin(); } }
   if (!me || !me.activo){ toast('Su usuario no tiene rol asignado o está inactivo', true); await sb.auth.signOut(); return mostrarLogin(); }
-  S.me = me;
+  S.me = me; localStorage.setItem('vc_ult_uid', me.id); KV.set(me.id + ':me', me);
+  S.detCache = (await KV.get(ck('det'))) || {}; S.cmCache = (await KV.get(ck('cm'))) || {};
+  $('#netPill').onclick = verPendientes;
   $('#vLogin').classList.add('hidden'); $('#vApp').classList.remove('hidden');
   $('#whoName').textContent = me.nombre; $('#whoRol').textContent = ROL[me.rol];
   await Promise.all([cargarPerfiles(), cargarParams()]);
   await cargarSolicitudes();
   S.tab = tabsRol()[0][0];
-  pintarTabs(); pintar(); suscribir();
+  pintarTabs(); pintar(); suscribir(); indicadorRed();
+  if (outbox().length) programarEnvio(1500);
 }
 async function mostrarLogin(){
   $('#vApp').classList.add('hidden'); $('#vLogin').classList.remove('hidden');
@@ -497,7 +739,10 @@ $('#fBoot').onsubmit = async e => {
     toast('Administrador creado'); init();
   });
 };
-$('#btnOut').onclick = async () => { if (!confirm('¿Cerrar sesión?')) return; await sb.auth.signOut(); location.reload(); };
+$('#btnOut').onclick = async () => {
+  const n = outbox().length;
+  if (!confirm(n ? `Hay ${n} cambio(s) sin enviar. Si cierra sesión se perderán. ¿Cerrar sesión de todos modos?` : '¿Cerrar sesión?')) return;
+  localStorage.removeItem('vc_ult_uid'); try { await sb.auth.signOut(); } catch(e){} location.reload(); };
 $('#btnBell').onclick = async () => {
   if (!('Notification' in window)) return toast('Este navegador no soporta notificaciones');
   const p = await Notification.requestPermission();
@@ -506,25 +751,38 @@ $('#btnBell').onclick = async () => {
 
 // ================== Datos ==================
 async function cargarPerfiles(){
-  const { data } = await sb.from('perfiles').select('*').order('nombre');
-  S.perfiles = Object.fromEntries((data||[]).map(p => [p.id, p]));
+  const { data, error } = S.offline && !navigator.onLine ? { error:{ message:'Failed to fetch' } } : await sb.from('perfiles').select('*').order('nombre');
+  if (error){ S.perfiles = (await KV.get(ck('perfiles'))) || S.perfiles || {}; return; }
+  S.perfiles = Object.fromEntries((data||[]).map(p => [p.id, p])); KV.set(ck('perfiles'), S.perfiles);
 }
 async function cargarParams(){
-  const { data } = await sb.from('parametros').select('*');
-  S.params = Object.fromEntries((data||[]).map(p => [p.clave, +p.valor]));
-  S.paramsRows = data || [];
-  const { data: fs } = await sb.from('feriados').select('*').order('fecha');
-  S.feriadosRows = fs || []; S.feriados = new Set(S.feriadosRows.map(f => f.fecha));
+  const r1 = S.offline && !navigator.onLine ? { error:{ message:'Failed to fetch' } } : await sb.from('parametros').select('*');
+  const r2 = r1.error ? r1 : await sb.from('feriados').select('*').order('fecha');
+  if (r1.error || r2.error){ const c = (await KV.get(ck('params'))) || { p:[], f:[] }; r1.data = c.p; r2.data = c.f; }
+  else KV.set(ck('params'), { p:r1.data, f:r2.data });
+  S.params = Object.fromEntries((r1.data||[]).map(p => [p.clave, +p.valor]));
+  S.paramsRows = r1.data || [];
+  S.feriadosRows = r2.data || []; S.feriados = new Set(S.feriadosRows.map(f => f.fecha));
 }
 async function cargarSolicitudes(){
-  const { data, error } = await sb.from('solicitudes').select('*').order('creado_en', { ascending:false }).limit(5000);
-  if (error) return toast(errMsg(error), true);
+  const { data, error } = !navigator.onLine ? { error:{ message:'Failed to fetch' } } : await sb.from('solicitudes').select('*').order('creado_en', { ascending:false }).limit(5000);
+  if (error){
+    if (!esRed(error)) return toast(errMsg(error), true);
+    // Sin señal: última copia guardada
+    marcarConexion(false);
+    S.sols = (await KV.get(ck('sols'))) || S.sols || []; S.evs = (await KV.get(ck('evs'))) || S.evs || {}; S.com = (await KV.get(ck('com'))) || S.com || {};
+    S.syncAt = S.syncAt || (await KV.get(ck('syncAt'))) || null;
+    aplicarPendientes(); indicadorRed(); return;
+  }
   S.sols = data || [];
   const desdeEv = new Date(Date.now() - 120 * 864e5).toISOString();
   const { data: evr } = await sb.from('eventos').select('solicitud_id,de_estado,duracion_seg,duracion_habil_seg,creado_en').gte('creado_en', desdeEv).order('creado_en');
   S.evs = {}; (evr || []).forEach(e => { if (e.de_estado) (S.evs[e.solicitud_id] = S.evs[e.solicitud_id] || []).push(e); });
   const { data: cs } = await sb.from('comentarios').select('solicitud_id');
   S.com = {}; (cs||[]).forEach(c => S.com[c.solicitud_id] = (S.com[c.solicitud_id]||0) + 1);
+  marcarConexion(true); KV.set(ck('syncAt'), S.syncAt);
+  aplicarPendientes(); guardarCache(); indicadorRed();
+  precargarDetalles();
 }
 
 // ================== Pestañas por rol ==================
@@ -704,7 +962,7 @@ function cardSol(s, ctx){
     <div class="main">
       <div style="margin-bottom:4px">${rolPill(s)}</div>
       <div class="name">${esc(s.nombre_cliente)}</div>
-      <div class="sub"><span>${esc(s.codigo)}</span>${tipoChip(s.tipo)}<span>👤 ${esc(nombre(s.asesor_id))}</span>${extra}${c}</div>
+      <div class="sub"><span>${esc(s.codigo)}</span>${tipoChip(s.tipo)}${pendChip(s)}<span>👤 ${esc(nombre(s.asesor_id))}</span>${extra}${c}</div>
       ${s.en_espera && s.espera_motivo ? `<div class="small" style="color:var(--gray);margin-top:3px">⏸ ${esc(s.espera_motivo)}</div>` : ''}
       ${ctx ? locHTML(s, ctx.parada ? `<span class="parada">${ctx.parada}</span>${ctx.d != null ? `<span class="km">${fKm(ctx.d)}</span>` : ''}` : ctx.d != null ? `<span class="km">a ${fKm(ctx.d)}</span>` : '') + (ctx.asignar ? asignarHTML(s) : '') : ''}
     </div>
@@ -790,12 +1048,17 @@ async function abrirDetalle(id, keepScroll){
   if ($('#sheet').classList.contains('hidden')){ $('#sheet').classList.remove('hidden'); history.pushState({ sheet:1 }, ''); document.body.style.overflow = 'hidden'; }
   $('#sheetTitle').textContent = s.nombre_cliente; $('#sheetChip').innerHTML = chip(s.estado);
   if (!keepScroll){ $('#sheetBody').innerHTML = '<div class="empty">Cargando…</div>'; $('#sheet').scrollTop = 0; }
-  const [ing, items, evs] = await Promise.all([
+  let ing = { error:{ message:'Failed to fetch' } }, items = ing, evs = ing;
+  if (id > 0 && navigator.onLine) [ing, items, evs] = await Promise.all([
     sb.from('ingresos').select('*').eq('solicitud_id', id).order('fecha'),
     sb.from('verificacion_items').select('*').eq('solicitud_id', id).order('id'),
     sb.from('eventos').select('*').eq('solicitud_id', id).order('creado_en')
   ]);
-  S.detData = { s, ing: ing.data||[], items: items.data||[], evs: evs.data||[] };
+  if (S.det !== id) return;
+  if (!ing.error && !items.error && !evs.error){ S.detCache[id] = { ing: ing.data||[], items: items.data||[], evs: evs.data||[] }; aplicarPendientes(); guardarCache(); }
+  else if (id > 0 && esRed(ing.error || items.error || evs.error)) marcarConexion(false);
+  const dc = S.detCache[id] || { ing:[], items:[], evs:[] };
+  S.detData = { s: S.sols.find(x => x.id === id) || s, ing: dc.ing, items: dc.items, evs: dc.evs };
   const y = $('#sheet').scrollTop;
   renderDetalle();
   if (keepScroll) $('#sheet').scrollTop = y;
@@ -839,6 +1102,8 @@ function renderDetalle(){
     ${ed != null && ed < S.params.edad_minima ? `<div class="alert err small">⚠ Cliente de ${ed} años (mínimo ${S.params.edad_minima}).</div>` : ''}
   </div>`;
 
+  if (s._pend) h += `<div class="alert warn small">⟳ Esta solicitud tiene cambios hechos sin señal que todavía no llegan al servidor. Se enviarán solos al volver la conexión.</div>`;
+  if (S.offline) h += `<div class="alert info small">📴 Sin señal: mostrando la última copia guardada en el teléfono${S.detCache[s.id] ? '' : ' (el detalle de esta solicitud no se alcanzó a guardar)'}.</div>`;
   // En espera
   if (s.en_espera){
     h += `<div class="card" style="border:1.5px solid var(--gray);background:var(--gray-bg)">
@@ -1191,8 +1456,7 @@ function enlazarDetalle(s, c){
     const go = () => run(add, async () => {
       const m = num($('#iMonto').value); if (!m || m <= 0) throw new Error('Monto inválido');
       if (!$('#iFecha').value) throw new Error('Fecha requerida');
-      const { error } = await sb.from('ingresos').insert({ solicitud_id: s.id, fecha: $('#iFecha').value, monto: m, categoria: cat });
-      if (error) throw error;
+      await dbw({ t:'ins', tabla:'ingresos', row:{ solicitud_id: s.id, fecha: $('#iFecha').value, monto: m, categoria: cat } });
       await recargarIngresos(); setTimeout(() => $('#iMonto')?.focus(), 50);
     });
     add.onclick = go; $('#iMonto').onkeydown = e => { if (e.key === 'Enter') go(); };
@@ -1209,12 +1473,12 @@ function enlazarDetalle(s, c){
     tr.querySelector('[data-ok]').onclick = e => run(e.target, async () => {
       const m = num(tr.querySelector('[data-e="monto"]').value), f = tr.querySelector('[data-e="fecha"]').value;
       if (!m || m <= 0) throw new Error('Monto inválido'); if (!f) throw new Error('Fecha requerida');
-      const { data, error } = await sb.from('ingresos').update({ fecha: f, monto: m, categoria: tr.querySelector('[data-e="categoria"]').value }).eq('id', ing.id).select('id');
-      if (error) throw error; if (!data || !data.length) throw new Error('No tiene permiso para editar ingresos en este estado'); toast('Ingreso actualizado'); await recargarIngresos();
+      await dbw({ t:'upd', tabla:'ingresos', id: ing.id, sid: s.id, row:{ fecha: f, monto: m, categoria: tr.querySelector('[data-e="categoria"]').value } });
+      toast('Ingreso actualizado'); await recargarIngresos();
     });
   });
   B.querySelectorAll('[data-del]').forEach(b => b.onclick = () => run(b, async () => {
-    const { error } = await sb.from('ingresos').delete().eq('id', +b.dataset.del); if (error) throw error; await recargarIngresos();
+    await dbw({ t:'del', tabla:'ingresos', id: +b.dataset.del, sid: s.id }); await recargarIngresos();
   }));
   const updA = () => run(null, async () => {
     await rpc('actualizar_datos_analisis', { p_id: s.id, p_tipo_pago: $('#dPago').value, p_rubro_especial: $('#dRubro').value === '1' });
@@ -1332,7 +1596,10 @@ function enlazarDetalle(s, c){
   t.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 700){ e.preventDefault(); enviarComentario(t, null); } };
 }
 async function recargarIngresos(){
-  const { data } = await sb.from('ingresos').select('*').eq('solicitud_id', S.det).order('fecha');
+  const id = S.det;
+  const r = id > 0 && navigator.onLine ? await sb.from('ingresos').select('*').eq('solicitud_id', id).order('fecha') : { error:{ message:'Failed to fetch' } };
+  if (!r.error){ (S.detCache[id] = S.detCache[id] || { ing:[], items:[], evs:[] }).ing = r.data || []; aplicarPendientes(); guardarCache(); }
+  const data = (S.detCache[id] || {}).ing || [];
   S.detData.ing = data || []; renderDetalleParcial();
 }
 function renderDetalleParcial(){
@@ -1470,9 +1737,14 @@ function editorAdmin(s, refrescar){
 // ================== Comentarios estilo Facebook ==================
 async function cargarComentarios(){
   const id = S.det; if (!id) return;
-  const [{ data: cms }, ] = await Promise.all([sb.from('comentarios').select('*').eq('solicitud_id', id).order('creado_en')]);
-  const ids = (cms||[]).map(c => c.id);
-  const { data: likes } = ids.length ? await sb.from('comentario_likes').select('*').in('comentario_id', ids) : { data: [] };
+  let cms, likes;
+  const r = id > 0 && navigator.onLine ? await sb.from('comentarios').select('*').eq('solicitud_id', id).order('creado_en') : { error:{ message:'Failed to fetch' } };
+  if (!r.error){
+    cms = r.data || []; const ids = cms.filter(c => c.id > 0).map(c => c.id);
+    ({ data: likes } = ids.length ? await sb.from('comentario_likes').select('*').in('comentario_id', ids) : { data: [] });
+    S.cmCache[id] = cms; S.lkCache = S.lkCache || {}; S.lkCache[id] = likes || []; aplicarPendientes(); guardarCache();
+  }
+  cms = S.cmCache[id] || []; likes = (S.lkCache || {})[id] || [];
   if (S.det !== id || !$('#cmList')) return;
   const lk = {}; (likes||[]).forEach(l => (lk[l.comentario_id] = lk[l.comentario_id] || []).push(l.usuario_id));
   const raiz = (cms||[]).filter(c => !c.padre_id), hijos = id => (cms||[]).filter(c => c.padre_id === id);
@@ -1516,9 +1788,9 @@ function abrirRespuesta(cid, texto){
 async function enviarComentario(t, padre){
   const txt = t.value.trim(); if (!txt) return;
   t.disabled = true;
-  const { error } = await sb.from('comentarios').insert({ solicitud_id: S.det, padre_id: padre, texto: txt, autor_id: S.me.id });
+  try { await dbw({ t:'ins', tabla:'comentarios', row:{ solicitud_id: S.det, padre_id: padre, texto: txt, autor_id: S.me.id } }); }
+  catch(e){ t.disabled = false; return toast(errMsg(e), true); }
   t.disabled = false;
-  if (error) return toast(errMsg(error), true);
   t.value = ''; t.style.height = ''; if (padre) S.replyTo = null;
   cargarComentarios();
 }
@@ -2032,7 +2304,7 @@ function cardK(s, dia){
   return `<div class="kc${s.en_espera ? ' espera' : ''}" data-id="${s.id}" style="${rcVars(colorDe(s.estado))}">
     <div class="rolbar">${rolPill(s)}${previo}</div>
     <div class="nm">${esc(s.nombre_cliente)}</div>
-    <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}${esperaChip(s)}</div>
+    <div class="ln">${chip(s.estado)}${tipoChip(s.tipo)}${esperaChip(s)}${pendChip(s)}</div>
     ${s.en_espera ? `<div class="ln" style="color:var(--gray)">⏸ ${esc(s.espera_motivo||'')} · ${hace(s.espera_desde)}</div>` : ''}
     <div class="ln"><span>${esc(s.codigo)}</span><span>👤 ${esc(nombre(s.asesor_id).split(' ')[0])}</span>${ab && !s.en_espera ? `<span>Espera: <b>${esc(responsable(s) || ESPERA[s.estado])}</b></span>` : ''}${monto ? `<b style="color:var(--ink)">${monto}</b>` : ''}${S.com[s.id] ? `<span>💬 ${S.com[s.id]}</span>` : ''}</div>
     ${['aprobada','por_verificar'].includes(s.estado) && (sectorDe(s) || ciudadDe(s)) ? `<div class="ln">📍 ${esc([sectorDe(s), ciudadDe(s)].filter(Boolean).join(' · '))}</div>` : ''}

@@ -221,6 +221,8 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .accion svg{width:24px;height:24px;color:var(--azul)}
 .accion:hover{border-color:#B9CDEE}
 .chips{display:flex;flex-wrap:wrap;gap:4px}
+.sol-acc{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:560px){.item:has(> .sol-acc){flex-wrap:wrap}.item > .sol-acc{width:100%;justify-content:flex-start}}
 .cont-item{flex-wrap:wrap}
 .cont-acc{display:flex;gap:6px;flex:none}
 .cont-acc .num{min-width:110px;justify-content:center}
@@ -1928,7 +1930,9 @@ async function vMiAdelanto() {
       <button class="btn pri" id="bad">Solicitar adelanto</button>
     </form></div>
     <h2 style="margin:22px 0 10px">Mis solicitudes</h2>
-    ${mis.length ? `<div class="tscroll"><table class="t"><tbody>${mis.map(a => `<tr><td>${fc(a.fecha)}<div class="tiny muted">${a.tipo === 'comisiones' ? 'Comisiones' : 'Salario'}${a.automatico ? ' · automático' : ''}</div></td><td>${chipEstado(a.estado)}${a.respuesta ? `<div class="tiny muted">${esc(a.respuesta)}</div>` : a.estado === 'pendiente' && a.motivo_revision ? `<div class="tiny muted">${esc(a.motivo_revision)}</div>` : ''}</td><td class="r num">${L(a.monto)}${+a.monto_solicitado && +a.monto_solicitado !== +a.monto ? `<div class="tiny muted">pediste ${L(a.monto_solicitado)}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Aún no has pedido adelantos.</div>'}`);
+    ${mis.length ? `<div class="tscroll"><table class="t"><tbody>${mis.map(a => `<tr><td>${fc(a.fecha)}<div class="tiny muted">${a.tipo === 'comisiones' ? 'Comisiones' : 'Salario'}${a.automatico ? ' · automático' : ''}</div></td><td>${chipEstado(a.estado)}${a.respuesta ? `<div class="tiny muted">${esc(a.respuesta)}</div>` : a.estado === 'pendiente' && a.motivo_revision ? `<div class="tiny muted">${esc(a.motivo_revision)}</div>` : ''}</td><td class="r num">${L(a.monto)}${+a.monto_solicitado && +a.monto_solicitado !== +a.monto ? `<div class="tiny muted">pediste ${L(a.monto_solicitado)}</div>` : ''}${a.estado === 'pendiente' ? `<div class="sol-acc" style="margin-top:6px"><button class="btn sm borde" data-aed="${a.id}">Editar</button><button class="btn sm rojo" data-acan="${a.id}">Cancelar</button></div>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Aún no has pedido adelantos.</div>'}`);
+  $$('[data-aed]', m).forEach(b => b.onclick = () => editarSolicitud('adelanto', mis.find(a => a.id === b.dataset.aed), vMiAdelanto));
+  $$('[data-acan]', m).forEach(b => b.onclick = async () => { if (!await confirmar('Cancelar adelanto', 'La solicitud se cancela y ya no la verá la gerencia.', 'Cancelar solicitud', true)) return; try { await cancelarSolicitud('adelanto', b.dataset.acan); toast('Solicitud cancelada'); vMiAdelanto(); } catch (er) { toast(errMsg(er), true); } });
   const f = $('#fad', m);
   const dc = disp.comisiones || {};
   const sync = () => { const com = f.tipo.value === 'comisiones'; $('#nota-com', m).hidden = !com; $('#bad', m).disabled = com && (!disp.puede_comisiones || !(+dc.disponible > 0));
@@ -2157,12 +2161,12 @@ async function vMisSolicitudes() {
     q(sb.rpc('pl_banco_horas')), q(sb.rpc('pl_vacaciones_resumen')),
     q(sb.from('pl_constancia_solicitudes').select('*').eq('empleado_id', S.yo.id).order('solicitado_en', { ascending: false }).limit(20))]);
   const todas = [
-    ...cons.map(c => ({ f: c.solicitado_en, t: 'Constancia de trabajo', d: esc(c.dirigido_a || 'A quien interese'), e: c.estado, nota: c.respuesta, cancel: c.estado === 'pendiente' && ['cons', c.id] })),
-    ...ad.map(a => ({ f: a.creado_en, t: `Adelanto de ${a.tipo === 'comisiones' ? 'comisiones' : 'salario'}`, d: `${L(a.monto)}${a.automatico ? ' · automático' : ''}`, e: a.estado, nota: a.respuesta || (a.estado === 'pendiente' ? a.motivo_revision : '') })),
-    ...vac.map(v => ({ f: v.solicitado_en, t: 'Vacaciones', d: `${fc(v.desde)} al ${fc(v.hasta)} · ${N(v.dias)} días`, e: v.estado, nota: v.respuesta, cancel: v.estado === 'pendiente' && ['vac', v.id] })),
-    ...pm.map(p => ({ f: p.solicitado_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce`, d: `${rangoPermiso(p)} · ${esc(p.motivo)}`, e: p.estado, nota: p.respuesta, cancel: p.estado === 'pendiente' && ['perm', p.id] })),
-    ...he.map(h => ({ f: h.solicitado_en, t: etiquetaHoras(h), d: `${fc(h.fecha)} · ${N(h.horas)} h · ${esc(h.motivo)}`, e: h.estado, nota: h.respuesta, cancel: h.estado === 'pendiente' && ['horas', h.id] }))
-  ].sort((a, b) => String(b.f).localeCompare(String(a.f)));
+    ...cons.map(c => ({ f: c.solicitado_en, t: 'Constancia de trabajo', d: esc(c.dirigido_a || 'A quien interese'), e: c.estado, nota: c.respuesta, cancel: c.estado === 'pendiente' && ['cons', c.id], rec: c })),
+    ...ad.map(a => ({ f: a.creado_en, t: `Adelanto de ${a.tipo === 'comisiones' ? 'comisiones' : 'salario'}`, d: `${L(a.monto)}${a.automatico ? ' · automático' : ''}`, e: a.estado, nota: a.respuesta || (a.estado === 'pendiente' ? a.motivo_revision : ''), cancel: a.estado === 'pendiente' && ['adelanto', a.id], rec: a })),
+    ...vac.map(v => ({ f: v.solicitado_en, t: 'Vacaciones', d: `${fc(v.desde)} al ${fc(v.hasta)} · ${N(v.dias)} días`, e: v.estado, nota: v.respuesta, cancel: v.estado === 'pendiente' && ['vac', v.id], rec: v })),
+    ...pm.map(p => ({ f: p.solicitado_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce`, d: `${rangoPermiso(p)} · ${esc(p.motivo)}`, e: p.estado, nota: p.respuesta, cancel: p.estado === 'pendiente' && ['perm', p.id], rec: p })),
+    ...he.map(h => ({ f: h.solicitado_en, t: etiquetaHoras(h), d: `${fc(h.fecha)} · ${N(h.horas)} h · ${esc(h.motivo)}`, e: h.estado, nota: h.respuesta, cancel: h.estado === 'pendiente' && ['horas', h.id], rec: h }))
+  ].filter(x => x.nota !== 'Editada por el empleado').sort((a, b) => String(b.f).localeCompare(String(a.f)));
   const pend = todas.filter(x => x.e === 'pendiente').length;
   const m = shell(`<div class="top"><div><h1>Mis solicitudes</h1><div class="muted small">${pend ? `${pend} pendiente${pend > 1 ? 's' : ''} de respuesta` : 'Todo al día'}</div></div></div>
     <div class="acciones">
@@ -2174,12 +2178,52 @@ async function vMisSolicitudes() {
       <a class="accion" href="#/constancia">${ICON.doc}<span>Constancia</span></a>
     </div>
     <h2 style="margin:6px 0 10px">Historial</h2>
-    ${todas.length ? `<div class="lista">${todas.map(x => `<div class="item" style="cursor:default"><div class="grow"><div class="t">${x.t}</div><div class="s">${x.d}</div>${x.nota ? `<div class="tiny muted">${esc(x.nota)}</div>` : ''}<div class="tiny muted">${fdt(x.f)}</div></div>${chipEstado(x.e)}${x.cancel ? `<button class="btn sm rojo" data-c="${x.cancel.join('|')}">Cancelar</button>` : ''}</div>`).join('')}</div>` : '<div class="vacio"><b>Aún no tienes solicitudes</b>Usa los botones de arriba para pedir un adelanto, vacaciones, un permiso o registrar horas extra.</div>'}`);
+    ${todas.length ? `<div class="lista">${todas.map(x => `<div class="item" style="cursor:default"><div class="grow"><div class="t">${x.t}</div><div class="s">${x.d}</div>${x.nota ? `<div class="tiny muted">${esc(x.nota)}</div>` : ''}<div class="tiny muted">${fdt(x.f)}</div></div><div class="sol-acc">${chipEstado(x.e)}${x.cancel ? `<button class="btn sm borde" data-ed="${x.cancel.join('|')}">Editar</button><button class="btn sm rojo" data-c="${x.cancel.join('|')}">Cancelar</button>` : ''}</div></div>`).join('')}</div>` : '<div class="vacio"><b>Aún no tienes solicitudes</b>Usa los botones de arriba para pedir un adelanto, vacaciones, un permiso o registrar horas extra.</div>'}`);
   $$('[data-c]', m).forEach(btn => btn.onclick = async () => {
     const [t, id] = btn.dataset.c.split('|');
-    const fn = { vac: 'pl_cancelar_vacaciones', perm: 'pl_cancelar_permiso', horas: 'pl_cancelar_horas', cons: 'pl_cancelar_constancia' }[t];
-    try { await q(sb.rpc(fn, { p_id: id })); toast('Solicitud cancelada'); vMisSolicitudes(); } catch (er) { toast(errMsg(er), true); }
+    if (!await confirmar('Cancelar solicitud', 'La solicitud se cancela y ya no la verá la gerencia. Puedes hacer una nueva cuando quieras.', 'Cancelar solicitud', true)) return;
+    try { await cancelarSolicitud(t, id); toast('Solicitud cancelada'); vMisSolicitudes(); } catch (er) { toast(errMsg(er), true); }
   });
+  $$('[data-ed]', m).forEach(btn => btn.onclick = () => { const [t, id] = btn.dataset.ed.split('|'); const x = todas.find(y => y.rec?.id === id); if (x) editarSolicitud(t, x.rec, vMisSolicitudes); });
+}
+
+/* ===================== EDITAR / CANCELAR solicitudes pendientes ===================== */
+const cancelarSolicitud = (t, id) => q(sb.rpc({ adelanto: 'pl_cancelar_adelanto', vac: 'pl_cancelar_vacaciones', perm: 'pl_cancelar_permiso', horas: 'pl_cancelar_horas', cons: 'pl_cancelar_constancia' }[t], { p_id: id }));
+function editarSolicitud(t, r, despues) {
+  const hoy = iso(hoyHN());
+  const seg = (nombre, opts, val) => `<div class="segm" data-seg="${nombre}">${opts.map(([v, txt]) => `<button type="button" data-v="${v}" class="${String(v) === String(val) ? 'on' : ''}">${txt}</button>`).join('')}</div><input type="hidden" name="${nombre}" value="${val}">`;
+  const campos = {
+    adelanto: `<p class="small muted" style="margin:0">Adelanto de ${r.tipo === 'comisiones' ? 'comisiones' : 'salario'}.</p>
+      <label class="f">Monto (L)<input class="inp" type="number" name="monto" min="1" step="1" value="${Math.round(r.monto_solicitado || r.monto)}" required inputmode="numeric"></label>
+      <label class="f">Motivo (opcional)<input class="inp" name="nota" value="${esc(/^Adelanto de/.test(r.descripcion || '') ? '' : (r.descripcion || ''))}"></label>`,
+    vac: `<div class="row2"><label class="f">Desde<input class="inp" type="date" name="desde" min="${hoy}" value="${r.desde}" required></label><label class="f">Hasta<input class="inp" type="date" name="hasta" min="${hoy}" value="${r.hasta}" required></label></div>
+      <label class="f">Comentario (opcional)<input class="inp" name="nota" value="${esc(r.nota || '')}"></label>`,
+    perm: `${seg('goce', [[1, 'Con goce'], [0, 'Sin goce']], r.goce ? 1 : 0)}
+      <div class="row2"><label class="f">Desde<input class="inp" type="date" name="desde" min="${hoy}" value="${r.desde}" required></label><label class="f">Hasta<input class="inp" type="date" name="hasta" min="${hoy}" value="${r.hasta || r.desde}"></label></div>
+      <label class="f">Horas (solo si es parte de un día)<input class="inp" type="number" name="horas" min="0.5" max="7.5" step="0.5" value="${r.horas ?? ''}"></label>
+      <label class="f">Motivo<input class="inp" name="motivo" value="${esc(r.motivo || '')}" required></label>`,
+    horas: `<div class="row2"><label class="f">Fecha<input class="inp" type="date" name="fecha" value="${r.fecha}" ${r.tipo === 'descanso' ? `min="${hoy}"` : `max="${hoy}"`} required></label><label class="f">Horas<input class="inp" type="number" name="horas" min="0.5" max="${r.tipo === 'descanso' ? 8 : 16}" step="0.5" value="${+r.horas}" required></label></div>
+      <label class="f">${r.tipo === 'descanso' ? 'Comentario (opcional)' : '¿Qué trabajo hiciste?'}<input class="inp" name="motivo" value="${esc(r.motivo || '')}" ${r.tipo === 'descanso' ? '' : 'required'}></label>
+      ${r.tipo === 'extra' && parSi('he_pago_habilitado') ? seg('preferencia', [['pagar', 'Que me las paguen'], ['compensar', 'Tomarlas como descanso']], r.preferencia || 'pagar') : ''}`,
+    cons: `<label class="f">Dirigida a<input class="inp" name="dirigido" value="${esc(r.dirigido_a || '')}" placeholder="A quien interese"></label>
+      ${S.yo?.recibe_comisiones ? `<label class="chk"><input type="checkbox" name="comisiones" ${r.incluye_comisiones ? 'checked' : ''}>Incluir promedio de comisiones</label>` : ''}
+      <label class="f">Para qué la necesitas (opcional)<input class="inp" name="motivo" value="${esc(r.motivo || '')}"></label>`,
+  }[t];
+  const h = hoja('Editar solicitud', `<form style="display:grid;gap:12px">${campos}<p class="tiny muted" style="margin:0">Al guardar, la solicitud se vuelve a enviar con los cambios y sigue pendiente de aprobación.</p><div class="pie"><button class="btn pri">Guardar cambios</button></div></form>`);
+  const f = $('form', h.el);
+  $$('[data-seg]', f).forEach(g => $$('button', g).forEach(b => b.onclick = () => { $$('button', g).forEach(x => x.classList.toggle('on', x === b)); f[g.dataset.seg].value = b.dataset.v; }));
+  if (f.desde && f.hasta) f.desde.onchange = () => { if (!f.hasta.value || f.hasta.value < f.desde.value) f.hasta.value = f.desde.value; f.hasta.min = f.desde.value; };
+  f.onsubmit = async e => {
+    e.preventDefault(); const x = formData(f); let d;
+    if (t === 'adelanto') d = { monto: Math.round(+x.monto), nota: x.nota || null };
+    else if (t === 'vac') d = { desde: x.desde, hasta: x.hasta, nota: x.nota || null };
+    else if (t === 'perm') { const horas = +x.horas || null; d = { goce: x.goce === '1', desde: x.desde, hasta: horas ? x.desde : (x.hasta || x.desde), horas, motivo: x.motivo }; }
+    else if (t === 'horas') d = { fecha: x.fecha, horas: +x.horas, motivo: x.motivo || null, preferencia: x.preferencia || (parSi('he_pago_habilitado') ? null : 'compensar') };
+    else d = { dirigido: x.dirigido || null, comisiones: !!x.comisiones, motivo: x.motivo || null };
+    const b = $('button.pri', f); b.disabled = true;
+    try { const r2 = await q(sb.rpc('pl_editar_solicitud', { p_clase: t, p_id: r.id, p_datos: d })); h.cerrar(); toast(r2?.estado === 'aprobado' ? 'Cambios guardados: adelanto aprobado' : 'Cambios guardados'); despues(); }
+    catch (er) { b.disabled = false; toast(errMsg(er), true); }
+  };
 }
 
 async function vRegistrarHoras() {
@@ -2367,7 +2411,7 @@ async function vSolicitudes() {
     <h2 style="margin:22px 0 10px">Resueltas recientemente</h2>
     <div class="tscroll"><table class="t"><tbody>
       ${[...adR.map(a => ({ f: a.resuelto_en, t: `${a.tipo === 'comisiones' ? 'Adelanto comisiones' : 'Adelanto'} ${L(a.monto)}${a.automatico ? ' (automático)' : ''}`, n: a.pl_empleados?.nombre, e: a.estado, x: a })), ...vacR.map(v => ({ f: v.resuelto_en, t: `Vacaciones ${fc(v.desde)}–${fc(v.hasta)}`, n: v.pl_empleados?.nombre, e: v.estado, x: v })), ...pmR.map(p => ({ f: p.resuelto_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce ${rangoPermiso(p)}`, n: p.pl_empleados?.nombre, e: p.estado, x: p })), ...hxR.map(h => ({ f: h.resuelto_en, t: `${etiquetaHoras(h)} ${fc(h.fecha)} · ${N(h.horas)} h`, n: h.pl_empleados?.nombre, e: h.estado, x: h })), ...csR.map(c => ({ f: c.resuelto_en || c.solicitado_en, t: `Constancia · ${esc(c.dirigido_a || 'A quien interese')}`, n: c.pl_empleados?.nombre, e: c.estado, x: c }))]
-        .sort((a, b) => String(b.f).localeCompare(String(a.f))).slice(0, 20).map(x => `<tr><td><b>${esc(x.n)}</b><div class="small">${x.t}</div>${linea(x.x)}<div class="tiny muted">${x.e === 'cancelada' || x.e === 'cancelado' ? 'Cancelado por el empleado' : x.x.automatico && !x.x.resuelto_por ? 'Aprobado automáticamente' : `${{ aprobado: 'Aprobado', aprobada: 'Aprobada', rechazado: 'Rechazado', rechazada: 'Rechazada', emitida: 'Emitida' }[x.e] || 'Resuelto'}`} ${x.f ? fdt(x.f) : ''}${x.x.resuelto_por ? ` por <b>${esc(nomU(x.x.resuelto_por))}</b>` : ''}</div></td><td class="r">${chipEstado(x.e)}</td></tr>`).join('') || '<tr><td class="muted">Sin movimientos</td></tr>'}
+        .filter(x => x.x.respuesta !== 'Editada por el empleado').sort((a, b) => String(b.f).localeCompare(String(a.f))).slice(0, 20).map(x => `<tr><td><b>${esc(x.n)}</b><div class="small">${x.t}</div>${linea(x.x)}<div class="tiny muted">${x.e === 'cancelada' || x.e === 'cancelado' ? 'Cancelado por el empleado' : x.x.automatico && !x.x.resuelto_por ? 'Aprobado automáticamente' : `${{ aprobado: 'Aprobado', aprobada: 'Aprobada', rechazado: 'Rechazado', rechazada: 'Rechazada', emitida: 'Emitida' }[x.e] || 'Resuelto'}`} ${x.f ? fdt(x.f) : ''}${x.x.resuelto_por ? ` por <b>${esc(nomU(x.x.resuelto_por))}</b>` : ''}</div></td><td class="r">${chipEstado(x.e)}</td></tr>`).join('') || '<tr><td class="muted">Sin movimientos</td></tr>'}
     </tbody></table></div>`);
   const resolverAd = async (a, aprobar) => {
     let pc = null; if (a.tipo === 'comisiones') { try { pc = await q(sb.rpc('pl_adelanto_com_disponible', { p_emp: a.empleado_id })); } catch (_) { } }

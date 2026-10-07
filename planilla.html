@@ -1955,6 +1955,7 @@ async function vMiAdelanto() {
       <label class="f">Monto (L)<input class="inp" type="number" name="monto" min="1" step="1" required inputmode="numeric"></label>
       <label class="f">Motivo (opcional)<input class="inp" name="nota" placeholder="Ej.: pago de luz"></label>
       <button class="btn pri" id="bad">Solicitar adelanto</button>
+      <div class="small" id="por-que" style="margin:-4px 0 0;color:#8A6A00;text-align:center" hidden></div>
     </form></div>
     <h2 style="margin:22px 0 10px">Mis solicitudes</h2>
     ${mis.length ? `<div class="tscroll"><table class="t"><tbody>${mis.map(a => `<tr><td>${fc(a.fecha)}<div class="tiny muted">${a.tipo === 'comisiones' ? 'Comisiones' : 'Salario'}${a.automatico ? ' · automático' : ''}</div></td><td>${chipEstado(a.estado)}${a.respuesta ? `<div class="tiny muted">${esc(a.respuesta)}</div>` : a.estado === 'pendiente' && a.motivo_revision ? `<div class="tiny muted">${esc(a.motivo_revision)}</div>` : ''}</td><td class="r num">${L(a.monto)}${+a.monto_solicitado && +a.monto_solicitado !== +a.monto ? `<div class="tiny muted">pediste ${L(a.monto_solicitado)}</div>` : ''}${a.estado === 'pendiente' ? `<div class="sol-acc" style="margin-top:6px"><button class="btn sm borde" data-aed="${a.id}">Editar</button><button class="btn sm rojo" data-acan="${a.id}">Cancelar</button></div>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Aún no has pedido adelantos.</div>'}`);
@@ -1963,6 +1964,7 @@ async function vMiAdelanto() {
   const f = $('#fad', m);
   const dc = disp.comisiones || {};
   const sync = () => { const com = f.tipo.value === 'comisiones'; $('#nota-com', m).hidden = !com; $('#bad', m).disabled = com && (!disp.puede_comisiones || !(+dc.disponible > 0));
+    const pq = !com ? '' : !disp.puede_comisiones ? `El adelanto de comisiones solo se puede pedir el día ${disp.dias[0]} de cada mes.` : !(+dc.disponible > 0) ? 'No tienes disponible de comisiones en este momento.' : ''; $('#por-que', m).textContent = pq; $('#por-que', m).hidden = !pq;
     $('#h-sal', m) && ($('#h-sal', m).hidden = com); $('#h-com', m) && ($('#h-com', m).hidden = !com);
     f.monto.max = com ? (+dc.disponible || 0) : ''; };
   $$('.segm button', m).forEach(b => b.onclick = () => { $$('.segm button', m).forEach(x => x.classList.toggle('on', x === b)); f.tipo.value = b.dataset.t; sync(); });

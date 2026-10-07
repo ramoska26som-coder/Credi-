@@ -221,6 +221,9 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .accion svg{width:24px;height:24px;color:var(--azul)}
 .accion:hover{border-color:#B9CDEE}
 .chips{display:flex;flex-wrap:wrap;gap:4px}
+.disp-chip{display:inline-block;margin-left:6px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;vertical-align:1px;white-space:nowrap}
+.disp-chip.ok{background:#E3F6EC;color:#0F7A43;border:1px solid #A9DFC2}
+.disp-chip.mal{background:#FDECEC;color:#B42318;border:1px solid #F5B5B5}
 .hist-wrap{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;align-items:start}
 @media (max-width:860px){.hist-wrap{grid-template-columns:minmax(0,1fr)}}
 .cal{padding:12px}
@@ -2424,10 +2427,24 @@ async function vSolicitudes() {
   const nomU = id => { if (!id) return null; const u = usuarios.find(x => x.id === id); return u ? corto(u.nombre) : 'usuario desconocido'; };
   const regEn = x => x.creado_en || x.solicitado_en, regPor = x => x.creado_por || x.solicitado_por;
   const linea = x => `<div class="tiny muted" style="margin-top:2px">${ICON.reloj.replace('<svg', '<svg width="12" height="12" style="vertical-align:-1px"')} Registrado ${fdt(regEn(x))} por <b>${esc(nomU(regPor(x)) || (x.origen === 'admin' ? 'administración' : 'el empleado'))}</b></div>`;
+  // disponible de cada adelanto pendiente (antes de esta solicitud)
+  const dispAd = {};
+  if (!sup && ad.length) {
+    const cache = {};
+    await Promise.all(ad.map(async a => {
+      const k = a.tipo === 'comisiones' ? `c|${a.empleado_id}` : `s|${a.empleado_id}|${a.fecha}`;
+      try {
+        cache[k] = cache[k] || (a.tipo === 'comisiones' ? q(sb.rpc('pl_adelanto_com_disponible', { p_emp: a.empleado_id })) : q(sb.rpc('pl_adelanto_sal_disponible', { p_emp: a.empleado_id, p_fecha: a.fecha })));
+        const d = await cache[k];
+        dispAd[a.id] = { disp: Math.max(0, +d.tope - (+d.usado - +a.monto)), tope: +d.tope, pct: d.pct, base: a.tipo === 'comisiones' ? `comisiones preliminares ${L(d.preliminar || 0)}` : 'salario quincenal' };
+      } catch (_) { }
+    }));
+  }
+  const chipDisp = a => { const d = dispAd[a.id]; if (!d) return ''; const ok = +a.monto <= d.disp; return `<span class="disp-chip ${ok ? 'ok' : 'mal'}" title="${d.pct}% de ${d.base}">Disponible ${L(d.disp)}${ok ? '' : ` · excede ${L(+a.monto - d.disp)}`}</span>`; };
   const m = shell(`<div class="top"><div><h1>Solicitudes</h1><div class="muted small">${sup ? 'Vacaciones, permisos y horas extra por aprobar' : 'Adelantos que necesitan autorización, vacaciones, permisos, horas extra y constancias por atender'}</div></div></div>
-    ${sup ? '' : `<h2 style="margin-bottom:10px">Adelantos por autorizar</h2>
+    ${sup ? '' : `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="margin:0">Adelantos por autorizar${ad.length ? ` · ${ad.length}` : ''}</h2>${ad.length ? (() => { const sal = ad.filter(a => a.tipo !== 'comisiones').reduce((t, a) => t + +a.monto, 0), com = ad.filter(a => a.tipo === 'comisiones').reduce((t, a) => t + +a.monto, 0); return `<div style="text-align:right"><div class="num" style="font-size:18px">Total ${L(sal + com)}</div><div class="tiny muted">${sal ? `Salario ${L(sal)}` : ''}${sal && com ? ' · ' : ''}${com ? `Comisiones ${L(com)}` : ''}</div></div>`; })() : ''}</div>
     ${!S.autoriza && ad.length ? '<p class="small muted" style="margin:-4px 0 10px">Solo quien tiene permiso de autorizar (gerencia) puede aprobarlos. Se configura en Ajustes.</p>' : ''}
-    ${ad.length ? `<div class="lista">${ad.map(a => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(a.pl_empleados?.nombre)} · ${L(a.monto)}</div><div class="s">${a.tipo === 'comisiones' ? 'Adelanto de comisiones' : 'Adelanto de salario'} ${a.descripcion && !/^Adelanto de/.test(a.descripcion) ? ' · ' + esc(a.descripcion) : ''}</div><div class="tiny" style="color:#8A6A00">${esc(a.motivo_revision || '')}</div>${linea(a)}</div>
+    ${ad.length ? `<div class="lista">${ad.map(a => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(a.pl_empleados?.nombre)} · Solicita <b>${L(a.monto)}</b> ${chipDisp(a)}</div><div class="s">${a.tipo === 'comisiones' ? 'Adelanto de comisiones' : 'Adelanto de salario'} ${a.descripcion && !/^Adelanto de/.test(a.descripcion) ? ' · ' + esc(a.descripcion) : ''}</div><div class="tiny" style="color:#8A6A00">${esc(a.motivo_revision || '')}</div>${linea(a)}</div>
       <div style="display:flex;gap:6px"><button class="btn sm rojo" data-r="${a.id}" ${S.autoriza ? '' : 'disabled'}>Rechazar</button><button class="btn sm pri" data-a="${a.id}" ${S.autoriza ? '' : 'disabled'}>Autorizar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay adelantos pendientes.</div>'}`}
     <h2 style="margin:${sup ? '0' : '22px'} 0 10px">Vacaciones por aprobar</h2>
     ${vac.length ? `<div class="lista">${vac.map(v => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(v.pl_empleados?.nombre)} · ${N(v.dias)} días</div><div class="s">${fc(v.desde)} al ${fc(v.hasta)}${v.nota ? ' · ' + esc(v.nota) : ''}</div>${linea(v)}</div>

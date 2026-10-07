@@ -1946,12 +1946,12 @@ async function vMiAdelanto() {
     ${disp.recibe_salario ? `<div class="hola" id="h-sal"><div class="k">Disponible de salario con aprobación automática</div><div class="v">${L(disp.disponible)}</div>
       <div class="s">${disp.pct}% de tu salario quincenal (${L(disp.tope)})${+disp.usado ? ` · ya pediste ${L(disp.usado)}` : ''}. ${disp.dia_automatico ? 'Hoy es día de adelanto: si pides hasta ese monto se aprueba al instante.' : `Los días ${disp.dias[0]} y ${disp.dias[1]} se aprueba al instante; otros días la gerencia debe autorizarlo.`}</div></div>` : ''}
     ${disp.recibe_comisiones ? (() => { const c = disp.comisiones || {}; return `<div class="hola" id="h-com" ${disp.recibe_salario ? 'hidden' : ''}><div class="k">Disponible de comisiones${c.periodo ? ' · ' + esc(c.periodo) : ''}</div><div class="v">${L(c.disponible || 0)}</div>
-      <div class="s">${!c.hay_periodo ? 'Aún no hay planilla de comisiones abierta.' : +c.preliminar > 0 ? `${c.pct}% de tus comisiones preliminares (${L(c.preliminar)})${+c.usado ? ` · ya pediste ${L(c.usado)}` : ''}. Se pide el día ${disp.dias[0]} y lo autoriza la gerencia.` : 'Aún no se han cargado tus comisiones preliminares de este mes.'}</div></div>`; })() : ''}
+      <div class="s">${!c.hay_periodo ? 'Aún no hay planilla de comisiones abierta.' : +c.preliminar > 0 ? `${c.pct}% de tus comisiones preliminares (${L(c.preliminar)})${+c.usado ? ` · ya pediste ${L(c.usado)}` : ''}. Siempre lo autoriza la gerencia.` : 'Aún no se han cargado tus comisiones preliminares de este mes.'}</div></div>`; })() : ''}
     <div class="panel"><form id="fad" style="display:grid;gap:12px">
       <h3>Solicitar adelanto</h3>
       <div class="segm">${disp.recibe_salario ? '<button type="button" class="on" data-t="salario">De salario</button>' : ''}${disp.recibe_comisiones ? `<button type="button" class="${disp.recibe_salario ? '' : 'on'}" data-t="comisiones">De comisiones</button>` : ''}</div>
       <input type="hidden" name="tipo" value="${disp.recibe_salario ? 'salario' : 'comisiones'}">
-      <p class="small muted" id="nota-com" style="margin:0" hidden>El adelanto de comisiones solo se pide el día ${disp.dias[0]}, hasta el disponible según tus comisiones preliminares del mes, y lo autoriza la gerencia.</p>
+      <p class="small muted" id="nota-com" style="margin:0" hidden>Puedes pedirlo cualquier día, hasta el disponible según tus comisiones preliminares del mes. Siempre lo autoriza la gerencia.</p>
       <label class="f">Monto (L)<input class="inp" type="number" name="monto" min="1" step="1" required inputmode="numeric"></label>
       <label class="f">Motivo (opcional)<input class="inp" name="nota" placeholder="Ej.: pago de luz"></label>
       <button class="btn pri" id="bad">Solicitar adelanto</button>
@@ -1963,8 +1963,8 @@ async function vMiAdelanto() {
   $$('[data-acan]', m).forEach(b => b.onclick = async () => { if (!await confirmar('Cancelar adelanto', 'La solicitud se cancela y ya no la verá la gerencia.', 'Cancelar solicitud', true)) return; try { await cancelarSolicitud('adelanto', b.dataset.acan); toast('Solicitud cancelada'); vMiAdelanto(); } catch (er) { toast(errMsg(er), true); } });
   const f = $('#fad', m);
   const dc = disp.comisiones || {};
-  const sync = () => { const com = f.tipo.value === 'comisiones'; $('#nota-com', m).hidden = !com; $('#bad', m).disabled = com && (!disp.puede_comisiones || !(+dc.disponible > 0));
-    const pq = !com ? '' : !disp.puede_comisiones ? `El adelanto de comisiones solo se puede pedir el día ${disp.dias[0]} de cada mes.` : !(+dc.disponible > 0) ? 'No tienes disponible de comisiones en este momento.' : ''; $('#por-que', m).textContent = pq; $('#por-que', m).hidden = !pq;
+  const sync = () => { const com = f.tipo.value === 'comisiones'; $('#nota-com', m).hidden = !com; $('#bad', m).disabled = com && !(+dc.disponible > 0);
+    const pq = !com ? (disp.dia_automatico ? '' : `Hoy no es día ${disp.dias[0]} ni ${disp.dias[1]}: tu solicitud quedará pendiente hasta que la gerencia la autorice.`) : !(+dc.disponible > 0) ? 'No tienes disponible de comisiones en este momento.' : ''; $('#por-que', m).textContent = pq; $('#por-que', m).hidden = !pq;
     $('#h-sal', m) && ($('#h-sal', m).hidden = com); $('#h-com', m) && ($('#h-com', m).hidden = !com);
     f.monto.max = com ? (+dc.disponible || 0) : ''; };
   $$('.segm button', m).forEach(b => b.onclick = () => { $$('.segm button', m).forEach(x => x.classList.toggle('on', x === b)); f.tipo.value = b.dataset.t; sync(); });

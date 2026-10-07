@@ -1914,13 +1914,15 @@ async function vMiAdelanto() {
   cargando();
   const [disp, mis] = await Promise.all([q(sb.rpc('pl_adelanto_disponible')), q(sb.from('pl_adelantos').select('*').eq('empleado_id', S.yo.id).order('creado_en', { ascending: false }).limit(30))]);
   const m = shell(`<div class="top"><div><h1>Adelantos</h1><div class="muted small">Quincena del ${fc(disp.quincena_ini)} al ${fc(disp.quincena_fin)}</div></div></div>
-    ${disp.recibe_salario ? `<div class="hola"><div class="k">Disponible con aprobación automática</div><div class="v">${L(disp.disponible)}</div>
+    ${disp.recibe_salario ? `<div class="hola" id="h-sal"><div class="k">Disponible de salario con aprobación automática</div><div class="v">${L(disp.disponible)}</div>
       <div class="s">${disp.pct}% de tu salario quincenal (${L(disp.tope)})${+disp.usado ? ` · ya pediste ${L(disp.usado)}` : ''}. ${disp.dia_automatico ? 'Hoy es día de adelanto: si pides hasta ese monto se aprueba al instante.' : `Los días ${disp.dias[0]} y ${disp.dias[1]} se aprueba al instante; otros días la gerencia debe autorizarlo.`}</div></div>` : ''}
+    ${disp.recibe_comisiones ? (() => { const c = disp.comisiones || {}; return `<div class="hola" id="h-com" ${disp.recibe_salario ? 'hidden' : ''}><div class="k">Disponible de comisiones${c.periodo ? ' · ' + esc(c.periodo) : ''}</div><div class="v">${L(c.disponible || 0)}</div>
+      <div class="s">${!c.hay_periodo ? 'Aún no hay planilla de comisiones abierta.' : +c.preliminar > 0 ? `${c.pct}% de tus comisiones preliminares (${L(c.preliminar)})${+c.usado ? ` · ya pediste ${L(c.usado)}` : ''}. Se pide el día ${disp.dias[0]} y lo autoriza la gerencia.` : 'Aún no se han cargado tus comisiones preliminares de este mes.'}</div></div>`; })() : ''}
     <div class="panel"><form id="fad" style="display:grid;gap:12px">
       <h3>Solicitar adelanto</h3>
       <div class="segm">${disp.recibe_salario ? '<button type="button" class="on" data-t="salario">De salario</button>' : ''}${disp.recibe_comisiones ? `<button type="button" class="${disp.recibe_salario ? '' : 'on'}" data-t="comisiones">De comisiones</button>` : ''}</div>
       <input type="hidden" name="tipo" value="${disp.recibe_salario ? 'salario' : 'comisiones'}">
-      <p class="small muted" id="nota-com" style="margin:0" hidden>El adelanto de comisiones solo se pide el día ${disp.dias[0]} y el monto lo autoriza la gerencia.</p>
+      <p class="small muted" id="nota-com" style="margin:0" hidden>El adelanto de comisiones solo se pide el día ${disp.dias[0]}, hasta el disponible según tus comisiones preliminares del mes, y lo autoriza la gerencia.</p>
       <label class="f">Monto (L)<input class="inp" type="number" name="monto" min="1" step="1" required inputmode="numeric"></label>
       <label class="f">Motivo (opcional)<input class="inp" name="nota" placeholder="Ej.: pago de luz"></label>
       <button class="btn pri" id="bad">Solicitar adelanto</button>
@@ -1928,12 +1930,16 @@ async function vMiAdelanto() {
     <h2 style="margin:22px 0 10px">Mis solicitudes</h2>
     ${mis.length ? `<div class="tscroll"><table class="t"><tbody>${mis.map(a => `<tr><td>${fc(a.fecha)}<div class="tiny muted">${a.tipo === 'comisiones' ? 'Comisiones' : 'Salario'}${a.automatico ? ' · automático' : ''}</div></td><td>${chipEstado(a.estado)}${a.respuesta ? `<div class="tiny muted">${esc(a.respuesta)}</div>` : a.estado === 'pendiente' && a.motivo_revision ? `<div class="tiny muted">${esc(a.motivo_revision)}</div>` : ''}</td><td class="r num">${L(a.monto)}${+a.monto_solicitado && +a.monto_solicitado !== +a.monto ? `<div class="tiny muted">pediste ${L(a.monto_solicitado)}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Aún no has pedido adelantos.</div>'}`);
   const f = $('#fad', m);
-  const sync = () => { const com = f.tipo.value === 'comisiones'; $('#nota-com', m).hidden = !com; $('#bad', m).disabled = com && !disp.puede_comisiones; };
+  const dc = disp.comisiones || {};
+  const sync = () => { const com = f.tipo.value === 'comisiones'; $('#nota-com', m).hidden = !com; $('#bad', m).disabled = com && (!disp.puede_comisiones || !(+dc.disponible > 0));
+    $('#h-sal', m) && ($('#h-sal', m).hidden = com); $('#h-com', m) && ($('#h-com', m).hidden = !com);
+    f.monto.max = com ? (+dc.disponible || 0) : ''; };
   $$('.segm button', m).forEach(b => b.onclick = () => { $$('.segm button', m).forEach(x => x.classList.toggle('on', x === b)); f.tipo.value = b.dataset.t; sync(); });
   sync();
   f.onsubmit = async e => {
     e.preventDefault(); const x = formData(f);
     const monto = Math.round(+x.monto);
+    if (x.tipo === 'comisiones' && monto > +(dc.disponible || 0)) return toast(`Puedes pedir hasta ${L(dc.disponible || 0)} de comisiones`, true);
     const auto = x.tipo === 'salario' && disp.dia_automatico && monto <= +disp.disponible;
     if (!await confirmar('Solicitar adelanto', `${L(monto)} de ${x.tipo === 'salario' ? 'salario' : 'comisiones'}. ${auto ? 'Se aprueba al instante y se descuenta en tu próxima planilla.' : 'Quedará pendiente hasta que la gerencia lo autorice.'}`, 'Enviar solicitud')) return;
     try { const r = await q(sb.rpc('pl_solicitar_adelanto', { p_tipo: x.tipo, p_monto: monto, p_nota: x.nota || null })); toast(r.estado === 'aprobado' ? 'Adelanto aprobado' : 'Solicitud enviada a gerencia'); vMiAdelanto(); } catch (er) { toast(errMsg(er), true); }
@@ -2363,8 +2369,9 @@ async function vSolicitudes() {
       ${[...adR.map(a => ({ f: a.resuelto_en, t: `${a.tipo === 'comisiones' ? 'Adelanto comisiones' : 'Adelanto'} ${L(a.monto)}${a.automatico ? ' (automático)' : ''}`, n: a.pl_empleados?.nombre, e: a.estado, x: a })), ...vacR.map(v => ({ f: v.resuelto_en, t: `Vacaciones ${fc(v.desde)}–${fc(v.hasta)}`, n: v.pl_empleados?.nombre, e: v.estado, x: v })), ...pmR.map(p => ({ f: p.resuelto_en, t: `Permiso ${p.goce ? 'con' : 'sin'} goce ${rangoPermiso(p)}`, n: p.pl_empleados?.nombre, e: p.estado, x: p })), ...hxR.map(h => ({ f: h.resuelto_en, t: `${etiquetaHoras(h)} ${fc(h.fecha)} · ${N(h.horas)} h`, n: h.pl_empleados?.nombre, e: h.estado, x: h })), ...csR.map(c => ({ f: c.resuelto_en || c.solicitado_en, t: `Constancia · ${esc(c.dirigido_a || 'A quien interese')}`, n: c.pl_empleados?.nombre, e: c.estado, x: c }))]
         .sort((a, b) => String(b.f).localeCompare(String(a.f))).slice(0, 20).map(x => `<tr><td><b>${esc(x.n)}</b><div class="small">${x.t}</div>${linea(x.x)}<div class="tiny muted">${x.e === 'cancelada' || x.e === 'cancelado' ? 'Cancelado por el empleado' : x.x.automatico && !x.x.resuelto_por ? 'Aprobado automáticamente' : `${{ aprobado: 'Aprobado', aprobada: 'Aprobada', rechazado: 'Rechazado', rechazada: 'Rechazada', emitida: 'Emitida' }[x.e] || 'Resuelto'}`} ${x.f ? fdt(x.f) : ''}${x.x.resuelto_por ? ` por <b>${esc(nomU(x.x.resuelto_por))}</b>` : ''}</div></td><td class="r">${chipEstado(x.e)}</td></tr>`).join('') || '<tr><td class="muted">Sin movimientos</td></tr>'}
     </tbody></table></div>`);
-  const resolverAd = (a, aprobar) => {
-    const h = hoja(aprobar ? 'Autorizar adelanto' : 'Rechazar adelanto', `<form><p class="small muted" style="margin:0">${esc(a.pl_empleados?.nombre)} pidió ${L(a.monto)} ${a.tipo === 'comisiones' ? 'de comisiones' : `de salario (salario quincenal ${L((+a.pl_empleados?.salario_mensual || 0) / 2)})`}.</p>
+  const resolverAd = async (a, aprobar) => {
+    let pc = null; if (a.tipo === 'comisiones') { try { pc = await q(sb.rpc('pl_adelanto_com_disponible', { p_emp: a.empleado_id })); } catch (_) { } }
+    const h = hoja(aprobar ? 'Autorizar adelanto' : 'Rechazar adelanto', `<form><p class="small muted" style="margin:0">${esc(a.pl_empleados?.nombre)} pidió ${L(a.monto)} ${a.tipo === 'comisiones' ? `de comisiones${pc && pc.hay_periodo ? ` (comisiones preliminares de ${esc(pc.periodo)}: ${L(pc.preliminar)}; ${pc.pct}% = ${L(pc.tope)}; ya pedido ${L(pc.usado)}, incluido este)` : ''}` : `de salario (salario quincenal ${L((+a.pl_empleados?.salario_mensual || 0) / 2)})`}.</p>
       ${aprobar ? `<label class="f">Monto autorizado (L)<input class="inp" type="number" name="monto" min="1" step="1" value="${Math.round(a.monto)}" required></label>` : ''}
       <label class="f">${aprobar ? 'Comentario (opcional)' : 'Motivo del rechazo'}<input class="inp" name="resp" ${aprobar ? '' : 'required'}></label>
       <div class="pie"><button class="btn ${aprobar ? 'pri' : 'rojo'}">${aprobar ? 'Autorizar adelanto' : 'Rechazar adelanto'}</button></div></form>`);

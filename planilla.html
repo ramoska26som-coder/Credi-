@@ -221,6 +221,11 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .accion svg{width:24px;height:24px;color:var(--azul)}
 .accion:hover{border-color:#B9CDEE}
 .chips{display:flex;flex-wrap:wrap;gap:4px}
+.mk-det{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mk-foto{width:100%;height:340px;object-fit:contain;border-radius:12px;background:#0A2A66;margin:0}
+.mk-mapa{position:relative;height:340px;border-radius:12px;overflow:hidden;background:#E6EEF9;border:1px solid var(--linea)}
+.mk-abrir{position:absolute;right:8px;top:8px;z-index:500;background:#fff;color:var(--azul2);font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;box-shadow:0 1px 4px rgba(0,0,0,.2);text-decoration:none}
+@media (max-width:640px){.mk-det{grid-template-columns:1fr}.mk-foto{height:300px}.mk-mapa{height:220px}}
 .disp-chip{display:inline-block;margin-left:6px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;vertical-align:1px;white-space:nowrap}
 .disp-chip.ok{background:#E3F6EC;color:#0F7A43;border:1px solid #A9DFC2}
 .disp-chip.mal{background:#FDECEC;color:#B42318;border:1px solid #F5B5B5}
@@ -577,13 +582,14 @@ async function refrescarBadge() {
       $$('[data-badge]').forEach(b => { b.textContent = n; b.classList.toggle('hidden', !n); });
       return;
     }
-    const [a, v, pm, hx, cs] = await Promise.all([
+    const [a, v, pm, hx, cs, dz] = await Promise.all([
       sb.from('pl_adelantos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       sb.from('pl_vacaciones').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       sb.from('pl_permisos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       sb.from('pl_horas_extra').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
-      sb.from('pl_constancia_solicitudes').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')]);
-    const n = (a.count || 0) + (v.count || 0) + (pm.count || 0) + (hx.count || 0) + (cs.count || 0);
+      sb.from('pl_constancia_solicitudes').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+      sb.from('pl_adelantos').select('id', { count: 'exact', head: true }).eq('estado', 'aprobado').is('desembolsado_en', null)]);
+    const n = (a.count || 0) + (v.count || 0) + (pm.count || 0) + (hx.count || 0) + (cs.count || 0) + (dz.count || 0);
     $$('[data-badge]').forEach(b => { b.textContent = n; b.classList.toggle('hidden', !n); });
   } catch (_) { }
 }
@@ -1082,10 +1088,12 @@ async function editarAdelanto(a, perFijo, despues) {
     <div class="row2"><label class="f">Fecha<input class="inp" type="date" name="fecha" value="${a.fecha}" required></label><label class="f">Monto (L)<input class="inp" type="number" step="0.01" min="0.01" name="monto" value="${a.monto}" required></label></div>
     <label class="f">Se descuenta en<select class="inp" name="periodo_id"><option value="">Pendiente (sin planilla)</option>${abiertos.map(p => `<option value="${p.id}" ${p.id === a.periodo_id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
     <label class="f">Descripción<input class="inp" name="descripcion" value="${esc(a.descripcion || '')}"></label>
+    ${a.id ? '' : '<label class="chk"><input type="checkbox" name="entregado" checked>Ya se le entregó el dinero</label>'}
     <div class="pie">${a.id ? '<button type="button" class="btn rojo" id="del">Eliminar</button>' : ''}<button class="btn pri">${a.id ? 'Guardar cambios' : 'Registrar adelanto'}</button></div></form>`);
   $('form', h.el).onsubmit = async e => {
     e.preventDefault(); const x = formData(e.target);
     const row = { empleado_id: x.empleado_id, fecha: x.fecha, monto: Math.round(+x.monto), periodo_id: x.periodo_id || null, descripcion: x.descripcion || null, tipo: abiertos.find(p => p.id === x.periodo_id)?.tipo || a.tipo || 'salario' };
+    if (!a.id && x.entregado) Object.assign(row, { desembolsado_en: new Date().toISOString(), desembolsado_por: S.user.id, desembolso_metodo: 'Registrado por administración' });
     try { if (a.id) await q(sb.from('pl_adelantos').update(row).eq('id', a.id)); else await q(sb.from('pl_adelantos').insert(row)); h.cerrar(); toast(a.id ? 'Cambios guardados' : 'Adelanto registrado'); despues(); } catch (er) { toast(errMsg(er), true); }
   };
   $('#del', h.el) && ($('#del', h.el).onclick = async () => { try { await q(sb.from('pl_adelantos').delete().eq('id', a.id)); h.cerrar(); toast('Adelanto eliminado'); despues(); } catch (er) { toast(errMsg(er), true); } });
@@ -1466,7 +1474,7 @@ async function vAdelantos() {
   const m = shell(`<div class="miga"><a href="#/mis-solicitudes">Mis solicitudes</a></div><div class="top"><div><h1>Adelantos</h1><div class="muted small">Se descuentan en la planilla asignada${porAut ? ` · <a href="#/solicitudes">${porAut} por autorizar</a>` : ''}</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Registrar adelanto</button></div></div>
     ${pend.length ? `<div class="err" style="background:#FFF6CC;color:#6B5200;margin-bottom:12px">${pend.length} adelanto${pend.length > 1 ? 's' : ''} sin planilla asignada (${L(pend.reduce((s, a) => s + +a.monto, 0))}). Asígnalos para que se descuenten.</div>` : ''}
     ${ad.length ? `<div class="tscroll"><table class="t"><thead><tr><th>Fecha</th><th>Empleado</th><th>Se descuenta en</th><th class="r">Monto</th></tr></thead><tbody>
-      ${ad.map(a => `<tr class="click" data-a="${a.id}"><td>${fc(a.fecha)}</td><td><b>${esc(a.pl_empleados?.nombre)}</b>${a.descripcion && a.descripcion !== 'Adelanto de salario' ? `<div class="tiny muted">${esc(a.descripcion)}</div>` : ''}</td><td>${a.estado !== 'aprobado' ? chipEstado(a.estado) : a.pl_periodos ? `${esc(a.pl_periodos.nombre)} ${a.pl_periodos.estado === 'cerrada' ? '<span class="chip ok">descontado</span>' : ''}` : '<span class="chip warn">Sin planilla</span>'}<div class="tiny muted">${a.tipo === 'comisiones' ? 'Comisiones' : 'Salario'}${a.origen === 'empleado' ? (a.automatico ? ' · pedido por la app (automático)' : ' · pedido por la app') : ''}</div></td><td class="r num">${L(a.monto)}</td></tr>`).join('')}
+      ${ad.map(a => `<tr class="click" data-a="${a.id}"><td>${fc(a.fecha)}</td><td><b>${esc(a.pl_empleados?.nombre)}</b>${a.descripcion && a.descripcion !== 'Adelanto de salario' ? `<div class="tiny muted">${esc(a.descripcion)}</div>` : ''}</td><td>${a.estado !== 'aprobado' ? chipEstado(a.estado) : a.pl_periodos ? `${esc(a.pl_periodos.nombre)} ${a.pl_periodos.estado === 'cerrada' ? '<span class="chip ok">descontado</span>' : ''}` : '<span class="chip warn">Sin planilla</span>'}<div class="tiny muted">${a.tipo === 'comisiones' ? 'Comisiones' : 'Salario'}${a.origen === 'empleado' ? (a.automatico ? ' · pedido por la app (automático)' : ' · pedido por la app') : ''}</div></td><td class="r num">${L(a.monto)}${a.estado === 'aprobado' ? (a.desembolsado_en ? '<div class="tiny" style="color:#0F7A43">entregado</div>' : '<div class="tiny" style="color:#8A6A00">por entregar</div>') : ''}</td></tr>`).join('')}
       </tbody></table></div>` : '<div class="vacio"><b>Sin adelantos</b>Registra los adelantos a medida que se entregan.</div>'}`);
   $('#nuevo', m).onclick = () => editarAdelanto(null, null, vAdelantos);
   $$('tr[data-a]', m).forEach(tr => tr.onclick = () => { const a = ad.find(x => x.id === tr.dataset.a); if (a.estado === 'pendiente') { location.hash = '#/solicitudes'; return; } if (a.estado === 'rechazado') return toast('Este adelanto fue rechazado', true); if (a.pl_periodos?.estado === 'cerrada') return toast('Ya se descontó en una planilla cerrada', true); editarAdelanto(a, null, vAdelantos); });
@@ -1741,11 +1749,13 @@ async function vMarcajes(fecha) {
   $$('[data-d]', m).forEach(b => b.onclick = () => location.hash = `#/marcajes/${addDias(fecha, +b.dataset.d)}`);
   $$('[data-mk]', m).forEach(b => b.onclick = () => {
     const r = rows.find(x => x.id === b.dataset.mk); const e = emps.find(x => x.id === r.empleado_id);
-    const h = hoja(`${nomMarca(r.tipo)} · ${corto(e?.nombre || '')}`, `${urls[r.foto_path] ? `<img src="${urls[r.foto_path]}" alt="Selfie" style="width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#0A2A66">` : '<div class="vacio">Sin foto</div>'}
+    const h = hoja(`${nomMarca(r.tipo)} · ${corto(e?.nombre || '')}`, `<div class="mk-det">${urls[r.foto_path] ? `<img src="${urls[r.foto_path]}" alt="Selfie" class="mk-foto">` : '<div class="vacio mk-foto">Sin foto</div>'}
+      <div class="mk-mapa" data-mapa>${r.lat == null ? '<div class="vacio" style="height:100%;display:grid;place-items:center">Sin ubicación</div>' : ''}</div></div>
       <div class="panel small" style="margin-top:12px"><div class="cp-dato"><span>Hora</span><span>${fdt(r.marcado_en)}</span></div>
       <div class="cp-dato"><span>Ubicación</span><span>${mapsLink(r.lat, r.lng)} ${r.precision_m ? `±${Math.round(r.precision_m)} m` : ''}</span></div>
       ${r.nota ? `<div class="cp-dato"><span>Nota</span><span>${esc(r.nota)}</span></div>` : ''}</div>
-      <form style="margin-top:12px;display:grid;gap:10px"><label class="f">Anular este marcaje (motivo)<input class="inp" name="motivo" required placeholder="Ej.: marcó por error, foto no corresponde"></label><div class="pie"><button class="btn rojo">Anular marcaje</button></div></form>`);
+      <form style="margin-top:12px;display:grid;gap:10px"><label class="f">Anular este marcaje (motivo)<input class="inp" name="motivo" required placeholder="Ej.: marcó por error, foto no corresponde"></label><div class="pie"><button class="btn rojo">Anular marcaje</button></div></form>`, { ancha: true });
+    if (r.lat != null) miniMapa($('[data-mapa]', h.el), r.lat, r.lng, r.precision_m);
     $('form', h.el).onsubmit = async ev => { ev.preventDefault(); try { await q(sb.rpc('pl_anular_marcaje', { p_id: r.id, p_motivo: formData(ev.target).motivo })); h.cerrar(); toast('Marcaje anulado; el empleado puede volver a marcar'); vMarcajes(fecha); } catch (er) { toast(errMsg(er), true); } };
   });
 }
@@ -1804,6 +1814,35 @@ async function vVacacionesSup(empSel) {
     })();
   };
   $$('[data-ve]', m).forEach(tr => tr.onclick = () => abrir(tr.dataset.ve));
+}
+
+/* ===================== MINIMAPA (Leaflet + OpenStreetMap) ===================== */
+let _leaflet = null;
+function cargarLeaflet() {
+  if (_leaflet) return _leaflet;
+  _leaflet = new Promise((res, rej) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(css);
+    const js = document.createElement('script'); js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    js.onload = () => (window.leaflet || window.L) && (window.leaflet || window.L).map ? res(window.leaflet || window.L) : rej(new Error('Leaflet no cargó'));
+    js.onerror = () => { _leaflet = null; rej(new Error('Sin conexión al mapa')); };
+    document.head.appendChild(js);
+  });
+  return _leaflet;
+}
+async function miniMapa(el, lat, lng, prec) {
+  if (!el) return;
+  const respaldo = () => { el.innerHTML = `<iframe title="Ubicación" loading="lazy" src="https://maps.google.com/maps?q=${lat},${lng}&z=17&output=embed" style="border:0;width:100%;height:100%"></iframe>`; };
+  try {
+    const Lf = await cargarLeaflet();
+    if (!document.body.contains(el)) return;
+    const mapa = Lf.map(el, { zoomControl: true, attributionControl: true, scrollWheelZoom: false }).setView([lat, lng], prec && prec > 150 ? 15 : 17);
+    Lf.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapa);
+    if (prec) Lf.circle([lat, lng], { radius: prec, color: '#1877F2', weight: 1, fillOpacity: .12 }).addTo(mapa);
+    Lf.circleMarker([lat, lng], { radius: 8, color: '#fff', weight: 3, fillColor: '#1877F2', fillOpacity: 1 }).addTo(mapa);
+    setTimeout(() => mapa.invalidateSize(), 120);
+  } catch (_) { respaldo(); }
+  const a = document.createElement('a'); a.href = `https://maps.google.com/?q=${lat},${lng}`; a.target = '_blank'; a.rel = 'noopener'; a.className = 'mk-abrir'; a.textContent = 'Abrir en Google Maps';
+  el.appendChild(a);
 }
 
 /* ===================== PAGOS APARTE: combustible y depreciación ===================== */
@@ -1961,7 +2000,7 @@ async function vMiAdelanto() {
       <div class="small" id="por-que" style="margin:-4px 0 0;color:#8A6A00;text-align:center" hidden></div>
     </form></div>
     <h2 style="margin:22px 0 10px">Mis solicitudes</h2>
-    ${mis.length ? `<div class="tscroll"><table class="t"><tbody>${mis.map(a => `<tr><td>${fc(a.fecha)}<div class="tiny muted">${a.tipo === 'comisiones' ? 'Comisiones' : 'Salario'}${a.automatico ? ' · automático' : ''}</div></td><td>${chipEstado(a.estado)}${a.respuesta ? `<div class="tiny muted">${esc(a.respuesta)}</div>` : a.estado === 'pendiente' && a.motivo_revision ? `<div class="tiny muted">${esc(a.motivo_revision)}</div>` : ''}</td><td class="r num">${L(a.monto)}${+a.monto_solicitado && +a.monto_solicitado !== +a.monto ? `<div class="tiny muted">pediste ${L(a.monto_solicitado)}</div>` : ''}${a.estado === 'pendiente' ? `<div class="sol-acc" style="margin-top:6px"><button class="btn sm borde" data-aed="${a.id}">Editar</button><button class="btn sm rojo" data-acan="${a.id}">Cancelar</button></div>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Aún no has pedido adelantos.</div>'}`);
+    ${mis.length ? `<div class="tscroll"><table class="t"><tbody>${mis.map(a => `<tr><td>${fc(a.fecha)}<div class="tiny muted">${a.tipo === 'comisiones' ? 'Comisiones' : 'Salario'}${a.automatico ? ' · automático' : ''}</div></td><td>${a.estado === 'aprobado' ? (a.desembolsado_en ? `<span class="chip ok">Entregado</span><div class="tiny muted">${fc(a.desembolsado_en.slice(0, 10))}${a.desembolso_metodo && a.desembolso_metodo !== 'registro previo' && a.desembolso_metodo !== 'Registrado por administración' ? ' · ' + esc(a.desembolso_metodo) : ''}</div>` : '<span class="chip warn">Aprobado · por entregar</span>') : chipEstado(a.estado)}${a.respuesta ? `<div class="tiny muted">${esc(a.respuesta)}</div>` : a.estado === 'pendiente' && a.motivo_revision ? `<div class="tiny muted">${esc(a.motivo_revision)}</div>` : ''}</td><td class="r num">${L(a.monto)}${+a.monto_solicitado && +a.monto_solicitado !== +a.monto ? `<div class="tiny muted">pediste ${L(a.monto_solicitado)}</div>` : ''}${a.estado === 'pendiente' ? `<div class="sol-acc" style="margin-top:6px"><button class="btn sm borde" data-aed="${a.id}">Editar</button><button class="btn sm rojo" data-acan="${a.id}">Cancelar</button></div>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Aún no has pedido adelantos.</div>'}`);
   $$('[data-aed]', m).forEach(b => b.onclick = () => editarSolicitud('adelanto', mis.find(a => a.id === b.dataset.aed), vMiAdelanto));
   $$('[data-acan]', m).forEach(b => b.onclick = async () => { if (!await confirmar('Cancelar adelanto', 'La solicitud se cancela y ya no la verá la gerencia.', 'Cancelar solicitud', true)) return; try { await cancelarSolicitud('adelanto', b.dataset.acan); toast('Solicitud cancelada'); vMiAdelanto(); } catch (er) { toast(errMsg(er), true); } });
   const f = $('#fad', m);
@@ -2403,8 +2442,9 @@ async function vSolicitudes() {
   cargando();
   const sup = !S.admin; // supervisión: solo permisos y horas extra
   const nada = Promise.resolve([]);
-  const [ad, vac, adR, vacR, pm, pmR, hx, hxR, cs, csR] = await Promise.all([
+  const [ad, des, vac, adR, vacR, pm, pmR, hx, hxR, cs, csR] = await Promise.all([
     sup ? nada : q(sb.from('pl_adelantos').select('*, pl_empleados(nombre,salario_mensual)').eq('estado', 'pendiente').order('creado_en')),
+    sup ? nada : q(sb.from('pl_adelantos').select('*, pl_empleados(nombre,metodo_pago,banco,cuenta)').eq('estado', 'aprobado').is('desembolsado_en', null).order('fecha')),
     q(sb.from('pl_vacaciones').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
     sup ? nada : q(sb.from('pl_adelantos').select('*, pl_empleados(nombre)').eq('origen', 'empleado').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
     q(sb.from('pl_vacaciones').select('*, pl_empleados(nombre)').eq('tipo', 'solicitud').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
@@ -2414,7 +2454,7 @@ async function vSolicitudes() {
     q(sb.from('pl_horas_extra').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15)),
     sup ? nada : q(sb.from('pl_constancia_solicitudes').select('*, pl_empleados(nombre)').eq('estado', 'pendiente').order('solicitado_en')),
     sup ? nada : q(sb.from('pl_constancia_solicitudes').select('*, pl_empleados(nombre)').neq('estado', 'pendiente').order('resuelto_en', { ascending: false }).limit(15))]);
-  const todasS = [...ad, ...vac, ...adR, ...vacR, ...pm, ...pmR, ...hx, ...hxR, ...cs, ...csR];
+  const todasS = [...ad, ...des, ...vac, ...adR, ...vacR, ...pm, ...pmR, ...hx, ...hxR, ...cs, ...csR];
   if (sup) { // la supervisión no lee la tabla de empleados (salarios); trae solo nombres
     let nombres = []; try { nombres = await q(sb.rpc('pl_nombres_empleados')); } catch (_) { }
     todasS.forEach(x => { if (!x.pl_empleados?.nombre) x.pl_empleados = { nombre: nombres.find(n => n.id === x.empleado_id)?.nombre || '' }; });
@@ -2445,7 +2485,12 @@ async function vSolicitudes() {
     ${sup ? '' : `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="margin:0">Adelantos por autorizar${ad.length ? ` · ${ad.length}` : ''}</h2>${ad.length ? (() => { const sal = ad.filter(a => a.tipo !== 'comisiones').reduce((t, a) => t + +a.monto, 0), com = ad.filter(a => a.tipo === 'comisiones').reduce((t, a) => t + +a.monto, 0); return `<div style="text-align:right"><div class="num" style="font-size:18px">Total ${L(sal + com)}</div><div class="tiny muted">${sal ? `Salario ${L(sal)}` : ''}${sal && com ? ' · ' : ''}${com ? `Comisiones ${L(com)}` : ''}</div></div>`; })() : ''}</div>
     ${!S.autoriza && ad.length ? '<p class="small muted" style="margin:-4px 0 10px">Solo quien tiene permiso de autorizar (gerencia) puede aprobarlos. Se configura en Ajustes.</p>' : ''}
     ${ad.length ? `<div class="lista">${ad.map(a => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(a.pl_empleados?.nombre)} · Solicita <b>${L(a.monto)}</b> ${chipDisp(a)}</div><div class="s">${a.tipo === 'comisiones' ? 'Adelanto de comisiones' : 'Adelanto de salario'} ${a.descripcion && !/^Adelanto de/.test(a.descripcion) ? ' · ' + esc(a.descripcion) : ''}</div><div class="tiny" style="color:#8A6A00">${esc(a.motivo_revision || '')}</div>${linea(a)}</div>
-      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-r="${a.id}" ${S.autoriza ? '' : 'disabled'}>Rechazar</button><button class="btn sm pri" data-a="${a.id}" ${S.autoriza ? '' : 'disabled'}>Autorizar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay adelantos pendientes.</div>'}`}
+      <div style="display:flex;gap:6px"><button class="btn sm rojo" data-r="${a.id}" ${S.autoriza ? '' : 'disabled'}>Rechazar</button><button class="btn sm pri" data-a="${a.id}" ${S.autoriza ? '' : 'disabled'}>Autorizar</button></div></div>`).join('')}</div>` : '<div class="vacio">No hay adelantos pendientes.</div>'}
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin:22px 0 10px"><h2 style="margin:0">Pendientes de desembolso${des.length ? ` · ${des.length}` : ''}</h2>${des.length ? `<div style="text-align:right"><div class="num" style="font-size:18px">Total ${L(des.reduce((t, a) => t + +a.monto, 0))}</div><div class="tiny muted">Aprobados que falta entregar al empleado</div></div>` : ''}</div>
+    ${des.length ? `<div class="panel" style="padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><label class="chk"><input type="checkbox" id="des-todos">Seleccionar todos</label><button class="btn sm pri" id="des-sel" disabled>Marcar seleccionados como entregados</button></div>
+      <div class="lista">${des.map(a => `<div class="item" style="cursor:default;flex-wrap:wrap"><label class="chk" style="margin:0"><input type="checkbox" data-dsel="${a.id}" aria-label="Seleccionar"></label><div class="grow" style="min-width:200px"><div class="t">${esc(a.pl_empleados?.nombre)} · <b>${L(a.monto)}</b></div><div class="s">${a.tipo === 'comisiones' ? 'Adelanto de comisiones' : 'Adelanto de salario'} · ${fc(a.fecha)} · ${a.pl_empleados?.metodo_pago === 'EFECTIVO' ? 'Efectivo' : `Transferencia ${esc(a.pl_empleados?.banco || '')}${a.pl_empleados?.cuenta ? ' · ' + esc(a.pl_empleados.cuenta) : ''}`}</div>
+        <div class="tiny muted">Aprobado ${a.resuelto_en ? fdt(a.resuelto_en) : ''}${a.automatico && !a.resuelto_por ? ' automáticamente' : a.resuelto_por ? ` por <b>${esc(nomU(a.resuelto_por) || '')}</b>` : ''}</div></div>
+        <button class="btn sm pri" data-dent="${a.id}">Entregado</button></div>`).join('')}</div>` : '<div class="vacio">No hay adelantos por entregar.</div>'}`}
     <h2 style="margin:${sup ? '0' : '22px'} 0 10px">Vacaciones por aprobar</h2>
     ${vac.length ? `<div class="lista">${vac.map(v => `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t">${esc(v.pl_empleados?.nombre)} · ${N(v.dias)} días</div><div class="s">${fc(v.desde)} al ${fc(v.hasta)}${v.nota ? ' · ' + esc(v.nota) : ''}</div>${linea(v)}</div>
       ${botones(v, 'vr', 'va')}</div>`).join('')}</div>` : '<div class="vacio">No hay vacaciones pendientes.</div>'}
@@ -2461,6 +2506,23 @@ async function vSolicitudes() {
     <h2 style="margin:26px 0 10px">Historial</h2>
     <div id="hist"></div>`);
   historialSolicitudes($('#hist', m), { sup });
+  const marcarEntregado = ids => {
+    const sel = des.filter(a => ids.includes(a.id)); const tot = sel.reduce((t, a) => t + +a.monto, 0);
+    const met = sel.every(a => a.pl_empleados?.metodo_pago === 'EFECTIVO') ? 'Efectivo' : 'Transferencia';
+    const h = hoja('Marcar como entregado', `<form style="display:grid;gap:12px"><p class="small muted" style="margin:0">${sel.length === 1 ? `${esc(sel[0].pl_empleados?.nombre)} · ${L(tot)}` : `${sel.length} adelantos · ${L(tot)}`}</p>
+      <div class="segm" data-seg="metodo">${['Transferencia', 'Efectivo', 'Cheque'].map(v => `<button type="button" data-v="${v}" class="${v === met ? 'on' : ''}">${v}</button>`).join('')}</div><input type="hidden" name="metodo" value="${met}">
+      <label class="f">Referencia o comprobante (opcional)<input class="inp" name="ref" placeholder="Ej.: número de transferencia"></label>
+      <div class="pie"><button class="btn pri">Confirmar entrega</button></div></form>`);
+    const f = $('form', h.el);
+    $$('[data-seg] button', f).forEach(b => b.onclick = () => { $$('[data-seg] button', f).forEach(x => x.classList.toggle('on', x === b)); f.metodo.value = b.dataset.v; });
+    f.onsubmit = async e => { e.preventDefault(); const x = formData(f); try { const n = await q(sb.rpc('pl_marcar_desembolsado', { p_ids: ids, p_metodo: x.metodo, p_ref: x.ref || null })); h.cerrar(); toast(`${n} adelanto${n === 1 ? '' : 's'} marcado${n === 1 ? '' : 's'} como entregado${n === 1 ? '' : 's'}`); vSolicitudes(); } catch (er) { toast(errMsg(er), true); } };
+  };
+  $$('[data-dent]', m).forEach(b => b.onclick = () => marcarEntregado([b.dataset.dent]));
+  const selDes = () => $$('[data-dsel]', m).filter(c => c.checked).map(c => c.dataset.dsel);
+  const syncDes = () => { const n = selDes().length; const b = $('#des-sel', m); if (b) { b.disabled = !n; b.textContent = n ? `Marcar ${n} como entregado${n > 1 ? 's' : ''}` : 'Marcar seleccionados como entregados'; } };
+  $$('[data-dsel]', m).forEach(c => c.onchange = syncDes);
+  $('#des-todos', m) && ($('#des-todos', m).onchange = e => { $$('[data-dsel]', m).forEach(c => c.checked = e.target.checked); syncDes(); });
+  $('#des-sel', m) && ($('#des-sel', m).onclick = () => marcarEntregado(selDes()));
   const resolverAd = async (a, aprobar) => {
     let pc = null; if (a.tipo === 'comisiones') { try { pc = await q(sb.rpc('pl_adelanto_com_disponible', { p_emp: a.empleado_id })); } catch (_) { } }
     const h = hoja(aprobar ? 'Autorizar adelanto' : 'Rechazar adelanto', `<form><p class="small muted" style="margin:0">${esc(a.pl_empleados?.nombre)} pidió ${L(a.monto)} ${a.tipo === 'comisiones' ? `de comisiones${pc && pc.hay_periodo ? ` (comisiones preliminares de ${esc(pc.periodo)}: ${L(pc.preliminar)}; ${pc.pct}% = ${L(pc.tope)}; ya pedido ${L(pc.usado)}, incluido este)` : ''}` : `de salario (salario quincenal ${L((+a.pl_empleados?.salario_mensual || 0) / 2)})`}.</p>
@@ -2528,7 +2590,7 @@ async function historialSolicitudes(cont, { sup }) {
     let rows = [];
     try { rows = (await q(qy.limit(500))).filter(x => x.respuesta !== 'Editada por el empleado'); } catch (er) { cont.innerHTML = `<div class="vacio">${esc(errMsg(er))}</div>`; return; }
     if (sup) { if (!nombres) { try { nombres = await q(sb.rpc('pl_nombres_empleados')); } catch (_) { nombres = []; } } rows.forEach(x => x.pl_empleados = { nombre: nombres.find(n => n.id === x.empleado_id)?.nombre || '' }); }
-    const uids = [...new Set(rows.flatMap(x => [x.creado_por, x.solicitado_por, x.resuelto_por]).filter(Boolean))];
+    const uids = [...new Set(rows.flatMap(x => [x.creado_por, x.solicitado_por, x.resuelto_por, x.desembolsado_por]).filter(Boolean))];
     let us = []; try { us = uids.length ? await q(sb.rpc('pl_nombres_usuarios', { p_ids: uids })) : []; } catch (_) { }
     const nomU = id => { const u = us.find(x => x.id === id); return u ? corto(u.nombre) : null; };
     // fechas que ocupa cada registro dentro del mes
@@ -2541,7 +2603,7 @@ async function historialSolicitudes(cont, { sup }) {
     const desc = x => st.tab === 'horas' ? `${x.tipo === 'descanso' ? 'Descanso compensatorio' : 'Horas extra'} · ${fc(x.fecha)} · ${horasTxt(x)}${x.tipo === 'extra' && x.estado === 'aprobada' ? ` · ${x.destino === 'pagar' ? 'se pagan' : 'a descanso'}` : x.preferencia ? ` · prefiere ${x.preferencia === 'pagar' ? 'pago' : 'descanso'}` : ''}${x.motivo ? ' · ' + esc(x.motivo) : ''}`
       : st.tab === 'permisos' ? `${tipoPermiso(x)} · ${rangoPermiso(x)} · ${esc(x.motivo || '')}`
       : st.tab === 'vacaciones' ? `${fc(x.desde)} al ${fc(x.hasta)} · ${N(x.dias)} días${x.nota ? ' · ' + esc(x.nota) : ''}`
-      : st.tab === 'adelantos' ? `${x.tipo === 'comisiones' ? 'De comisiones' : 'De salario'} · ${fc(x.fecha)} · <b>${L(x.monto)}</b>${x.automatico ? ' · automático' : ''}${x.origen === 'admin' ? ' · registrado por administración' : ''}`
+      : st.tab === 'adelantos' ? `${x.tipo === 'comisiones' ? 'De comisiones' : 'De salario'} · ${fc(x.fecha)} · <b>${L(x.monto)}</b>${x.automatico ? ' · automático' : ''}${x.origen === 'admin' ? ' · registrado por administración' : ''}${x.estado === 'aprobado' ? (x.desembolsado_en ? ` · <span style="color:#0F7A43;font-weight:600">entregado ${fdt(x.desembolsado_en)}${x.desembolso_metodo && !/registr/i.test(x.desembolso_metodo) ? ' (' + esc(x.desembolso_metodo) + ')' : ''}${x.desembolsado_por ? ' por ' + esc(nomU(x.desembolsado_por) || '') : ''}</span>` : ' · <span style="color:#8A6A00;font-weight:600">por entregar</span>') : ''}`
       : `Dirigida a ${esc(x.dirigido_a || 'A quien interese')}${x.motivo ? ' · ' + esc(x.motivo) : ''}`;
     const resTxt = x => {
       if (x.estado === 'pendiente') return 'Pendiente de respuesta';

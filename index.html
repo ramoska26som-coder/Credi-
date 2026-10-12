@@ -2265,7 +2265,7 @@ function pintarTablero(){
       <div class="kpi hero"><div class="l">💰 Capital colocado ${esHoy ? 'hoy' : 'del día'}</div><div class="v">${L(monto)}</div>
         <div class="s">${desDia.length} desembolso(s)${metaDia ? ` · ${Math.round(monto / metaDia * 100)}% de la meta ${L(metaDia)}${monto < metaDia ? ` · faltan ${L(metaDia - monto)}` : ' ✔'}` : ''}</div>
         ${pctMeta != null ? `<div class="bar"><i style="width:${pctMeta}%"></i></div>` : ''}</div>
-      ${esHoy ? `<div class="kpi sec" style="border-top:3px solid var(--accent)"><div class="l">En proceso de colocación</div><div class="v">${L(capProc)}</div><div class="s">${enColoc.length} aprobada(s) por desembolsar</div></div>
+      ${esHoy ? `<div class="kpi sec" id="kProc" style="border-top:3px solid var(--accent);cursor:pointer" title="Ver cuáles solicitudes suman"><div class="l">En proceso de colocación ›</div><div class="v">${L(capProc)}</div><div class="s">${enColoc.length} aprobada(s) por desembolsar</div></div>
       <div class="kpi sec"><div class="l">Total del día (colocado + en proceso)</div><div class="v">${L(monto + capProc)}</div><div class="s">${metaDia ? (monto + capProc >= metaDia ? '✔ alcanzaría la meta' : `faltarían ${L(metaDia - monto - capProc)} para la meta`) : 'si se desembolsa todo lo aprobado'}</div></div>` : ''}
     </div>
     <div class="bd-sum">
@@ -2284,6 +2284,15 @@ function pintarTablero(){
     const n = +b.dataset.dd; if (!n){ S.boardDay = hoy; } else { const d = new Date(S.boardDay + 'T12:00'); d.setDate(d.getDate() + n); S.boardDay = d.toLocaleDateString('en-CA'); }
     pintarTablero(); });
   $('#main').querySelectorAll('[data-bt]').forEach(b => b.onclick = () => { S.boardTodos = b.dataset.bt === '1'; pintarTablero(); });
+  if ($('#kProc')) $('#kProc').onclick = () => {
+    const w = dialogo(`<h3>En proceso de colocación</h3><div class="small muted">Solicitudes aprobadas que aún no se desembolsan (completar datos, verificación o transferencia pendiente). Capital nuevo = monto que toma el cliente − saldo de capital anterior.</div>
+      ${enColoc.length ? `<table class="t" style="margin-top:8px"><thead><tr><th>Cliente</th><th>Paso</th><th class="num">Monto</th><th class="num">Capital nuevo</th></tr></thead><tbody>
+      ${enColoc.map(s => `<tr data-id="${s.id}" style="cursor:pointer"><td><b>${esc(s.nombre_cliente)}</b><div class="small muted">${esc(s.codigo)} · ${TIPO[s.tipo] || s.tipo}${s.en_espera ? ' · ⏸ en espera' : ''}</div></td><td>${PASO[s.estado]?.t || EST[s.estado].t}</td>
+        <td class="num">${L(s.monto_solicitado || s.monto_aprobado)}${s.tipo !== 'nuevo' && +s.saldo_capital ? `<div class="small muted">saldo ${L(s.saldo_capital)}</div>` : ''}</td><td class="num"><b>${L(capitalColocado(s))}</b></td></tr>`).join('')}
+      </tbody></table>` : '<div class="empty">No hay solicitudes en proceso.</div>'}
+      <div class="btns"><button class="btn ghost" data-close>Cerrar</button></div>`);
+    w.querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => { cerrarDialogo(w); abrirDetalle(+tr.dataset.id); });
+  };
   const qi = $('#q'); qi.oninput = () => { S.q = qi.value; const p = qi.selectionStart; pintarTablero(); const n = $('#q'); n.focus(); n.setSelectionRange(p,p); };
   $('#main').querySelectorAll('.kc').forEach(c => c.onclick = () => abrirDetalle(+c.dataset.id));
 }

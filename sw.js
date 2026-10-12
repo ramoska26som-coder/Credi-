@@ -1,40 +1,85 @@
-// VerifiCrédito · service worker: permite abrir la app sin señal.
-// Los datos (Supabase) NO pasan por aquí: la app los guarda en el teléfono y envía los cambios al volver la conexión.
-const V = 'verificredito-v1';
-const CDN = /^(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|unpkg\.com)$/;
+/* Service Worker — Flujo de Caja (Más Pisto)
+   Cachea el "shell" de la app para abrir sin conexión.
+   Sube la versión (CACHE) cada vez que cambie index.html para forzar actualización. */
+var CACHE = "caja-shell-v5";
+var SHELL = [
+  "./",
+  "./index.html",
+  "./manifest.webmanifest",
+  "./icon-192.png",
+  "./icon-512.png"
+];
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(V).then(c => c.addAll(['./', './index.html', 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2']).catch(() => {})));
+self.addEventListener("install", function(e){
   self.skipWaiting();
+  e.waitUntil(
+    caches.open(CACHE).then(function(c){
+      // addAll falla si algún archivo no existe; lo hacemos tolerante
+      return Promise.all(SHELL.map(function(url){
+        return c.add(url).catch(function(){ /* ignorar faltantes (iconos opcionales) */ });
+      }));
+    })
+  );
 });
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim()));
-});
-const conLimite = (p, ms) => Promise.race([p, new Promise((_, ko) => setTimeout(() => ko(new Error('timeout')), ms))]);
 
-self.addEventListener('fetch', e => {
-  const r = e.request;
-  if (r.method !== 'GET') return;
-  const u = new URL(r.url);
-  if (u.hostname.endsWith('supabase.co') || u.hostname.endsWith('supabase.in')) return;   // datos en vivo
-  // La app (index.html y archivos propios): red primero, con límite de 5 s; si falla, la copia guardada
-  if (r.mode === 'navigate' || u.origin === location.origin){
-    e.respondWith(conLimite(fetch(r), 5000).then(res => {
-      if (res.ok) { const cp = res.clone(); caches.open(V).then(c => c.put(r.mode === 'navigate' ? './index.html' : r, cp)); }
-      return res;
-    }).catch(() => caches.match(r.mode === 'navigate' ? './index.html' : r).then(x => x || caches.match('./index.html'))));
+self.addEventListener("activate", function(e){
+  e.waitUntil(
+    caches.keys().then(function(keys){
+      return Promise.all(keys.map(function(k){ if(k!==CACHE) return caches.delete(k); }));
+    }).then(function(){ return self.clients.claim(); })
+  );
+});
+
+self.addEventListener("fetch", function(e){
+  var req = e.request;
+  if(req.method !== "GET") return; // nunca tocar POST/PATCH (escrituras a Supabase)
+
+  var url = new URL(req.url);
+  var esMismoOrigen = (url.origin === self.location.origin);
+
+  // Navegación (abrir la app): network-first, con fallback al index cacheado
+  if(req.mode === "navigate"){
+    e.respondWith(
+      fetch(req).then(function(resp){
+        var copia = resp.clone();
+        caches.open(CACHE).then(function(c){ c.put("./index.html", copia); });
+        return resp;
+      }).catch(function(){
+        return caches.match("./index.html").then(function(m){ return m || caches.match("./"); });
+      })
+    );
     return;
   }
-  // Librerías y tipografías: copia guardada primero y se actualiza en segundo plano
-  if (CDN.test(u.hostname)){
-    e.respondWith(caches.open(V).then(c => c.match(r).then(hit => {
-      const red = fetch(r).then(res => { if (res.ok || res.type === 'opaque') c.put(r, res.clone()); return res; }).catch(() => hit);
-      return hit || red;
-    })));
+
+  // Recursos del mismo origen (el shell): cache-first
+  if(esMismoOrigen){
+    e.respondWith(
+      caches.match(req).then(function(m){
+        return m || fetch(req).then(function(resp){
+          var copia = resp.clone();
+          caches.open(CACHE).then(function(c){ c.put(req, copia); });
+          return resp;
+        }).catch(function(){ return m; });
+      })
+    );
     return;
   }
-  // Mapas (OpenStreetMap): guarda las zonas ya vistas
-  if (u.hostname.endsWith('tile.openstreetmap.org')){
-    e.respondWith(caches.open(V + '-mapa').then(c => c.match(r).then(hit => hit || fetch(r).then(res => { c.put(r, res.clone()); return res; }).catch(() => hit))));
+
+  // CDNs (fuentes, supabase-js, html2canvas, jspdf): cache-first para que la app
+  // cargue offline una vez vistos; si no están, se intenta la red.
+  if(/fonts\.(googleapis|gstatic)\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com/.test(url.host)){
+    e.respondWith(
+      caches.match(req).then(function(m){
+        return m || fetch(req).then(function(resp){
+          var copia = resp.clone();
+          caches.open(CACHE).then(function(c){ c.put(req, copia); });
+          return resp;
+        }).catch(function(){ return m; });
+      })
+    );
+    return;
   }
+
+  // Todo lo demás (API de Supabase: supabase.co): dejar pasar a la red tal cual.
+  // La lógica de cola offline vive en el JS de la app, no aquí.
 });

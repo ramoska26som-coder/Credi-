@@ -2244,7 +2244,9 @@ function pintarTablero(){
   const desDia = base.filter(s => s.estado === 'desembolsada' && diaHN(s.cerrado_en || s.desembolsado_en) === dia);
   const cicloProm = desDia.length ? desDia.reduce((a,s) => a + (s.duracion_total_habil_seg ?? segHabiles(s.creado_en, s.desembolsado_en)), 0) / desDia.length : null;
   const monto = desDia.reduce((a,s) => a + capitalColocado(s), 0);
-  const enColoc = base.filter(s => ['aprobada','por_verificar','desembolso_pendiente'].includes(s.estado));
+  // Las solicitudes en espera no cuentan como capital en proceso
+  const enColocTodas = base.filter(s => ['aprobada','por_verificar','desembolso_pendiente'].includes(s.estado));
+  const enColoc = enColocTodas.filter(s => !s.en_espera), enEsperaColoc = enColocTodas.filter(s => s.en_espera);
   const capProc = enColoc.reduce((a,s) => a + capitalColocado(s), 0);
   // Promedio colocado por préstamo: nuevos vs refinanciamientos/reingresos
   const prom = l => l.length ? l.reduce((a, s) => a + capitalColocado(s), 0) / l.length : null;
@@ -2265,7 +2267,7 @@ function pintarTablero(){
       <div class="kpi hero"><div class="l">💰 Capital colocado ${esHoy ? 'hoy' : 'del día'}</div><div class="v">${L(monto)}</div>
         <div class="s">${desDia.length} desembolso(s)${metaDia ? ` · ${Math.round(monto / metaDia * 100)}% de la meta ${L(metaDia)}${monto < metaDia ? ` · faltan ${L(metaDia - monto)}` : ' ✔'}` : ''}</div>
         ${pctMeta != null ? `<div class="bar"><i style="width:${pctMeta}%"></i></div>` : ''}</div>
-      ${esHoy ? `<div class="kpi sec" id="kProc" style="border-top:3px solid var(--accent);cursor:pointer" title="Ver cuáles solicitudes suman"><div class="l">En proceso de colocación ›</div><div class="v">${L(capProc)}</div><div class="s">${enColoc.length} aprobada(s) por desembolsar</div></div>
+      ${esHoy ? `<div class="kpi sec" id="kProc" style="border-top:3px solid var(--accent);cursor:pointer" title="Ver cuáles solicitudes suman"><div class="l">En proceso de colocación ›</div><div class="v">${L(capProc)}</div><div class="s">${enColoc.length} aprobada(s) por desembolsar${enEsperaColoc.length ? ` · ${enEsperaColoc.length} en espera no cuentan` : ''}</div></div>
       <div class="kpi sec"><div class="l">Total del día (colocado + en proceso)</div><div class="v">${L(monto + capProc)}</div><div class="s">${metaDia ? (monto + capProc >= metaDia ? '✔ alcanzaría la meta' : `faltarían ${L(metaDia - monto - capProc)} para la meta`) : 'si se desembolsa todo lo aprobado'}</div></div>` : ''}
     </div>
     <div class="bd-sum">
@@ -2290,6 +2292,7 @@ function pintarTablero(){
       ${enColoc.map(s => `<tr data-id="${s.id}" style="cursor:pointer"><td><b>${esc(s.nombre_cliente)}</b><div class="small muted">${esc(s.codigo)} · ${TIPO[s.tipo] || s.tipo}${s.en_espera ? ' · ⏸ en espera' : ''}</div></td><td>${PASO[s.estado]?.t || EST[s.estado].t}</td>
         <td class="num">${L(s.monto_solicitado || s.monto_aprobado)}${s.tipo !== 'nuevo' && +s.saldo_capital ? `<div class="small muted">saldo ${L(s.saldo_capital)}</div>` : ''}</td><td class="num"><b>${L(capitalColocado(s))}</b></td></tr>`).join('')}
       </tbody></table>` : '<div class="empty">No hay solicitudes en proceso.</div>'}
+      ${enEsperaColoc.length ? `<h4 class="sec">⏸ En espera (no suman)</h4><table class="t"><tbody>${enEsperaColoc.map(s => `<tr data-id="${s.id}" style="cursor:pointer;color:var(--gray)"><td><b>${esc(s.nombre_cliente)}</b><div class="small">${esc(s.codigo)} · ${esc(s.espera_motivo || '')}</div></td><td class="num">${L(capitalColocado(s))}</td></tr>`).join('')}</tbody></table>` : ''}
       <div class="btns"><button class="btn ghost" data-close>Cerrar</button></div>`);
     w.querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => { cerrarDialogo(w); abrirDetalle(+tr.dataset.id); });
   };
@@ -2499,7 +2502,7 @@ async function pintarStats(){
     <div class="kpi" style="border-top:3px solid var(--teal)"><div class="l" style="color:var(--teal)">Capital prom. diario</div><div class="v" style="font-size:20px">${promDia == null ? '—' : L(Math.round(promDia))}</div><div class="s">Cant.: <b>${cantDia ?? '—'}</b> por día · ${dias} día(s) con desembolsos</div></div>
     ${kpiT('nuevo', 'var(--blue)')}${kpiT('refinanciamiento', 'var(--amber)')}${kpiT('reingreso', 'var(--violet)')}${['reestructuracion','cambio_modalidad'].filter(t => tk(t).n).map(t => kpiT(t, 'var(--teal)')).join('')}
     ${(() => { const nN = tk('nuevo').n, cN = +tk('nuevo').capital || 0, nR = tk('refinanciamiento').n + tk('reingreso').n, cR = (+tk('refinanciamiento').capital || 0) + (+tk('reingreso').capital || 0);
-      const proc = S.sols.filter(x => ['aprobada','por_verificar','desembolso_pendiente'].includes(x.estado)), cP = proc.reduce((a, x) => a + capitalColocado(x), 0);
+      const proc = S.sols.filter(x => ['aprobada','por_verificar','desembolso_pendiente'].includes(x.estado) && !x.en_espera), cP = proc.reduce((a, x) => a + capitalColocado(x), 0);
       return `<div class="kpi" style="border-top:3px solid var(--green)"><div class="l" style="color:var(--green)">Promedio por préstamo nuevo</div><div class="v" style="font-size:20px">${nN ? L(Math.round(cN / nN)) : '—'}</div><div class="s">${nN} préstamo(s) nuevo(s)</div></div>
       <div class="kpi" style="border-top:3px solid var(--green)"><div class="l" style="color:var(--green)">Promedio refi / reingreso</div><div class="v" style="font-size:20px">${nR ? L(Math.round(cR / nR)) : '—'}</div><div class="s">${nR} préstamo(s) · capital nuevo colocado</div></div>
       <div class="kpi" style="border-top:3px solid var(--accent)"><div class="l">En proceso de colocación (ahora)</div><div class="v" style="font-size:20px">${L(cP)}</div><div class="s">${proc.length} aprobada(s) por desembolsar</div></div>

@@ -587,7 +587,7 @@ function navItems() {
 // sección del menú a la que pertenece una ruta
 function seccion(h) {
   const p = String(h).replace(/^#\//, '').split('/')[0];
-  const mapa = { pago: S.admin ? 'combustible' : 'mis-pagos', 'mi-combustible': 'mi-tiempo', solicitar: 'mis-solicitudes', 'mi-comprobante': 'mis-pagos', constancia: 'mis-pagos', planilla: 'planillas', comp: 'planillas', empleado: 'empleados', liquidacion: 'empleados' };
+  const mapa = { decimos: 'empleados', pago: S.admin ? 'combustible' : 'mis-pagos', 'mi-combustible': 'mi-tiempo', solicitar: 'mis-solicitudes', 'mi-comprobante': 'mis-pagos', constancia: 'mis-pagos', planilla: 'planillas', comp: 'planillas', empleado: 'empleados', liquidacion: 'empleados' };
   return mapa[p] || p;
 }
 // 5 accesos de la barra inferior (móvil), según el rol; el resto queda en el menú lateral
@@ -664,6 +664,7 @@ async function ruta() {
       if (p[0] === 'planillas') return vPlanillas();
       if (p[0] === 'planilla') return vPeriodo(p[1], p[2] || 'resumen');
       if (p[0] === 'empleados') return vEmpleados();
+      if (p[0] === 'decimos') return vDecimos();
       if (p[0] === 'empleado') return vEmpleado(p[1]);
       if (p[0] === 'prestamos') return vPrestamos();
       if (p[0] === 'adelantos') return vAdelantos();
@@ -1281,7 +1282,7 @@ async function vEmpleados() {
   const tSal = act.reduce((a, e) => a + (+e.salario_mensual || 0), 0), tCom = act.reduce((a, e) => a + e.prom, 0);
   const conComb = act.filter(e => e.recibe_combustible), conDep = act.filter(e => e.recibe_depreciacion);
   const tDep = conDep.reduce((a, e) => a + (+e.depreciacion_mensual || 0), 0);
-  const m = shell(`<div class="top"><div><h1>Empleados</h1><div class="muted small">${act.length} activos · ${pers.length ? `promedio de comisiones de ${pers.length === 1 ? '1 mes' : `${pers.length} meses`}: ${pers.map(p => p.nombre.replace(/^Comisiones /, '')).reverse().join(', ')}` : 'aún no hay meses de comisiones cerrados'}</div></div><div class="acc"><button class="btn pri" id="nuevo">${ICON.mas}Agregar empleado</button></div></div>
+  const m = shell(`<div class="top"><div><h1>Empleados</h1><div class="muted small">${act.length} activos · ${pers.length ? `promedio de comisiones de ${pers.length === 1 ? '1 mes' : `${pers.length} meses`}: ${pers.map(p => p.nombre.replace(/^Comisiones /, '')).reverse().join(', ')}` : 'aún no hay meses de comisiones cerrados'}</div></div><div class="acc"><a class="btn borde" href="#/decimos">Proyección de décimos</a><button class="btn pri" id="nuevo">${ICON.mas}Agregar empleado</button></div></div>
     <div class="tscroll"><table class="t" id="temp"><thead><tr>${COLS.map(([k, t, , al]) => `<th class="${al || ''} ordenable" data-k="${k}" aria-sort="none">${t}<span class="flecha"></span></th>`).join('')}</tr></thead><tbody></tbody>
     <tfoot><tr><td></td><td>Total (${act.length} activos)</td><td></td><td class="r">${L(tSal)}</td><td class="r">${L(tCom)}</td><td class="r">${L(tSal + tCom)}</td><td colspan="2" class="small muted" style="font-weight:500">Planilla quincenal: ${L(tSal / 2)}${conComb.length ? `<br>Combustible (efectivo): ${conComb.length}` : ''}${conDep.length ? `<br>Depreciación día 30: ${tDep ? L(tDep) : conDep.length + ' empleados'}` : ''}</td></tr></tfoot></table></div>`);
   const pintar = () => {
@@ -2108,6 +2109,41 @@ function htmlDecimos(e, { propio = false } = {}) {
   return `<div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">${propio ? 'Tu décimo tercer y cuarto mes' : 'Décimo tercer y cuarto mes'} ${corte === iso(hoyHN()) ? 'a la fecha' : 'a la fecha de baja'}</h3>
     <p class="tiny muted" style="margin:0 0 10px">Acumulado proporcional sobre el salario mensual ordinario. Es una referencia; el monto final se calcula en la planilla de pago.</p>
     <div class="dec-g">${card('Aguinaldo · décimo tercer mes (ene–dic)', d13)}${card('Catorceavo · décimo cuarto mes (jul–jun)', d14)}</div></div>`;
+}
+
+async function vDecimos() {
+  cargando();
+  const hoy = iso(hoyHN());
+  const emps = (await q(sb.from('pl_empleados').select('id,nombre,cargo,salario_mensual,fecha_ingreso,activo,recibe_salario,fecha_baja').order('nombre')))
+    .filter(e => e.activo && !e.fecha_baja && e.recibe_salario && +e.salario_mensual > 0);
+  const filas = emps.map(e => { const c = calcDecimos(e.salario_mensual, e.fecha_ingreso, hoy); return { e, ...c }; });
+  const sum = f => filas.reduce((a, x) => a + f(x), 0);
+  const ref = filas[0] || { d13: calcDecimos(0, null, hoy).d13, d14: calcDecimos(0, null, hoy).d14 };
+  const t13 = sum(x => x.d13.completo), a13 = sum(x => x.d13.monto), t14 = sum(x => x.d14.completo), a14 = sum(x => x.d14.monto);
+  const totSal = sum(x => +x.sal);
+  const diasPara = f => Math.max(0, difDias(hoy, f));
+  const f13 = ref.d13.finP, f14 = ref.d14.finP;
+  const pagos = [{ t: 'Aguinaldo · décimo tercer mes', f: f13, pago: ref.d13.pago, total: t13, acum: a13 }, { t: 'Catorceavo · décimo cuarto mes', f: f14, pago: ref.d14.pago, total: t14, acum: a14 }].sort((a, b) => a.f.localeCompare(b.f));
+  // reserva mes a mes hasta cada pago
+  const meses = []; { const d = pf(hoy.slice(0, 7) + '-01'); for (let i = 0; i < 12; i++) { const x = new Date(d.getFullYear(), d.getMonth() + i, 1); meses.push(iso(x).slice(0, 7)); } }
+  const acumA = (k, mesFin) => { const corte = iso(new Date(+mesFin.slice(0, 4), +mesFin.slice(5, 7), 0)); return sum(x => calcDecimos(x.sal, x.e.fecha_ingreso, corte)[k].monto); };
+  const esPago = (k, mm) => k === 'd13' ? mm.slice(5) === '12' : mm.slice(5) === '06';
+  const m = shell(`<div class="miga"><a href="#/empleados">Empleados</a></div><div class="top"><div><h1>Proyección de décimos</h1><div class="muted small">${filas.length} empleados activos con salario · al ${fl(hoy)}</div></div></div>
+    <div class="dec-g" style="margin-bottom:14px">${pagos.map(p => `<div class="dec-card"><div class="k">${p.t}</div><div class="v">${L(p.total)}</div>
+      <div class="small"><b>Se paga en ${p.pago}</b> · faltan ${diasPara(p.f)} días</div>
+      <div class="barra" style="margin-top:8px"><i style="width:${p.total ? Math.min(100, p.acum / p.total * 100) : 0}%"></i></div>
+      <div class="tiny muted" style="margin-top:6px">Acumulado a hoy ${L(p.acum)} · falta acumular ${L(p.total - p.acum)}</div></div>`).join('')}
+      <div class="dec-card"><div class="k">Reserva mensual sugerida</div><div class="v">${L(Math.round(totSal / 12) * 2)}</div><div class="tiny muted">${L(Math.round(totSal / 12))} para aguinaldo + ${L(Math.round(totSal / 12))} para catorceavo (salarios ÷ 12)</div></div></div>
+    <div class="panel" style="margin-bottom:14px"><h3 style="margin-bottom:4px">Cómo se va acumulando</h3><p class="tiny muted" style="margin:0 0 8px">Monto acumulado al cierre de cada mes. Después de cada pago empieza a acumularse el período siguiente.</p>
+      <div class="tscroll"><table class="t"><thead><tr><th>Al cierre de</th><th class="r">Aguinaldo acumulado</th><th class="r">Catorceavo acumulado</th><th class="r">Total</th></tr></thead><tbody>
+        ${meses.map(mm => { const x13 = acumA('d13', mm), x14 = acumA('d14', mm); const p13 = esPago('d13', mm), p14 = esPago('d14', mm);
+          return `<tr style="${p13 || p14 ? 'background:#FFF6CC' : ''}"><td style="text-transform:capitalize">${MESES[+mm.slice(5) - 1]} ${mm.slice(0, 4)}</td><td class="r">${L(x13)}${p13 ? '<div class="tiny"><b>se paga</b></div>' : ''}</td><td class="r">${L(x14)}${p14 ? '<div class="tiny"><b>se paga</b></div>' : ''}</td><td class="r num">${L(x13 + x14)}${p13 || p14 ? `<div class="tiny">pago: ${L(p13 ? x13 : x14)}</div>` : ''}</td></tr>`; }).join('')}
+      </tbody></table></div></div>
+    <div class="tscroll"><table class="t"><thead><tr><th>Empleado</th><th class="r">Salario</th><th class="r">Aguinaldo a hoy</th><th class="r">Aguinaldo (${esc(ref.d13.pago)})</th><th class="r">Catorceavo a hoy</th><th class="r">Catorceavo (${esc(ref.d14.pago)})</th></tr></thead><tbody>
+      ${filas.map(x => `<tr class="click" data-e="${x.e.id}"><td><b>${esc(x.e.nombre)}</b><div class="tiny muted">ingreso ${fc(x.e.fecha_ingreso)}</div></td><td class="r">${L(x.sal)}</td><td class="r">${L(x.d13.monto)}</td><td class="r num">${L(x.d13.completo)}${x.d13.completo < Math.round(x.sal) ? '<div class="tiny muted">proporcional</div>' : ''}</td><td class="r">${L(x.d14.monto)}</td><td class="r num">${L(x.d14.completo)}${x.d14.completo < Math.round(x.sal) ? '<div class="tiny muted">proporcional</div>' : ''}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>Total</td><td class="r">${L(totSal)}</td><td class="r">${L(a13)}</td><td class="r">${L(t13)}</td><td class="r">${L(a14)}</td><td class="r">${L(t14)}</td></tr></tfoot></table></div>
+    <p class="tiny muted" style="margin-top:10px">Proyección con los salarios actuales: salario × días laborados en el período ÷ 360 (máximo un salario). No incluye aumentos ni contrataciones futuras; a quien se le da de baja se le paga en la liquidación.</p>`);
+  $$('[data-e]', m).forEach(tr => tr.onclick = () => location.hash = `#/empleado/${tr.dataset.e}`);
 }
 
 /* ===================== PAGOS APARTE: combustible y depreciación ===================== */

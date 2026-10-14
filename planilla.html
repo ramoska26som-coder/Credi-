@@ -221,6 +221,24 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .accion svg{width:24px;height:24px;color:var(--azul)}
 .accion:hover{border-color:#B9CDEE}
 .chips{display:flex;flex-wrap:wrap;gap:4px}
+.dec-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.dec-card{border:1px solid var(--linea);border-radius:12px;padding:14px;background:#fff}
+.dec-card .k{font-size:13px;color:var(--gris);font-weight:600}
+.dec-card .v{font-family:Poppins;font-weight:800;font-size:24px;color:var(--tinta);margin-top:2px}
+.odo-d{aspect-ratio:1;border-radius:10px;border:1px solid var(--linea);background:#fff;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px;color:var(--tinta)}
+.odo-d b{font-size:14px}.odo-d small{font-size:9.5px;line-height:1.1;text-align:center}
+.odo-d.comp{background:#E3F6EC;border-color:#A9DFC2}.odo-d.comp small{color:#0F7A43}
+.odo-d.inc{background:#FFF6CC;border-color:#F0D36B}.odo-d.inc small{color:#8A6A00}
+.odo-d.nada{border-style:dashed}.odo-d.dom{opacity:.7}
+.odo-d.hoy{box-shadow:0 0 0 2px var(--azul)}
+.odo-d:disabled{opacity:.35;cursor:default;border-style:solid;background:#F7FAFF}
+.odo-pt{width:12px;height:12px;border-radius:4px;display:inline-block;border:1px solid var(--linea)}
+.odo-pt.comp{background:#E3F6EC;border-color:#A9DFC2}.odo-pt.inc{background:#FFF6CC;border-color:#F0D36B}.odo-pt.nada{border-style:dashed}
+.odo-reg{display:flex;gap:12px;align-items:center;padding:10px;border:1px solid var(--linea);border-radius:12px}
+.odo-reg img{width:96px;height:72px;object-fit:cover;border-radius:8px;background:#0A2A66}
+.odo-sinfoto{width:96px;height:72px;border-radius:8px;background:#EEF2F8;display:grid;place-items:center;font-size:11px;color:var(--gris)}
+.odo-foto{display:grid;gap:8px;justify-items:start}
+.odo-foto img{width:100%;max-height:220px;object-fit:contain;border-radius:10px;background:#0A2A66}
 .marca-cel.mk-pendiente img,.marca-cel.mk-pendiente .sinfoto{box-shadow:0 0 0 3px #E0A800}
 .marca-cel.mk-aprobado img,.marca-cel.mk-aprobado .sinfoto{box-shadow:0 0 0 3px #19A35B}
 .marca-cel small{color:var(--gris)}
@@ -315,6 +333,8 @@ table.t tfoot td{font-weight:700;border-top:1.5px solid var(--linea);border-bott
 .selfie{position:relative;background:#0A2A66;border-radius:14px;overflow:hidden;aspect-ratio:3/4;max-height:60vh;margin:0 auto;display:grid;place-items:center}
 .selfie video,.selfie img{width:100%;height:100%;object-fit:cover}
 .selfie video{transform:scaleX(-1)}
+.selfie.trasera video{transform:none}
+.selfie.trasera{aspect-ratio:4/3}
 .selfie-msg{position:absolute;left:0;right:0;bottom:0;padding:10px;text-align:center;background:linear-gradient(transparent,rgba(10,42,102,.85));color:#fff!important}
 .selfie-msg:empty{display:none}
 .btn.grande{padding:16px;font-size:17px}
@@ -653,7 +673,7 @@ async function ruta() {
       if (p[0] === 'mi-comprobante') return vMiComprobante(p[1]);
       if (p[0] === 'mi-adelanto') return vMiAdelanto();
       if (p[0] === 'mis-vacaciones') return vMisVacaciones();
-      if (p[0] === 'mi-combustible') return vMiCombustible();
+      if (p[0] === 'mi-combustible') return vMiCombustible(p[1]);
       if (p[0] === 'constancia') return vConstancia();
       if (p[0] === 'mis-permisos') return vMisPermisos();
       if (p[0] === 'mi-tiempo') return vMiTiempo(p[1]);
@@ -1346,6 +1366,7 @@ async function vEmpleado(id) {
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:22px 0 10px"><h2>Plantillas de cálculo</h2><button class="btn sm pri" id="nplant">${ICON.mas}Agregar cálculo</button></div>
     <p class="small muted" style="margin:-4px 0 10px">Al capturar la planilla solo se escriben las cantidades; el monto se calcula con estas reglas.</p>
     ${tablaPlantillas([...misPl, ...inactivas])}
+    ${htmlDecimos(e)}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:22px 0 10px;flex-wrap:wrap"><h2>Vacaciones</h2><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" id="vini">Saldo inicial</button><button class="btn sm" id="vaj">Ajuste</button><button class="btn sm pri" id="vreg">Registrar vacaciones</button></div></div>
     ${htmlResumenVac(vac)}
     ${vmov.length ? `<div class="tscroll" style="margin-top:10px"><table class="t"><tbody>${vmov.map(v => `<tr><td>${v.tipo === 'ajuste' ? 'Ajuste' : `${fc(v.desde)} al ${fc(v.hasta)}`}<div class="tiny muted">${esc(v.nota || v.respuesta || '')}</div></td><td>${chipEstado(v.estado)}</td><td class="r num">${+v.dias > 0 && v.tipo === 'ajuste' ? '+' : ''}${N(v.dias)} días</td></tr>`).join('')}</tbody></table></div>` : ''}
@@ -1644,7 +1665,8 @@ async function vMisPagos() {
   const m = shell(`
     <div class="hola">${ult ? `<div class="k">Último pago · ${esc(ult.periodo?.nombre)}</div><div class="v">${L(ult.recibido)}</div><div class="s">${ult.adel > 0 ? `${L(ult.neto)} pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)} + ${L(ult.adel)} en adelantos, vales y préstamos` : `Pagado el ${fl(ult.periodo?.fecha_pago || ult.periodo?.fecha_fin)}`}</div>` : `<div class="k">Hola, ${esc(corto(S.yo.nombre))}</div><div class="v" style="font-size:22px">Aún no tienes comprobantes</div><div class="s">Aparecerán aquí cuando se cierre la planilla.</div>`}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"><a class="btn borde" href="#/constancia">${ICON.doc}Constancia de trabajo</a>${S.yo.recibe_combustible ? `<a class="btn borde" href="#/mi-combustible">${ICON.moto}Odómetro</a>` : ''}</div>
-    <h2 style="margin:6px 0 12px">Mis comprobantes</h2>
+    ${S.yo.recibe_salario ? htmlDecimos(S.yo, { propio: true }) : ''}
+    <h2 style="margin:18px 0 12px">Mis comprobantes</h2>
     <div id="lc"></div>
     ${extra.length ? `<h2 style="margin:24px 0 4px">Combustible y depreciación</h2><p class="small muted" style="margin:0 0 10px">Pagos aparte de la planilla</p>
       <div class="lista">${extra.map(p => `<a class="item" href="#/pago/${p.id}"><div class="pago" style="flex:1"><div class="ic ${p.tipo === 'combustible' ? 's' : 'c'}">${p.tipo === 'combustible' ? ICON.moto.replace('<svg', '<svg width="20" height="20"') : ICON.dep.replace('<svg', '<svg width="20" height="20"')}</div><div class="grow"><div class="t">${p.tipo === 'combustible' ? `Combustible · ${fc(p.desde)} al ${fc(p.hasta)}` : `Depreciación · <span style="text-transform:capitalize">${nombreMes(p.desde)}</span>`}</div><div class="s">${fc(p.fecha_pago)} · ${esc(p.detalle || '')}</div></div><div style="text-align:right"><div class="num">${L(p.monto)}</div>${p.recibido_en ? '' : '<span class="chip warn" style="margin-top:4px">Por confirmar</span>'}</div></div></a>`).join('')}</div>` : ''}`);
@@ -1679,12 +1701,13 @@ function reducirImagen(fuente, max = 720) {
   return new Promise(r => c.toBlob(r, 'image/jpeg', 0.75));
 }
 // Abre la cámara frontal y devuelve la selfie (Blob JPEG) o null si se cancela
-function tomarSelfie() {
+function tomarSelfie(op = {}) {
+  const trasera = op.trasera, titulo = op.titulo || 'Selfie';
   return new Promise(resolve => {
     let stream = null, listo = false, foto = null;
     const parar = () => { stream?.getTracks().forEach(t => t.stop()); stream = null; };
-    const h = hoja('Selfie', `<div class="selfie"><video playsinline autoplay muted></video><img alt="Tu selfie" class="hidden"><div class="selfie-msg small muted">Abriendo la cámara…</div></div>
-      <input type="file" accept="image/*" capture="user" hidden>
+    const h = hoja(titulo, `<div class="selfie ${trasera ? 'trasera' : ''}"><video playsinline autoplay muted></video><img alt="${esc(titulo)}" class="hidden"><div class="selfie-msg small muted">Abriendo la cámara…</div></div>
+      <input type="file" accept="image/*" capture="${trasera ? 'environment' : 'user'}" hidden>
       <div class="pie"><button type="button" class="btn borde hidden" data-otra>Repetir</button><button type="button" class="btn pri" data-tomar disabled>${ICON.camara}Tomar foto</button><button type="button" class="btn pri hidden" data-usar>Usar esta foto</button></div>`,
       { alCerrar: () => { parar(); if (!listo) resolve(null); } });
     const vid = $('video', h.el), img = $('img', h.el), msg = $('.selfie-msg', h.el), inp = $('input[type=file]', h.el);
@@ -1695,10 +1718,10 @@ function tomarSelfie() {
     const abrir = async () => {
       if (!navigator.mediaDevices?.getUserMedia) return respaldo();
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 960 } }, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: trasera ? 'environment' : 'user', width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
         if (!document.body.contains(h.el)) return parar();
         vid.srcObject = stream; await vid.play().catch(() => { });
-        msg.textContent = 'Centra tu cara y toca “Tomar foto”'; bTomar.disabled = false;
+        msg.textContent = trasera ? 'Enfoca el odómetro para que se lean los números y toca “Tomar foto”' : 'Centra tu cara y toca “Tomar foto”'; bTomar.disabled = false;
         bTomar.onclick = async () => { const b = await reducirImagen(vid); parar(); mostrar(b); };
       } catch (_) { respaldo(); }
     };
@@ -2046,6 +2069,28 @@ async function miniMapa(el, lat, lng, prec) {
   el.appendChild(a);
 }
 
+/* ===================== DÉCIMO TERCER Y CUARTO MES a la fecha ===================== */
+function calcDecimos(sal, ingreso, hoyS = iso(hoyHN())) {
+  sal = +sal || 0; const h = pf(hoyS), y = h.getFullYear();
+  const uno = (iniP, finP, pago) => { const ini = [iniP, ingreso || iniP].sort().pop(); const dias = ini > hoyS ? 0 : Math.min(360, difDias(ini, hoyS) + 1); return { ini, finP, dias, monto: Math.round(sal * dias / 360), completo: Math.round(sal * Math.min(360, difDias(ini, finP) + 1) / 360), pago }; };
+  const d13 = uno(`${y}-01-01`, `${y}-12-31`, `diciembre ${y}`);
+  const iniC = h.getMonth() >= 6 ? `${y}-07-01` : `${y - 1}-07-01`;
+  const finC = h.getMonth() >= 6 ? `${y + 1}-06-30` : `${y}-06-30`;
+  const d14 = uno(iniC, finC, `junio ${finC.slice(0, 4)}`);
+  return { d13, d14, sal };
+}
+function htmlDecimos(e, { propio = false } = {}) {
+  if (!+e.salario_mensual) return '';
+  const { d13, d14 } = calcDecimos(e.salario_mensual, e.fecha_ingreso);
+  const card = (t, d) => `<div class="dec-card"><div class="k">${t}</div><div class="v">${L(d.monto)}</div>
+    <div class="tiny muted">${d.dias} días del ${fc(d.ini)} a hoy · ${L(e.salario_mensual)} × ${d.dias} ÷ 360</div>
+    <div class="barra" style="margin-top:8px"><i style="width:${Math.min(100, d.dias / 360 * 100)}%"></i></div>
+    <div class="tiny" style="margin-top:6px">Se paga en ${d.pago}${d.dias < 360 ? ` · estimado al pagarse: ${L(d.completo)}` : ''}</div></div>`;
+  return `<div class="panel" style="margin-top:14px"><h3 style="margin-bottom:4px">${propio ? 'Tu décimo tercer y cuarto mes' : 'Décimo tercer y cuarto mes'} a la fecha</h3>
+    <p class="tiny muted" style="margin:0 0 10px">Acumulado proporcional sobre el salario mensual ordinario. Es una referencia; el monto final se calcula en la planilla de pago.</p>
+    <div class="dec-g">${card('Aguinaldo · décimo tercer mes (ene–dic)', d13)}${card('Catorceavo · décimo cuarto mes (jul–jun)', d14)}</div></div>`;
+}
+
 /* ===================== PAGOS APARTE: combustible y depreciación ===================== */
 const TIPO_EXTRA = { combustible: 'Combustible', depreciacion: 'Depreciación de motocicleta' };
 const nombreMes = d => { const x = pf(d); return x ? `${MESES[x.getMonth()]} ${x.getFullYear()}` : ''; };
@@ -2259,38 +2304,83 @@ async function vMisVacaciones() {
 }
 
 /* ===================== EMPLEADO: odómetro ===================== */
-async function vMiCombustible() {
+async function vMiCombustible(mesSel) {
   cargando();
   const hoy = iso(hoyHN());
-  const [rows, par] = await Promise.all([q(sb.from('pl_odometro').select('*').eq('empleado_id', S.yo.id).gte('fecha', addDias(hoy, -31)).order('fecha', { ascending: false })), parametros()]);
+  const mes = /^\d{4}-\d{2}$/.test(mesSel || '') ? mesSel : hoy.slice(0, 7);
+  const ini = `${mes}-01`, fin = iso(new Date(+mes.slice(0, 4), +mes.slice(5, 7), 0));
+  const limite = addDias(hoy, -31);
+  const [rows, par] = await Promise.all([q(sb.from('pl_odometro').select('*').eq('empleado_id', S.yo.id).gte('fecha', addDias(ini, -1)).lte('fecha', fin).order('fecha')), parametros()]);
   const tarifa = +par.tarifa_km || 1.35;
-  const ini = rows.find(r => r.fecha === hoy && r.tipo === 'inicio'), fin = rows.find(r => r.fecha === hoy && r.tipo === 'fin');
   const dias = {}; rows.forEach(r => (dias[r.fecha] = dias[r.fecha] || {})[r.tipo] = r);
-  const tipo = !ini ? 'inicio' : !fin ? 'fin' : null;
-  const m = shell(`<div class="miga"><a href="#/mi-tiempo">Mi tiempo</a></div><div class="top"><div><h1>Odómetro</h1><div class="muted small">${DIAS_LARGO[hoyHN().getDay()]} ${fl(hoy)} · se paga ${L(tarifa).replace('.00', '')} por km</div></div></div>
-    ${tipo ? `<div class="panel"><form id="fo" style="display:grid;gap:12px">
-        <h3>${tipo === 'inicio' ? 'Inicio del día' : 'Fin del día'}</h3>
-        ${tipo === 'fin' ? `<p class="small muted" style="margin:0">Iniciaste con <b>${N(ini.lectura)} km</b> a las ${fdt(ini.registrado_en).split(', ').pop()}</p>` : '<p class="small muted" style="margin:0">Registra el kilometraje de la moto antes de salir. Se guarda la hora y tu ubicación.</p>'}
-        <label class="f">Lectura del odómetro (km)<input class="inp" type="number" name="lectura" step="0.1" min="0" required inputmode="decimal" style="font-size:24px;font-family:Poppins;font-weight:700"></label>
-        <label class="f">Nota (opcional)<input class="inp" name="nota"></label>
-        <div class="small muted" id="gps">${ICON.gps.replace('<svg', '<svg width="14" height="14" style="vertical-align:-2px"')} Se pedirá tu ubicación al guardar.</div>
-        <button class="btn pri">${tipo === 'inicio' ? 'Registrar inicio' : 'Registrar fin del día'}</button></form></div>`
-    : `<div class="hola"><div class="k">Día completo</div><div class="v">${N(+fin.lectura - +ini.lectura)} km</div><div class="s">${N(ini.lectura)} → ${N(fin.lectura)} · ${L((+fin.lectura - +ini.lectura) * tarifa)}</div></div>`}
-    <h2 style="margin:22px 0 10px">Últimos 30 días</h2>
-    ${Object.keys(dias).length ? `<div class="tscroll"><table class="t"><thead><tr><th>Fecha</th><th>Inicio</th><th>Fin</th><th class="r">Km</th></tr></thead><tbody>${Object.entries(dias).map(([d, x]) => `<tr><td>${fc(d)}</td><td>${x.inicio ? `${N(x.inicio.lectura)} ${mapsLink(x.inicio.lat, x.inicio.lng)}<div class="tiny muted">${fdt(x.inicio.registrado_en).split(', ').pop()}</div>` : '—'}</td><td>${x.fin ? `${N(x.fin.lectura)} ${mapsLink(x.fin.lat, x.fin.lng)}<div class="tiny muted">${fdt(x.fin.registrado_en).split(', ').pop()}</div>` : '<span class="chip warn">Sin fin</span>'}</td><td class="r num">${x.inicio && x.fin ? N(+x.fin.lectura - +x.inicio.lectura) : '—'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="vacio">Sin registros todavía.</div>'}`);
-  const f = $('#fo', m);
-  if (f) f.onsubmit = async e => {
-    e.preventDefault(); const x = formData(f); const b = $('button', f); b.disabled = true;
-    $('#gps', m).textContent = 'Obteniendo ubicación…';
+  const hd = dias[hoy] || {};
+  const kmDe = x => x.inicio && x.fin ? +x.fin.lectura - +x.inicio.lectura : null;
+  const kmMes = Object.entries(dias).filter(([f]) => f >= ini && f <= fin).reduce((a, [, x]) => a + (kmDe(x) || 0), 0);
+  const incompletos = Object.entries(dias).filter(([f, x]) => f >= ini && f < hoy && (!x.inicio || !x.fin)).length;
+  const d1 = pf(ini), off = (d1.getDay() + 6) % 7, nd = +fin.slice(8);
+  const celdas = []; for (let k = 0; k < off; k++) celdas.push('<div></div>');
+  for (let dd = 1; dd <= nd; dd++) {
+    const f = `${mes}-${String(dd).padStart(2, '0')}`; const x = dias[f] || {}; const km = kmDe(x);
+    const est = x.inicio && x.fin ? 'comp' : x.inicio || x.fin ? 'inc' : 'nada';
+    const editable = f <= hoy && f >= limite;
+    celdas.push(`<button type="button" class="odo-d ${est} ${f === hoy ? 'hoy' : ''} ${pf(f).getDay() === 0 ? 'dom' : ''}" data-f="${f}" ${f > hoy || (!editable && est === 'nada') ? 'disabled' : ''}><b>${dd}</b><small>${km != null ? N(km) + ' km' : est === 'inc' ? (x.inicio ? 'falta fin' : 'falta inicio') : ''}</small></button>`);
+  }
+  const prevMes = iso(new Date(d1.getFullYear(), d1.getMonth() - 1, 1)).slice(0, 7), sigMes = iso(new Date(d1.getFullYear(), d1.getMonth() + 1, 1)).slice(0, 7);
+  const m = shell(`<div class="miga"><a href="#/mi-tiempo">Mi tiempo</a></div><div class="top"><div><h1>Odómetro</h1><div class="muted small">Se paga L ${tarifa} por km · registra el kilometraje al inicio y al final del día con foto del odómetro</div></div></div>
+    <div class="hola"><div class="k">Hoy · ${DIAS_LARGO[hoyHN().getDay()]} ${fl(hoy)}</div>
+      <div class="v" style="font-size:24px">${hd.inicio && hd.fin ? `${N(kmDe(hd))} km` : hd.inicio ? `Inicio: ${N(hd.inicio.lectura)} km` : 'Sin registrar'}</div>
+      <div class="s">${hd.inicio && hd.fin ? `${N(hd.inicio.lectura)} → ${N(hd.fin.lectura)} · ${L(kmDe(hd) * tarifa)}` : hd.inicio ? 'Falta registrar el fin del día' : 'Registra el inicio antes de salir'}</div>
+      ${!(hd.inicio && hd.fin) ? `<button class="btn ama" style="margin-top:12px" data-hoy>${hd.inicio ? 'Registrar fin del día' : 'Registrar inicio del día'}</button>` : ''}</div>
+    <div class="panel"><div class="cal-top"><button class="btn sm borde" data-mes="${prevMes}" aria-label="Mes anterior">‹</button><b>${MESES[d1.getMonth()][0].toUpperCase() + MESES[d1.getMonth()].slice(1)} ${d1.getFullYear()}</b><button class="btn sm borde" data-mes="${sigMes}" ${sigMes > hoy.slice(0, 7) ? 'disabled' : ''} aria-label="Mes siguiente">›</button></div>
+      <div class="cal-g">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(x => `<div class="cal-h">${x}</div>`).join('')}${celdas.join('')}</div>
+      <div class="cal-ley"><span><i class="odo-pt comp"></i>Completo</span><span><i class="odo-pt inc"></i>Incompleto</span><span><i class="odo-pt nada"></i>Sin registro</span></div>
+      <div class="small" style="margin-top:10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>Este mes: <b>${N(kmMes)} km</b> · ${L(kmMes * tarifa)}</span>${incompletos ? `<span style="color:#8A6A00">${incompletos} día${incompletos > 1 ? 's' : ''} incompleto${incompletos > 1 ? 's' : ''}</span>` : ''}</div>
+      <p class="tiny muted" style="margin:8px 0 0">Toca un día para ver o completar su registro. Puedes registrar días anteriores de hasta 31 días atrás; quedan marcados como registrados después.</p></div>`);
+  $$('[data-mes]', m).forEach(b => b.onclick = () => vMiCombustible(b.dataset.mes));
+  $('[data-hoy]', m) && ($('[data-hoy]', m).onclick = () => registrarOdometro(hoy, hd.inicio ? 'fin' : 'inicio', hd, () => vMiCombustible(mes)));
+  $$('[data-f]', m).forEach(b => b.onclick = () => diaOdometro(b.dataset.f, dias[b.dataset.f] || {}, limite, () => vMiCombustible(mes)));
+}
+async function fotosOdometro(paths) {
+  const ps = paths.filter(Boolean); if (!ps.length) return {};
+  try { const { data } = await sb.storage.from('pl-odometro').createSignedUrls(ps, 3600); const o = {}; (data || []).forEach(x => { if (x.signedUrl) o[x.path] = x.signedUrl; }); return o; } catch (_) { return {}; }
+}
+async function diaOdometro(f, x, limite, despues) {
+  const urls = await fotosOdometro([x.inicio?.foto_path, x.fin?.foto_path]);
+  const hoy = iso(hoyHN()); const editable = f <= hoy && f >= limite;
+  const fila = (t, r) => r ? `<div class="odo-reg">${urls[r.foto_path] ? `<a href="${urls[r.foto_path]}" target="_blank" rel="noopener"><img src="${urls[r.foto_path]}" alt="Foto del odómetro"></a>` : '<span class="odo-sinfoto">Sin foto</span>'}<div><div class="t">${t === 'inicio' ? 'Inicio' : 'Fin'}: <b>${N(r.lectura)} km</b></div><div class="tiny muted">Registrado ${fdt(r.registrado_en)}${r.atrasado ? ' · registrado después' : ''}${r.corregido ? ' · corregido por administración' : ''}</div>${r.nota ? `<div class="tiny muted">${esc(r.nota)}</div>` : ''}</div></div>`
+    : editable ? `<button class="btn ${t === 'inicio' || x.inicio ? 'pri' : 'borde'}" data-reg="${t}" ${t === 'fin' && !x.inicio ? 'disabled title="Primero registra el inicio"' : ''}>Registrar ${t === 'inicio' ? 'inicio' : 'fin'} del día</button>` : `<div class="small muted">${t === 'inicio' ? 'Inicio' : 'Fin'}: sin registro</div>`;
+  const h = hoja(`${DIAS_LARGO[pf(f).getDay()]} ${fc(f)}`, `<div style="display:grid;gap:12px">${fila('inicio', x.inicio)}${fila('fin', x.fin)}
+    ${x.inicio && x.fin ? `<div class="panel small"><b>${N(+x.fin.lectura - +x.inicio.lectura)} km</b> recorridos este día</div>` : ''}
+    ${!editable && (!x.inicio || !x.fin) ? '<p class="small muted" style="margin:0">Este día ya no se puede completar desde la app (más de 31 días). Pídelo a administración.</p>' : ''}</div>`);
+  $$('[data-reg]', h.el).forEach(b => b.onclick = () => { h.cerrar(); registrarOdometro(f, b.dataset.reg, x, despues); });
+}
+function registrarOdometro(f, tipo, x, despues) {
+  const hoy = iso(hoyHN()); const esHoy = f === hoy;
+  const h = hoja(`${tipo === 'inicio' ? 'Inicio' : 'Fin'} del día · ${fc(f)}`, `<form style="display:grid;gap:12px">
+    ${tipo === 'fin' && x.inicio ? `<p class="small muted" style="margin:0">Iniciaste con <b>${N(x.inicio.lectura)} km</b>.</p>` : ''}
+    ${!esHoy ? '<p class="small" style="margin:0;color:#8A6A00">Estás registrando un día anterior. Quedará marcado como registrado después.</p>' : ''}
+    <label class="f">Lectura del odómetro (km)<input class="inp" type="number" name="lectura" step="0.1" min="0" required inputmode="decimal" style="font-size:24px;font-family:Poppins;font-weight:700"></label>
+    <div class="odo-foto"><div class="small muted" data-fmsg>Falta la foto del odómetro.</div><img alt="" class="hidden" data-prev><button type="button" class="btn borde" data-foto>${ICON.camara}Tomar foto del odómetro</button></div>
+    <label class="f">Nota (opcional)<input class="inp" name="nota" ${!esHoy ? 'placeholder="Ej.: olvidé registrarlo ese día"' : ''}></label>
+    ${esHoy ? `<div class="small muted" data-gps>${ICON.gps.replace('<svg', '<svg width="14" height="14" style="vertical-align:-2px"')} Se guardará tu ubicación.</div>` : ''}
+    <div class="pie"><button class="btn pri">Guardar</button></div></form>`);
+  const fm = $('form', h.el); let foto = null;
+  $('[data-foto]', fm).onclick = async () => { const b = await tomarSelfie({ trasera: true, titulo: 'Foto del odómetro' }); if (!b) return; foto = b; const im = $('[data-prev]', fm); im.src = URL.createObjectURL(b); im.classList.remove('hidden'); $('[data-fmsg]', fm).textContent = 'Foto lista.'; $('[data-foto]', fm).innerHTML = `${ICON.camara}Repetir foto`; };
+  fm.onsubmit = async e => {
+    e.preventDefault(); const xx = formData(fm); const btn = $('button.pri', fm);
+    if (!foto) return toast('Toma la foto del odómetro', true);
+    btn.disabled = true;
     try {
-      const g = await obtenerGPS();
-      $('#gps', m).textContent = `Ubicación lista (±${Math.round(g.prec)} m)`;
-      const r = await q(sb.rpc('pl_registrar_odometro', { p_tipo: tipo, p_lectura: +x.lectura, p_lat: g.lat, p_lng: g.lng, p_precision: g.prec, p_nota: x.nota || null }));
-      toast(tipo === 'inicio' ? 'Inicio registrado' : `Día cerrado: ${N(r.km)} km`); vMiCombustible();
-    } catch (er) { b.disabled = false; $('#gps', m).textContent = errMsg(er); toast(errMsg(er), true); }
+      let g = null;
+      if (esHoy) { $('[data-gps]', fm).textContent = 'Obteniendo ubicación…'; g = await obtenerGPS(); }
+      const ruta = `${S.yo.id}/${f}/${tipo}-${Date.now()}.jpg`;
+      const up = await sb.storage.from('pl-odometro').upload(ruta, foto, { contentType: 'image/jpeg', upsert: false });
+      if (up.error) throw up.error;
+      const r = await q(sb.rpc('pl_registrar_odometro_foto', { p_fecha: f, p_tipo: tipo, p_lectura: +xx.lectura, p_foto: ruta, p_lat: g?.lat ?? null, p_lng: g?.lng ?? null, p_precision: g?.prec ?? null, p_nota: xx.nota || null }));
+      h.cerrar(); toast(tipo === 'inicio' ? 'Inicio registrado' : `Día completo: ${N(r?.km ?? 0)} km`); despues();
+    } catch (er) { btn.disabled = false; toast(errMsg(er), true); }
   };
 }
-
 /* ===================== CONSTANCIA ===================== */
 const fechaLarga = s => { const d = pf(s); return d ? `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}` : '—'; };
 const diaLetras = n => n === 1 ? 'al primer día' : `a los ${n === 21 ? 'veintiún' : letras(n)} días`;
@@ -2858,7 +2948,7 @@ async function vCombustible(perId) {
   const tarifa = +par.tarifa_km || 1.35;
   const ids = [...new Set([...emps.filter(e => e.recibe_combustible).map(e => e.id), ...rows.map(r => r.empleado_id)])];
   const porEmp = id => { const d = {}; rows.filter(r => r.empleado_id === id).forEach(r => (d[r.fecha] = d[r.fecha] || {})[r.tipo] = r); return d; };
-  const celda = (r, emp, fecha, tipo) => r ? `<button class="lnk" data-ed="${r.id}">${N(r.lectura)}</button> ${mapsLink(r.lat, r.lng)}${r.corregido ? ' <span class="chip gris" style="padding:0 6px">corregido</span>' : ''}<div class="tiny muted">${fdt(r.registrado_en).split(', ').pop()}</div>` : (per.estado === 'abierta' ? `<button class="lnk tiny" data-add="${emp}|${fecha}|${tipo}">agregar</button>` : '—');
+  const celda = (r, emp, fecha, tipo) => r ? `<button class="lnk" data-ed="${r.id}">${N(r.lectura)}</button> ${mapsLink(r.lat, r.lng)}${r.foto_path ? ` <button class="lnk" data-ofoto="${esc(r.foto_path)}" title="Ver foto del odómetro" style="text-decoration:none">${ICON.camara.replace('<svg', '<svg width="16" height="16" style="vertical-align:-3px"')}</button>` : ''}${r.atrasado ? ' <span class="chip warn" style="padding:0 6px">registrado después</span>' : ''}${r.corregido ? ' <span class="chip gris" style="padding:0 6px">corregido</span>' : ''}<div class="tiny muted">${fdt(r.registrado_en).split(', ').pop()}</div>` : (per.estado === 'abierta' ? `<button class="lnk tiny" data-add="${emp}|${fecha}|${tipo}">agregar</button>` : '—');
   const m = shell(`<div class="top"><div><h1>Combustible</h1><div class="muted small">Del ${fc(rg.desde)} al ${fc(rg.hasta)} · lecturas con hora y ubicación · L ${tarifa} por km</div></div>
       <div class="acc"><select class="inp" id="selp" style="width:auto">${pers.map(p => `<option value="${p.id}" ${p.id === per.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>
       <button class="btn ama" id="gencomb">${pagosC.some(p => !p.anulado) ? 'Actualizar comprobantes' : 'Generar comprobantes'}</button>${pagosC.some(p => !p.anulado) ? `<button class="btn borde" id="impc">${ICON.print}Imprimir todos</button>` : ''}</div></div>
@@ -2876,6 +2966,7 @@ async function vCombustible(perId) {
     if (!await confirmar('Comprobantes de combustible', `Se calculan los km del ${fc(rg.desde)} al ${fc(rg.hasta)} a L ${tarifa} por km. Los que ya existen y no están confirmados se actualizan.`, 'Generar')) return;
     try { const r = await q(sb.rpc('pl_generar_combustible', { p_periodo: per.id })); const inc = r.detalle.filter(x => +x.incompletos).map(x => `${corto(x.nombre)} (${x.incompletos} día sin fin)`); toast(`${r.generados} comprobante(s) listos${inc.length ? ' · Revisa: ' + inc.join(', ') : ''}`); vCombustible(per.id); } catch (er) { toast(errMsg(er), true); }
   };
+  $$('[data-ofoto]', m).forEach(b => b.onclick = async () => { const u = (await fotosOdometro([b.dataset.ofoto]))[b.dataset.ofoto]; if (!u) return toast('No se pudo abrir la foto', true); hoja('Foto del odómetro', `<img src="${u}" alt="Foto del odómetro" style="width:100%;border-radius:12px;background:#0A2A66">`, { ancha: true }); });
   $$('[data-ed]', m).forEach(b => b.onclick = () => {
     const r = rows.find(x => x.id === b.dataset.ed);
     const h = hoja('Corregir lectura', `<form><p class="small muted" style="margin:0">${r.tipo === 'inicio' ? 'Inicio' : 'Fin'} del ${fc(r.fecha)} · registrado ${fdt(r.registrado_en)}</p>

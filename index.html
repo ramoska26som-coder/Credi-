@@ -434,7 +434,7 @@ const ACC = { creada:'Creó la solicitud', enviada_analisis:'Envió a análisis'
   dictamen_aprobada:'Aprobó', dictamen_denegada:'Denegó', enviada_verificacion:'Envió a verificación',
   enviada_desembolso:'Envió a desembolso por transferencia', verificacion_ok:'Verificación exitosa',
   verificacion_rechazada:'Rechazó en verificación', desembolsada:'Marcó como desembolsada', desistida:'Cliente desistió',
-  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa', reconocimiento_deuda:'Generó el documento para firma (contrato / reconocimiento de deuda', edicion_admin:'Editó la solicitud', cambio_estado_admin:'Cambió el estado (administrador)', en_espera:'Puso en espera', reanudada:'Reanudó la solicitud', ubicacion_domicilio:'Guardó la ubicación del domicilio', ubicacion_trabajo:'Guardó la ubicación del trabajo', verificador_asignado:'Asignó verificador' };
+  regresada_revisadas:'Regresó a revisadas', reasignada:'Reasignó la solicitud', ajuste_monto:'Ajustó el monto aprobado', ajuste_tasa:'Ajustó la tasa', reconocimiento_deuda:'Generó el documento para firma (contrato / reconocimiento de deuda', edicion_admin:'Editó la solicitud', cambio_estado_admin:'Cambió el estado (administrador)', en_espera:'Puso en espera', reanudada:'Reanudó la solicitud', ubicacion_domicilio:'Guardó la ubicación del domicilio', ubicacion_trabajo:'Guardó la ubicación del trabajo', verificador_asignado:'Asignó verificador', contrato_firmado:'Subió la foto del contrato firmado', politica_b_aplicada:'Aplicó política tipo B', politica_b_quitada:'Quitó política tipo B' };
 const CERRADAS = ['desembolsada','denegada','rechazada_verificacion','desistida'];
 
 const S = { user:null, me:null, perfiles:{}, params:{}, sols:[], com:{}, tab:null, q:'', filtroTodas:'abiertas',
@@ -1175,7 +1175,14 @@ function renderDetalle(){
     const gen = [...evs].reverse().find(e => e.accion === 'reconocimiento_deuda');
     h += `<div class="card row" style="gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><b>📄 Contrato de apertura de línea de crédito</b>
       <div class="small muted">${gen ? `Último: ${esc(nombre(gen.usuario_id))} · ${fDT(gen.creado_en)}` : 'Documento que firma el cliente: vista previa, imprimir o descargar en PDF.'}</div></div>
-      <button class="btn pri" id="rdAbrir">Ver contrato</button></div>`;
+      <button class="btn pri" id="rdAbrir">Ver contrato</button>
+      <div style="flex-basis:100%;border-top:1px solid var(--line);padding-top:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        ${s.contrato_firmado_path ? `<img id="cfThumb" data-cf="${esc(s.contrato_firmado_path)}" alt="Contrato firmado" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer;background:var(--gray-bg)">` : ''}
+        <div style="flex:1;min-width:180px"><b>📸 Contrato firmado</b>
+          <div class="small muted">${s.contrato_firmado_path ? `Subido por ${esc(nombre(s.contrato_firmado_por))} · ${fDT(s.contrato_firmado_en)}` : 'Tome o suba las fotos de las hojas firmadas: se unen en una sola imagen para descargar y subir al sistema oficial.'}</div></div>
+        ${s.contrato_firmado_path ? `<button class="btn ghost sm" id="cfDescargar">⬇ Descargar</button>` : ''}
+        <button class="btn ${s.contrato_firmado_path ? 'ghost sm' : 'ok'}" id="cfSubir">${s.contrato_firmado_path ? 'Reemplazar' : '📸 Subir fotos firmadas'}</button>
+      </div></div>`;
   }
   // Análisis de ingresos
   const mostrarIng = s.tipo === 'nuevo' || ing.length || editIng;
@@ -1560,6 +1567,17 @@ function enlazarDetalle(s, c){
     catch(e){ const w = dialogo(`<h3>Resumen</h3><textarea rows="10" readonly>${esc(txt)}</textarea><div class="btns"><button class="btn pri" data-close>Cerrar</button></div>`); w.querySelector('textarea').select(); }
   };
   if ($('#rdAbrir')) $('#rdAbrir').onclick = () => abrirContrato(S.detData.s);
+  if ($('#cfSubir')) $('#cfSubir').onclick = () => abrirContratoFirmado(S.detData.s);
+  if ($('#cfThumb') || $('#cfDescargar')) (async () => {
+    const cs = S.detData.s, path = cs.contrato_firmado_path; let url = null;
+    try { const { data } = await sb.storage.from('evidencias').createSignedUrl(path, 3600); url = data?.signedUrl; } catch(e){}
+    const th = $('#cfThumb'); if (th && url){ th.src = url; th.onclick = () => window.open(url, '_blank'); }
+    const dl = $('#cfDescargar');
+    if (dl) dl.onclick = () => run(dl, async () => {
+      if (!url) throw new Error('Se necesita conexión para descargar la foto guardada');
+      const b = await (await fetch(url)).blob(); descargarBlob(b, nombreContratoFirmado(cs));
+    });
+  })();
   if ($('#dAsesor')) $('#dAsesor').onchange = e => run(e.target, async () => { await rpc('reasignar_asesor', { p_id: s.id, p_asesor: e.target.value }); toast('Asesor reasignado'); await refrescar(); });
   // Asesor: enviar
   if ($('#aEnviar')) $('#aEnviar').onclick = e => {
@@ -2298,6 +2316,103 @@ function abrirContrato(s){
   };
   window.addEventListener('resize', ajustar);
   render(); setTimeout(render, 120);
+}
+// ================== Contrato firmado: unir fotos en una sola imagen ==================
+const nombreContratoFirmado = s => `Contrato_firmado_${String(s.nombre_cliente || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '')}_${s.codigo}.jpg`;
+function descargarBlob(blob, nombreArch){
+  const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = nombreArch; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 4000);
+}
+const cargarImg = file => new Promise((ok, fail) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => ok(im); im.onerror = () => fail(new Error('No se pudo leer la foto')); im.src = u; });
+// Une las fotos (en orden) lado a lado o una debajo de otra, con fondo blanco. Cada foto se gira según st.rot (grados).
+function unirFotos(fotos, modo, maxLado = 1800){
+  const piezas = fotos.map(f => { const r = ((f.rot || 0) % 360 + 360) % 360, t = r === 90 || r === 270; return { im: f.im, r, w: t ? f.im.naturalHeight : f.im.naturalWidth, h: t ? f.im.naturalWidth : f.im.naturalHeight }; });
+  const gap = 24, pad = 24;
+  // misma altura (lado a lado) o mismo ancho (abajo), limitado a maxLado por foto
+  const ref = modo === 'lado' ? Math.min(maxLado, Math.max(...piezas.map(p => p.h))) : Math.min(maxLado, Math.max(...piezas.map(p => p.w)));
+  piezas.forEach(p => { const k = modo === 'lado' ? ref / p.h : ref / p.w; p.dw = Math.round(p.w * k); p.dh = Math.round(p.h * k); });
+  const W = modo === 'lado' ? piezas.reduce((a, p) => a + p.dw, 0) + gap * (piezas.length - 1) + pad * 2 : ref + pad * 2;
+  const H = modo === 'lado' ? ref + pad * 2 : piezas.reduce((a, p) => a + p.dh, 0) + gap * (piezas.length - 1) + pad * 2;
+  // límite de tamaño del lienzo (celulares): escala todo si hace falta
+  const lim = 8000, esc2 = Math.min(1, lim / Math.max(W, H));
+  const cv = document.createElement('canvas'); cv.width = Math.round(W * esc2); cv.height = Math.round(H * esc2);
+  const g = cv.getContext('2d'); g.scale(esc2, esc2); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  let x = pad, y = pad;
+  piezas.forEach(p => {
+    g.save(); g.translate(x + p.dw / 2, y + p.dh / 2); g.rotate(p.r * Math.PI / 180);
+    const t = p.r === 90 || p.r === 270; const ow = t ? p.dh : p.dw, oh = t ? p.dw : p.dh;
+    g.drawImage(p.im, -ow / 2, -oh / 2, ow, oh); g.restore();
+    if (modo === 'lado') x += p.dw + gap; else y += p.dh + gap;
+  });
+  return cv;
+}
+const canvasBlob = (cv, q = 0.85) => new Promise((ok, fail) => cv.toBlob(b => b ? ok(b) : fail(new Error('No se pudo crear la imagen')), 'image/jpeg', q));
+function abrirContratoFirmado(s){
+  const st = { fotos: [], modo: 'lado', blob: null };
+  const w = dialogo(`<h3>📸 Contrato firmado · ${esc(s.nombre_cliente)}</h3>
+    <div class="small muted">Tome una foto de cada hoja firmada (o elíjalas de la galería), en orden: hoja 1, hoja 2… Se unen en una sola imagen.</div>
+    <div class="btns" style="margin-top:10px">
+      <label class="btn pri" style="cursor:pointer">📷 Tomar foto<input type="file" accept="image/*" capture="environment" id="cfCam" hidden></label>
+      <label class="btn ghost" style="cursor:pointer">🖼 Elegir de galería<input type="file" accept="image/*" multiple id="cfGal" hidden></label>
+    </div>
+    <div id="cfLista" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+    <div id="cfOpc" class="hidden">
+      <label class="f">Acomodo</label>
+      <div class="seg" id="cfModo"><button type="button" data-m="lado" class="on">↔ Una a la par de la otra</button><button type="button" data-m="abajo">↕ Una debajo de la otra</button></div>
+      <div id="cfPrev" style="margin-top:10px;background:var(--gray-bg);border-radius:10px;padding:8px;text-align:center;max-height:52vh;overflow:auto"></div>
+      <div class="small muted" id="cfInfo" style="margin-top:4px"></div>
+    </div>
+    <div class="btns" style="margin-top:12px">
+      <button class="btn ghost" data-close>Cerrar</button>
+      <button class="btn ghost" id="cfDesc" disabled>⬇ Descargar imagen</button>
+      ${navigator.canShare ? '<button class="btn ghost" id="cfComp" disabled>📤 Compartir</button>' : ''}
+      <button class="btn ok" id="cfGuardar" disabled>💾 Guardar en la solicitud</button>
+    </div>`);
+  const pintarLista = () => {
+    w.querySelector('#cfLista').innerHTML = st.fotos.map((f, i) => `<div style="position:relative;width:86px">
+      <img src="${f.im.src}" style="width:86px;height:86px;object-fit:cover;border-radius:8px;border:1px solid var(--line);transform:rotate(${f.rot}deg)">
+      <div class="small" style="text-align:center;font-weight:700">Hoja ${i + 1}</div>
+      <div style="display:flex;justify-content:center;gap:2px">
+        <button class="btn sm ghost" data-izq="${i}" title="Mover antes" ${i ? '' : 'disabled'} style="padding:2px 6px">◀</button>
+        <button class="btn sm ghost" data-rot="${i}" title="Girar" style="padding:2px 6px">⟳</button>
+        <button class="btn sm ghost" data-del="${i}" title="Quitar" style="padding:2px 6px;color:var(--red)">✕</button></div></div>`).join('');
+    w.querySelectorAll('[data-izq]').forEach(b => b.onclick = () => { const i = +b.dataset.izq; [st.fotos[i - 1], st.fotos[i]] = [st.fotos[i], st.fotos[i - 1]]; actualizar(); });
+    w.querySelectorAll('[data-rot]').forEach(b => b.onclick = () => { st.fotos[+b.dataset.rot].rot = (st.fotos[+b.dataset.rot].rot + 90) % 360; actualizar(); });
+    w.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { st.fotos.splice(+b.dataset.del, 1); actualizar(); });
+  };
+  const actualizar = async () => {
+    pintarLista();
+    const hay = st.fotos.length > 0;
+    w.querySelector('#cfOpc').classList.toggle('hidden', !hay);
+    ['#cfDesc', '#cfComp', '#cfGuardar'].forEach(q => { const b = w.querySelector(q); if (b) b.disabled = !hay; });
+    st.blob = null; if (!hay) return;
+    const cv = unirFotos(st.fotos, st.modo);
+    st.blob = await canvasBlob(cv);
+    const prev = w.querySelector('#cfPrev'); prev.innerHTML = '';
+    const im = new Image(); im.src = URL.createObjectURL(st.blob); im.style.cssText = 'max-width:100%;max-height:50vh;box-shadow:0 1px 4px rgba(0,0,0,.2)'; prev.appendChild(im);
+    w.querySelector('#cfInfo').textContent = `${st.fotos.length} hoja(s) · ${cv.width} × ${cv.height} px · ${(st.blob.size / 1024 / 1024).toFixed(1)} MB`;
+  };
+  const agregar = async files => {
+    for (const f of files){ try { st.fotos.push({ im: await cargarImg(f), rot: 0 }); } catch(e){ toast(e.message, true); } }
+    if (st.fotos.length === 1 && st.modo === 'lado' && st.fotos[0].im.naturalWidth > st.fotos[0].im.naturalHeight){ /* foto horizontal: sin cambio */ }
+    await actualizar();
+  };
+  w.querySelector('#cfCam').onchange = e => { agregar([...e.target.files]); e.target.value = ''; };
+  w.querySelector('#cfGal').onchange = e => { agregar([...e.target.files]); e.target.value = ''; };
+  w.querySelectorAll('#cfModo [data-m]').forEach(b => b.onclick = () => { st.modo = b.dataset.m; w.querySelectorAll('#cfModo [data-m]').forEach(x => x.classList.toggle('on', x === b)); actualizar(); });
+  w.querySelector('#cfDesc').onclick = () => { if (st.blob) descargarBlob(st.blob, nombreContratoFirmado(s)); };
+  const comp = w.querySelector('#cfComp');
+  if (comp) comp.onclick = async () => { if (!st.blob) return; const f = new File([st.blob], nombreContratoFirmado(s), { type: 'image/jpeg' });
+    if (navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: nombreContratoFirmado(s) }); } catch(e){} } else toast('Este dispositivo no permite compartir imágenes; use Descargar', true); };
+  w.querySelector('#cfGuardar').onclick = e => run(e.target, async () => {
+    if (!st.blob) return;
+    if (!navigator.onLine) throw new Error('Sin señal: descargue la imagen ahora y guárdela en la solicitud cuando tenga conexión');
+    const path = `${s.id}/contrato-firmado-${Date.now()}.jpg`;
+    const { error } = await sb.storage.from('evidencias').upload(path, st.blob, { contentType: 'image/jpeg' });
+    if (error) throw error;
+    await rpc('guardar_contrato_firmado', { p_id: s.id, p_path: path });
+    toast('Contrato firmado guardado'); cerrarDialogo(w); await cargarSolicitudes(); if (S.detData && S.detData.s.id === s.id) await abrirDetalle(s.id, true); pintarTabs();
+  });
 }
 function reconocimientoHabilitado(s){ return !!s.dictamen_en && !['denegada','borrador','en_analisis'].includes(s.estado); }
 function abrirReconocimiento(s){

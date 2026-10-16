@@ -291,6 +291,15 @@ table.ht td.nota{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:va
 .chart{overflow-x:auto}
 .chart svg{min-width:100%}
 /* Contrato de línea de crédito: hojas carta */
+.dvbox{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:4px 0 10px}
+.dvbox .dv{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.dvbox .dv:last-child{border-bottom:0}
+.dvbox .dv > span:first-child{min-width:100px}
+.sheet .card.plegable > h4.sec:first-child{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.sheet .card.plegable > h4.sec:first-child::after{content:'▾';margin-left:auto;font-size:14px;color:var(--muted);transition:transform .15s}
+.sheet .card.plegada > h4.sec:first-child{margin-bottom:0}
+.sheet .card.plegada > h4.sec:first-child::after{transform:rotate(-90deg)}
+.sheet .card.plegada > :not(:first-child){display:none!important}
 .ct-pages{display:flex;flex-direction:column;gap:18px;align-items:center}
 .ct-page{width:8.5in;height:11in;background:#fff;color:#000;box-shadow:0 4px 18px rgba(0,0,0,.18);position:relative;overflow:hidden;font-family:Arial,Helvetica,sans-serif;font-size:9.2pt;line-height:1.27}
 .ct-page .hd{position:absolute;top:.35in;left:.75in;right:.75in;display:flex;align-items:center;justify-content:space-between;border-bottom:1.2pt solid #1877F2;padding-bottom:6pt}
@@ -555,7 +564,7 @@ function aplicarOp(op, nuevo){
       if (it) Object.assign(it, { completado:a.p_completado, nota:a.p_nota, lat:a.p_lat ?? it.lat, lng:a.p_lng ?? it.lng, actualizado_por:S.me.id, actualizado_en:op.ts, _pend:true }); return; }
     case 'finalizar_verificacion': {
       if (!s) return;
-      if (nuevo && a.p_resultado === 'ok'){ const f = det(s.id).items.filter(i => !i.completado).length; if (f) throw new Error(`Faltan ${f} ítem(s) por completar`); }
+      if (nuevo && a.p_resultado === 'ok'){ const f = det(s.id).items.filter(i => !i.completado && itemAplica(s, i.item)).length; if (f) throw new Error(`Faltan ${f} ítem(s) por completar`); }
       if (nuevo && a.p_resultado !== 'ok' && !a.p_nota) throw new Error('Indique el motivo del rechazo');
       const d = a.p_resultado === 'ok' ? (s.forma_desembolso === 'efectivo' ? 'desembolsada' : 'desembolso_pendiente') : 'rechazada_verificacion';
       evento(s.id, 'verificacion_' + a.p_resultado, s.estado, d, a.p_nota);
@@ -1125,6 +1134,8 @@ function renderDetalle(){
     ${ed != null && ed < S.params.edad_minima ? `<div class="alert err small">⚠ Cliente de ${ed} años (mínimo ${S.params.edad_minima}).</div>` : ''}
   </div>`;
 
+  const verArriba = rol() === 'verificador' && items.some(i => itemAplica(s, i.item));
+  if (verArriba) h += verificacionHTML(s, items);
   if (s._pend) h += `<div class="alert warn small">⟳ Esta solicitud tiene cambios hechos sin señal que todavía no llegan al servidor. Se enviarán solos al volver la conexión.</div>`;
   if (S.offline) h += `<div class="alert info small">📴 Sin señal: mostrando la última copia guardada en el teléfono${S.detCache[s.id] ? '' : ' (el detalle de esta solicitud no se alcanzó a guardar)'}.</div>`;
   // En espera
@@ -1213,7 +1224,7 @@ function renderDetalle(){
   h += accionesHTML(s, c);
 
   // Verificación
-  if (items.length) h += verificacionHTML(s, items);
+  if (items.length && !verArriba) h += verificacionHTML(s, items);
 
   // Comentarios
   h += `<div class="card"><h4 class="sec" style="margin-top:0">Comentarios</h4><div id="cmList"><div class="muted small">Cargando…</div></div>
@@ -1224,7 +1235,20 @@ function renderDetalle(){
 
   $('#sheetTitle').textContent = s.nombre_cliente; $('#sheetChip').innerHTML = chip(s.estado);
   $('#sheetBody').innerHTML = h;
+  plegarSecciones();
   enlazarDetalle(s, c);
+}
+// Cada sección del detalle se puede contraer. Asesor/analista/admin: todo abierto; verificador: solo Verificación abierta
+function plegarSecciones(){
+  S.pleg = S.pleg || {};
+  $('#sheetBody').querySelectorAll(':scope > .card').forEach(card => {
+    const h = card.firstElementChild; if (!h || !h.matches('h4.sec')) return;
+    const key = h.textContent.replace(/\(.*?\)|·.*$/g, '').trim();
+    card.classList.add('plegable');
+    const def = rol() === 'verificador' ? !/^Verificación/.test(key) : false;
+    card.classList.toggle('plegada', S.pleg[key] ?? def);
+    h.onclick = () => { const v = !card.classList.contains('plegada'); card.classList.toggle('plegada', v); S.pleg[key] = v; };
+  });
 }
 // ================== Ubicación de verificación ==================
 const CIUDADES = ['San Pedro Sula','Choloma','Villanueva','La Lima','El Progreso','Puerto Cortés','Otra'];
@@ -1268,7 +1292,7 @@ function locHTML(s, extra){
 function ubicacionHTML(s){
   const abierta = !CERRADAS.includes(s.estado);
   const edit = abierta || rol() === 'admin';
-  const tieneTrab = s.trab_lat != null || s.trab_sector || s.actualizar_trabajo || s.tipo === 'nuevo';
+  const tieneTrab = s.trab_lat != null || s.trab_sector || s.actualizar_trabajo || (s.tipo === 'nuevo' && s.estado === 'aprobada');
   const bloque = (lugar, ico, tit) => {
     const k = lugar === 'domicilio' ? 'dom' : 'trab';
     const lat = s[k + '_lat'], lng = s[k + '_lng'], sec = s[k + '_sector'], ciu = s[k + '_ciudad'], ref = s[k + '_ref'];
@@ -1446,17 +1470,34 @@ function completarHTML(s){
   </div>`;
 }
 
+// Qué puntos aplican: si el desembolso es por transferencia no hay entrega de efectivo; trabajo solo si se marcó
+const itemAplica = (s, it) => it === 'domicilio' ? (s.tipo === 'nuevo' || !!s.actualizar_domicilio) : it === 'trabajo' ? !!s.actualizar_trabajo : it === 'entrega_efectivo' ? s.forma_desembolso === 'efectivo' : true;
+function datosVisitaHTML(s){
+  const lug = (k, ico, t) => { const lat = s[k + '_lat'], sec = s[k + '_sector'], ciu = s[k + '_ciudad'], ref = s[k + '_ref'];
+    return `<div class="dv"><span>${ico} <b>${t}</b></span><span>${esc([sec, ciu].filter(Boolean).join(' · ') || 'Sin sector registrado')}${ref ? ' · ' + esc(ref) : ''}</span>
+      ${lat != null ? `<a href="${linkRuta(lat, s[k + '_lng'])}" target="_blank" rel="noopener">🧭 Cómo llegar</a>` : '<span class="muted small">sin coordenadas</span>'}</div>`; };
+  const libre = montoLibre(s);
+  return `<div class="dvbox">
+    ${s.telefono ? `<div class="dv"><span>📞 <b>Teléfono</b></span><span><a href="tel:${esc(s.telefono)}">${esc(s.telefono)}</a> · <a href="https://wa.me/504${esc(s.telefono.replace(/\D/g,'').slice(-8))}" target="_blank">WhatsApp</a></span></div>` : ''}
+    ${s.dni ? `<div class="dv"><span>🪪 <b>Identidad</b></span><span>${esc(s.dni)}</span></div>` : ''}
+    ${itemAplica(s, 'domicilio') ? lug('dom', '🏠', 'Domicilio') : ''}
+    ${itemAplica(s, 'trabajo') ? lug('trab', '🏢', 'Trabajo') : ''}
+    <div class="dv"><span>${s.forma_desembolso === 'efectivo' ? '💵' : '🏦'} <b>Desembolso</b></span><span>${s.forma_desembolso === 'efectivo' ? `Efectivo · <b>entregar ${L(libre)}</b>` : `Transferencia${s.cuenta_banco ? ' · ' + esc(s.cuenta_banco) : ''} · no entrega efectivo`}</span></div>
+  </div>`;
+}
 function verificacionHTML(s, items){
+  items = items.filter(i => itemAplica(s, i.item));
   const edit = (s.estado === 'por_verificar' && es('verificador')) || rol() === 'admin';
   const fin = s.estado === 'por_verificar' && es('verificador');
   const hechos = items.filter(i => i.completado).length;
-  return `<div class="card"><h4 class="sec" style="margin-top:0">Verificación (${hechos}/${items.length})</h4>
+  return `<div class="card" id="verifCard"><h4 class="sec" style="margin-top:0">Verificación (${hechos}/${items.length})</h4>
+    ${datosVisitaHTML(s)}
     ${items.map(i => `<div class="item ${i.completado?'done':''}" data-item="${i.item}">
       <div class="hd"><input type="checkbox" ${i.completado?'checked':''} ${edit?'':'disabled'} data-ck>${ITEM[i.item]}<span class="spacer"></span>
         ${i.lat ? `<a class="small" target="_blank" href="https://maps.google.com/?q=${i.lat},${i.lng}">📍 Mapa</a>` : ''}</div>
       ${edit ? `<input data-nota placeholder="Nota" value="${esc(i.nota||'')}" style="margin-top:8px">
         <div class="row" style="margin-top:8px">
-          <button class="btn sm ghost" data-gps>📍 Capturar GPS</button>
+          <button class="btn sm ghost" data-gps>📍 ${i.lat ? 'Actualizar GPS' : 'Capturar GPS'}</button>
           <span class="small muted" data-st>${i.actualizado_por ? 'Guardado ' + hace(i.actualizado_en) : ''}</span></div>`
       : (i.nota ? `<div class="small" style="margin-top:6px">${esc(i.nota)}</div>` : '')}
       ${i.foto_path ? `<div class="thumbs"><img data-path="${esc(i.foto_path)}" alt="foto"></div>` : ''}
@@ -1578,7 +1619,15 @@ function enlazarDetalle(s, c){
       el.classList.toggle('done', el.querySelector('[data-ck]').checked);
       if (extra.foto || extra.lat) { const y = $('#sheet').scrollTop; await abrirDetalle(s.id, true); $('#sheet').scrollTop = y; }
     });
-    const ck = el.querySelector('[data-ck]'); if (ck && !ck.disabled) ck.onchange = () => guardar();
+    // Al marcar un punto como realizado se registra la visita con hora y GPS del teléfono
+    const ck = el.querySelector('[data-ck]'); if (ck && !ck.disabled) ck.onchange = () => {
+      if (!ck.checked || !navigator.geolocation) return guardar();
+      ck.disabled = true; if (st) st.textContent = '📍 Tomando ubicación…';
+      navigator.geolocation.getCurrentPosition(
+        p => { ck.disabled = false; guardar({ lat: p.coords.latitude, lng: p.coords.longitude }); },
+        () => { ck.disabled = false; toast('Visita guardada sin GPS (no se pudo obtener la ubicación). Puede usar "Capturar GPS".', true); guardar(); },
+        { enableHighAccuracy:true, timeout:10000, maximumAge:60000 });
+    };
     const nt = el.querySelector('[data-nota]'); if (nt) nt.onchange = () => guardar();
     const gps = el.querySelector('[data-gps]');
     if (gps) gps.onclick = () => {
@@ -2676,7 +2725,8 @@ async function pintarStats(){
   <h4 class="sec">Visitas de verificación y desembolso</h4>
   <div class="card" style="overflow-x:auto">${(r.visitas || []).length ? `<table class="t"><thead><tr><th>Verificador</th><th class="num">🏠 Domicilio</th><th class="num">🏢 Trabajo</th><th class="num">💵 Desembolso</th><th class="num">Total</th><th class="num">Rechaz.</th></tr></thead><tbody>
     ${r.visitas.map(v => `<tr><td>${esc(v.nombre)}</td><td class="num">${v.domicilio}</td><td class="num">${v.trabajo}</td><td class="num">${v.desembolso}</td><td class="num"><b>${v.total}</b></td><td class="num">${v.rechazadas}</td></tr>`).join('')}</tbody></table>
-    <div class="small muted" style="margin-top:6px">Se cuentan cuando el verificador cierra la verificación: una visita por lugar visitado (domicilio, trabajo) y una por entrega de efectivo.</div>` : '<div class="muted small">Sin visitas en el período</div>'}</div>
+    <div class="small muted" style="margin-top:6px">Cada punto que el verificador marca como realizado queda registrado como una visita (cliente, hora y GPS): domicilio, trabajo o entrega de efectivo.</div>` : '<div class="muted small">Sin visitas en el período</div>'}</div>
+  ${es('analista') ? `<h4 class="sec">Mapa de verificaciones</h4><div class="card"><div id="vMapStats" style="height:420px;border-radius:10px;overflow:hidden;background:var(--bg2,#eef)"></div><div class="small muted" id="vMapInfo" style="margin-top:6px">Cargando visitas…</div></div>` : ''}
   <h4 class="sec">Cartera en proceso ahora</h4>
   <div class="pipe">${['borrador','en_analisis','aprobada','por_verificar','desembolso_pendiente'].map(k => `<div class="st"><b>${pe[k]||0}</b><span class="small">${EST[k].t}</span></div>`).join('')}</div>
   <h4 class="sec">Tiempo promedio por paso (hábil)</h4>
@@ -2696,6 +2746,34 @@ async function pintarStats(){
   graficoBarras($('#chMes'), r.meses.map(m => ({ l: `${MESES_C[+m.mes.slice(5) - 1]}–${MESES_C[(+m.mes.slice(5)) % 12]}`, v: +m.capital, t: L(Math.round(m.capital)), tip: `Mes contable 9 ${MESES_C[+m.mes.slice(5) - 1]} – 8 ${MESES_C[(+m.mes.slice(5)) % 12]}<br>${L(m.capital)} · ${m.n} desembolso(s)` })));
   graficoLinea($('#chCap'), activos.map(x => ({ l: fd(x), v: +x.capital, t: L(Math.round(x.capital)), tip: `${fDate(x.dia + 'T12:00')}<br>${L(x.capital)} · ${x.desembolsadas} exitosa(s)` })));
   graficoBarras($('#chExi'), activos.map(x => ({ l: fd(x), v: x.desembolsadas, t: String(x.desembolsadas), tip: `${fDate(x.dia + 'T12:00')}<br>${x.desembolsadas} exitosa(s) · ${L(x.capital)}` })));
+  if (es('analista')) mapaVisitas(d0, d1);
+}
+async function mapaVisitas(d0, d1){
+  const box = $('#vMapStats'), info = $('#vMapInfo'); if (!box) return;
+  let vs;
+  try { const { data, error } = await sb.rpc('visitas_mapa', { p_desde: d0, p_hasta: d1 }); if (error) throw error; vs = data || []; }
+  catch(e){ box.style.display = 'none'; info.textContent = navigator.onLine ? 'No se pudo cargar el mapa de visitas: ' + (e.message || e) : 'El mapa de visitas necesita conexión a internet.'; return; }
+  const con = vs.filter(v => v.lat != null && v.lng != null), sin = vs.length - con.length;
+  if (!con.length){ box.style.display = 'none'; info.textContent = vs.length ? `${vs.length} visita(s) en el período, ninguna con GPS registrado.` : 'Sin visitas registradas en el período.'; return; }
+  try {
+    if (!window.L || !window.L.map){
+      if (!document.querySelector('link[data-leaflet]')){ const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.leaflet = 1; l.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(l); }
+      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js');
+    }
+  } catch(e){ box.style.display = 'none'; info.textContent = 'No se pudo cargar el mapa (sin conexión).'; return; }
+  if (!document.body.contains(box)) return;
+  const LF = window.L, TIPO = { domicilio: '🏠 Domicilio', trabajo: '🏢 Trabajo', desembolso: '💵 Desembolso' };
+  const m = LF.map(box); LF.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m);
+  const pts = [], porV = {};
+  con.forEach(v => {
+    const col = avColor(v.verificador_id || v.verificador || ''); porV[v.verificador || '—'] = porV[v.verificador || '—'] || { c: col, n: 0 }; porV[v.verificador || '—'].n++;
+    const mk = LF.circleMarker([+v.lat, +v.lng], { radius: 8, color: '#fff', weight: 2, fillColor: col, fillOpacity: .9 }).addTo(m);
+    mk.bindPopup(`<b>${esc(v.cliente || 'Cliente')}</b><br>${esc(v.codigo || '')} · ${TIPO[v.tipo] || esc(v.tipo || '')}<br>Verificador: ${esc(v.verificador || '—')}<br>${fDT(v.creado_en)}${v.solicitud_id ? `<br><a href="#" data-abrir="${v.solicitud_id}">Abrir solicitud</a>` : ''}`);
+    pts.push([+v.lat, +v.lng]);
+  });
+  m.on('popupopen', e => { const a = e.popup.getElement()?.querySelector('[data-abrir]'); if (a) a.onclick = ev => { ev.preventDefault(); abrirDetalle(a.dataset.abrir); }; });
+  if (pts.length === 1) m.setView(pts[0], 15); else m.fitBounds(pts, { padding: [24, 24] });
+  info.innerHTML = Object.entries(porV).map(([n, o]) => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><i style="width:10px;height:10px;border-radius:50%;background:${o.c};display:inline-block"></i>${esc(n)} · ${o.n}</span>`).join('') + `<br>${con.length} visita(s) con GPS${sin ? ` · ${sin} sin GPS (no aparecen en el mapa)` : ''}.`;
 }
 // ================== Meta de colocación ==================
 function metaDia(iso){
@@ -2720,6 +2798,14 @@ function metaHTML(r, d0, d1, dFin){
   const mHoy = metaDia(hoy), cHoy = cap[hoy] || 0, enRango = hoy >= d0 && hoy <= dFin;
   const fRango = `${fDate(d0 + 'T12:00')} – ${fDate(dFin + 'T12:00')}`;
   const filas = hasta.filter(x => metaDia(x) > 0 || cap[x]).reverse();
+  // Proyección al cierre: al ritmo actual (ponderado por la meta de cada día; hoy cuenta la parte del horario ya transcurrida)
+  const fracHoy = (() => { const t = new Date(new Date().toLocaleString('en-US', { timeZone:TZ })), m = t.getHours() * 60 + t.getMinutes(), sab = t.getDay() === 6;
+    const ini = 8 * 60 + 30, fin = sab ? 12 * 60 : 16 * 60 + 30; return Math.max(0, Math.min(1, (m - ini) / (fin - ini))); })();
+  const metaTrans = hoy > dFin ? metaTotal : todos.filter(x => x < hoy).reduce((a, x) => a + metaDia(x), 0) + (enRango ? metaDia(hoy) * fracHoy : 0);
+  const proy = hoy > dFin ? colocado : metaTrans > 0 ? colocado / metaTrans * metaTotal : null;
+  const pctProy = proy != null && metaTotal ? proy / metaTotal * 100 : null;
+  const pctReal = metaTotal ? colocado / metaTotal * 100 : 0;
+  const colPct = v => v >= 100 ? 'var(--green)' : v >= 85 ? 'var(--amber)' : 'var(--red)';
   return `<div class="card" style="border-top:3px solid var(--accent)">
     <h4 class="sec" style="margin-top:0">Meta de colocación · ${fRango}</h4>
     <div class="kpis" style="margin-bottom:10px">
@@ -2728,7 +2814,11 @@ function metaHTML(r, d0, d1, dFin){
       <div class="kpi" style="border-top:3px solid ${falta ? 'var(--red)' : 'var(--green)'}"><div class="l">${falta ? 'Falta para la meta' : 'Meta cumplida'}</div><div class="v" style="font-size:20px;color:${falta ? 'var(--red)' : 'var(--green)'}">${L(falta || colocado - metaTotal)}</div><div class="s">${falta ? (ritmo != null ? `${L(Math.ceil(ritmo))} por día en ${restantes.length} día(s) restantes` : 'período cerrado') : 'superada'}</div></div>
       <div class="kpi"><div class="l">${dif >= 0 ? 'Adelante de la meta a la fecha' : 'Atraso contra la meta a la fecha'}</div><div class="v" style="font-size:20px;color:${dif >= 0 ? 'var(--green)' : 'var(--amber)'}">${L(Math.abs(dif))}</div><div class="s">Meta a la fecha ${L(metaFecha)}</div></div>
     </div>
-    <div style="background:var(--gray-bg);border-radius:8px;height:14px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct >= 100 ? 'var(--green)' : 'var(--brand)'}"></div></div>
+    <div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
+      <div class="kpi" style="border-top:3px solid var(--brand)"><div class="l">% de colocación (sobre la meta del período)</div><div class="v" style="font-size:28px;color:var(--brand-dk)">${pctReal.toFixed(1)}%</div><div class="s">${L(colocado)} de ${L(metaTotal)} · a la fecha va ${metaFecha ? (colocado / metaFecha * 100).toFixed(1) + '%' : '—'} de lo esperado</div></div>
+      <div class="kpi" style="border-top:3px solid ${pctProy == null ? 'var(--line)' : colPct(pctProy)}"><div class="l">${hoy > dFin ? 'Resultado del período' : 'Proyección al cierre (ritmo actual)'}</div><div class="v" style="font-size:28px;color:${pctProy == null ? 'inherit' : colPct(pctProy)}">${pctProy == null ? '—' : pctProy.toFixed(1) + '%'}</div><div class="s">${proy == null ? 'aún no hay días transcurridos' : `${L(Math.round(proy))} estimado al ${fDate(dFin + 'T12:00')}${proy < metaTotal ? ` · faltarían ${L(Math.round(metaTotal - proy))}` : ' · alcanzaría la meta'}`}</div></div>
+    </div>
+    <div style="background:var(--gray-bg);border-radius:8px;height:14px;overflow:hidden;position:relative"><div style="height:100%;width:${pct}%;background:${pct >= 100 ? 'var(--green)' : 'var(--brand)'}"></div>${pctProy != null && pctProy < 100 && hoy <= dFin ? `<div title="Proyección" style="position:absolute;top:0;bottom:0;left:${Math.min(100, pctProy)}%;border-left:2px dashed var(--amber)"></div>` : ''}</div>
     ${enRango && mHoy ? `<div class="alert ${cHoy >= mHoy ? 'ok' : 'info'} small" style="margin-top:10px"><b>Hoy:</b> ${L(cHoy)} de ${L(mHoy)} · ${cHoy >= mHoy ? '✓ meta del día cumplida' : 'faltan ' + L(mHoy - cHoy)}</div>` : ''}
     <label class="f" style="margin-top:12px">Resumen diario</label>
     <div style="overflow-x:auto;max-height:360px"><table class="t"><thead><tr><th>Día</th><th class="num">Meta</th><th class="num">Colocado</th><th class="num">Diferencia</th><th class="num">%</th></tr></thead><tbody>

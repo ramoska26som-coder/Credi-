@@ -408,6 +408,8 @@ table.ht td.nota{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:va
 <script>
 // App disponible sin señal (sw.js debe estar junto a index.html). Va primero para registrarse aunque falle otra cosa.
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Versión de esta copia de la app: cambia en cada entrega. La app la compara con la publicada y se actualiza sola.
+const APP_VER = '2026-10-16.1246';
 // ================== Configuración ==================
 const SB_URL = 'https://edmvfqelxsxevpmxgbav.supabase.co';
 const SB_KEY = 'sb_publishable_lgTmmLtUESDDyX2sff6ArQ_z65Ti9d6';
@@ -746,8 +748,65 @@ async function init(){
   await Promise.all([cargarPerfiles(), cargarParams()]);
   await cargarSolicitudes();
   S.tab = tabsRol()[0][0];
+  // Si la app se recargó por una actualización, vuelve a donde estaba el usuario
+  let vuelta = null; try { vuelta = JSON.parse(sessionStorage.getItem('vc_vuelta') || 'null'); sessionStorage.removeItem('vc_vuelta'); } catch(e){}
+  if (vuelta && tabsRol().some(t => t[0] === vuelta.tab)) S.tab = vuelta.tab;
   pintarTabs(); pintar(); suscribir(); indicadorRed();
+  if (vuelta){ window.scrollTo(0, vuelta.y || 0); if (vuelta.det != null && S.sols.some(x => x.id === vuelta.det)) abrirDetalle(vuelta.det); if (vuelta.ver) toast(`✨ App actualizada a la versión más reciente`); }
   if (outbox().length) programarEnvio(1500);
+  vigilarVersion();
+}
+// ================== Actualización automática ==================
+// Revisa si hay una versión nueva publicada (al abrir, al volver a la app y cada 2 minutos).
+// Si la hay, recarga sola en un momento seguro: sin diálogos abiertos, sin cambios sin guardar y sin estar escribiendo.
+// Los cambios pendientes de enviar están guardados en el teléfono, así que no se pierden al recargar.
+const UPD = { firma: null, nueva: null, revisando: false, timer: null };
+async function revisarVersion(){
+  if (UPD.revisando || !navigator.onLine || !/^https?:$/.test(location.protocol)) return;
+  UPD.revisando = true;
+  try {
+    const url = location.pathname.replace(/[^/]*$/, '') + 'index.html';
+    // 1) consulta liviana (solo encabezados); 2) si cambió, baja el archivo y lee su versión
+    let firma = null;
+    try { const h = await fetch(url, { method: 'HEAD', cache: 'no-store' }); if (h.ok) firma = h.headers.get('etag') || h.headers.get('last-modified') || h.headers.get('content-length'); } catch(e){}
+    if (firma && UPD.firma === firma && !UPD.nueva) return;
+    const r = await fetch(url + '?vc=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return;
+    const m = (await r.text()).match(new RegExp('const APP' + "_VER = '([^']+)'"));
+    UPD.firma = firma;
+    if (m && m[1] !== APP_VER){ UPD.nueva = m[1]; navigator.serviceWorker?.getRegistration?.().then(g => g && g.update()).catch(() => {}); intentarActualizar(); }
+  } catch(e){} finally { UPD.revisando = false; }
+}
+function momentoSeguro(){
+  if ((S.dlgs || []).some(w => w.isConnected)) return false;
+  if (S.dirty) return false;
+  const a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.value) return false;
+  return true;
+}
+function intentarActualizar(forzar){
+  if (!UPD.nueva) return;
+  if (!forzar && !momentoSeguro()){
+    if (!$('#updBar')){
+      const b = document.createElement('div'); b.id = 'updBar';
+      b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:9999;background:#0A2A66;color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:13px;max-width:calc(100% - 24px)';
+      b.innerHTML = '<span>✨ Hay una versión nueva. Se aplicará al terminar lo que está haciendo.</span><button class="btn sm" style="background:#FFD400;color:#0A2A66;white-space:nowrap" id="updYa">Actualizar ahora</button>';
+      document.body.appendChild(b); $('#updYa').onclick = () => intentarActualizar(true);
+    }
+    clearTimeout(UPD.timer); UPD.timer = setTimeout(() => intentarActualizar(), 8000);
+    return;
+  }
+  // Evita un ciclo de recargas si el servidor todavía entrega la copia anterior
+  try { const prev = JSON.parse(localStorage.getItem('vc_upd_intento') || 'null'); if (prev && prev.ver === UPD.nueva && Date.now() - prev.t < 600000 && !forzar) return; localStorage.setItem('vc_upd_intento', JSON.stringify({ ver: UPD.nueva, t: Date.now() })); } catch(e){}
+  try { sessionStorage.setItem('vc_vuelta', JSON.stringify({ tab: S.tab, det: $('#sheet').classList.contains('hidden') ? null : S.det, y: window.scrollY, ver: UPD.nueva })); } catch(e){}
+  // Dirección con ?v= para saltarse cualquier copia guardada del navegador
+  location.replace(location.pathname + '?v=' + encodeURIComponent(UPD.nueva) + location.hash);
+}
+function vigilarVersion(){
+  if (UPD.iniciado) return; UPD.iniciado = true;
+  revisarVersion();
+  setInterval(revisarVersion, 120000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) revisarVersion(); else if (UPD.nueva && momentoSeguro()) intentarActualizar(); });
+  window.addEventListener('online', revisarVersion);
+  window.addEventListener('focus', revisarVersion);
 }
 async function mostrarLogin(){
   $('#vApp').classList.add('hidden'); $('#vLogin').classList.remove('hidden');

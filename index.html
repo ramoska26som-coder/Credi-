@@ -1914,7 +1914,7 @@ function calcRefi(s, c){
   const pctAprob = manual ? +s.pct_manual : (tard3 > 5 ? 0 : tard3 >= 3 ? Math.max(0, 1 - tard3 * 0.1) : 1);
   const basePen = manual ? sugerido : tard3 >= 2 ? baseMantiene : sugerido;
   const limCalc = mround(basePen * pctAprob, 1000);
-  const penTxt = manual ? 'manual' : tard3 > 5 ? 'más de 5 tardíos: bloqueado' : tard3 >= 3 ? `−${tard3 * 10}% sobre límite actual ${L(baseMantiene)}` : tard3 === 2 ? `2 tardíos: mantiene límite actual ${L(baseMantiene)}` : tard3 === 1 ? '1 tardío: sin efecto' : 'sin pagos tardíos';
+  const penTxt = manual ? 'manual' : tard3 > 5 ? 'más de 5 tardíos: bloqueado' : tard3 >= 3 ? `−${tard3 * 10}% sobre límite actual ${L(baseMantiene)}` : tard3 === 2 ? `2 tardíos: mantiene límite actual ${L(baseMantiene)}` : tard3 === 1 ? '1 tardío: se deja pasar, sin efecto' : 'sin pagos tardíos';
   // Después del dictamen manda el monto autorizado (puede haberse ajustado manualmente)
   const autorizado = !!(s.dictamen_en && s.monto_aprobado);
   const limAprob = autorizado ? +s.monto_aprobado : limCalc;
@@ -1942,8 +1942,8 @@ function calcRefi(s, c){
   if (disponible < (P.disponible_minimo ?? 2000)) motivos.push(`disponible menor a ${L(P.disponible_minimo ?? 2000)}`);
   let dictamen;
   if (motivos.length) dictamen = 'RECHAZADO';
-  else if (tard3 > 0 || prom < P.ingreso_minimo){ dictamen = 'REQUIERE APROBACIÓN ESPECIAL';
-    if (tard3 > 0) motivos.push(`${tard3} pago(s) tardío(s)`); if (prom < P.ingreso_minimo) motivos.push('ingreso bajo el mínimo'); }
+  else if (tard3 >= 2 || prom < P.ingreso_minimo){ dictamen = 'REQUIERE APROBACIÓN ESPECIAL';
+    if (tard3 >= 2) motivos.push(`${tard3} pagos tardíos`); if (prom < P.ingreso_minimo) motivos.push('ingreso bajo el mínimo'); }
   else dictamen = 'APROBADO AUTOMÁTICO';
   const en3 = () => { const d = new Date(hoy + 'T12:00'); d.setMonth(d.getMonth() + 3); return fDate(d); };
   const proxAum = tard3 > 5 ? 'Bloqueado por mora' : (pctAprob < 1 || tard3 >= 2) ? en3() : (prom && limAct / prom >= 0.68 ? 'Máximo alcanzado' : en3());

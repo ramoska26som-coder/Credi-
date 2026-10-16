@@ -103,7 +103,10 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:10px 0 4px;font-we
 /* Modal / hoja */
 .sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
 .sheet .bar{position:sticky;top:0;z-index:2;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:10px 12px}
-.sheet .bar h2{flex:1;font-size:16px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sheet .bar h2{flex:1;font-size:24px;line-height:1.2;margin:0;text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.sheet .bar #sheetBack{flex:0 0 96px;text-align:left}
+.sheet .bar #sheetChip{flex:0 0 96px;text-align:right}
+@media (max-width:600px){.sheet .bar h2{font-size:19px}.sheet .bar #sheetBack,.sheet .bar #sheetChip{flex-basis:64px}}
 .sheet .body{padding:12px 16px 60px;max-width:760px;margin:0 auto}
 .back{background:none;border:0;font-size:22px;padding:2px 8px;color:var(--ink)}
 .dlg-wrap{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
@@ -2057,7 +2060,8 @@ function politicaBHTML(s, r){
       <b>🅱️ Política tipo B aplicada</b> · ${cond}<br>Límite tipo B: <b>${L(r.limB)}</b> · plazo <b>${s.plazo_meses || 4} meses</b>
       ${puede ? `<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap"><div class="seg" id="bPlazo">${[3,4].map(n => `<button type="button" data-n="${n}" class="${(s.plazo_meses || 4) === n ? 'on' : ''}">${n} meses</button>`).join('')}</div>
         <button class="btn sm ghost" id="bQuitar">Quitar política tipo B</button></div>` : ''}</div>`;
-  if (!r.sugB) return '';
+  if (!r.sugB) return puede && s.tipo !== 'nuevo' ? `<div class="alert small" style="margin-top:10px;background:var(--gray-bg);border:1px dashed var(--line)"><b>🅱️ Política tipo B</b> (decisión del analista) — ${cond}. Quedaría en <b>${L(r.limB)}</b>${r.limCalc ? ` en lugar de ${L(r.limCalc)}` : ' en lugar de bloqueado'}.${r.maxDif >= (S.params.bloqueo_dias_atraso ?? 45) ? `<br><span style="color:var(--red)">Tiene un pago con ${r.maxDif} días de atraso: sigue bloqueado aunque se aplique.</span>` : ''}
+      <div class="btns" style="margin-top:8px"><button class="btn sm ghost" id="bAplicar">Aplicar política tipo B</button></div></div>` : '';
   return `<div class="alert info small" style="margin-top:10px"><b>💡 Sugerencia: cliente tipo B</b> — ${r.tard3} pagos tardíos y ningún atraso mayor a ${r.B.maxD} días (máximo ${r.maxDif} días).<br>
       Con la política tipo B: ${cond}. Quedaría en <b>${L(r.limB)}</b> en lugar de ${r.limCalc ? L(r.limCalc) : 'bloqueado'}.
       ${puede ? `<div class="btns" style="margin-top:8px"><button class="btn sm pri" id="bAplicar">Aplicar política tipo B</button></div>` : '<div class="muted">El analista decide si la aplica.</div>'}</div>`;

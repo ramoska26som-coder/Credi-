@@ -409,7 +409,7 @@ table.ht td.nota{max-width:220px;overflow:hidden;text-overflow:ellipsis;color:va
 // App disponible sin señal (sw.js debe estar junto a index.html). Va primero para registrarse aunque falle otra cosa.
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
 // Versión de esta copia de la app: cambia en cada entrega. La app la compara con la publicada y se actualiza sola.
-const APP_VER = '2026-10-16.1246';
+const APP_VER = '2026-10-16.1358';
 // ================== Configuración ==================
 const SB_URL = 'https://edmvfqelxsxevpmxgbav.supabase.co';
 const SB_KEY = 'sb_publishable_lgTmmLtUESDDyX2sff6ArQ_z65Ti9d6';
@@ -710,7 +710,9 @@ function calcular(ingresos, tipoPago, rubro){
   const techo = rubro ? P.techo_rubro_especial : P.techo_regular;
   let limite, motivo;
   if (promedio === 0){ limite = 0; motivo = 'Sin ingresos registrados.'; }
-  else if (promedio < P.ingreso_minimo){ limite = null; motivo = 'Ingresos insuficientes.'; }
+  else if (promedio < (P.tipob_ingreso_min ?? 10000)){ limite = null; motivo = 'Ingresos insuficientes.'; }
+  else if (promedio < P.ingreso_minimo){ limite = Math.min(P.tipob_limite ?? 5000, Math.floor(promedio * P.porcentaje_limite / 1000) * 1000);
+    motivo = `Cliente tipo B por ingreso: tasa ${+((P.tipob_tasa ?? 0.2) * 100).toFixed(2)}% nivelado, máximo ${L(P.tipob_limite ?? 5000)}, plazo ${P.tipob_plazo ?? 3} meses.`; }
   else {
     limite = Math.min(techo, Math.floor(promedio * P.porcentaje_limite / 1000) * 1000);  // ROUNDDOWN(-3)
     motivo = promedio * P.porcentaje_limite > techo
@@ -722,8 +724,9 @@ function calcular(ingresos, tipoPago, rubro){
     if (rubro) aumento = 'NO ELEGIBLE';
     else { const d = new Date(hoyHN()+'T12:00'); d.setMonth(d.getMonth()+3); aumento = fDate(d); }
   }
-  return { promedio, limite, motivo, tasaPref: promedio > P.umbral_tasa_preferencial, aumento,
-    insuficiente: promedio > 0 && promedio < P.ingreso_minimo, nSal: sal.length, nCom: com.length, promPago: avg(sal), factor };
+  const tipoB = promedio >= (P.tipob_ingreso_min ?? 10000) && promedio < P.ingreso_minimo;
+  return { promedio, limite, motivo, tasaPref: !tipoB && promedio > P.umbral_tasa_preferencial, aumento, tipoB,
+    insuficiente: promedio > 0 && promedio < (P.tipob_ingreso_min ?? 10000), nSal: sal.length, nCom: com.length, promPago: avg(sal), factor };
 }
 
 // ================== Sesión ==================
@@ -888,7 +891,7 @@ function tabsRol(){
     revisadas:['revisadas','Revisadas', s => mio(s) && !s.importado && (s.estado === 'aprobada' || (s.estado === 'denegada' && dias(s.dictamen_en, 15)))],
     proceso:['proceso','En proceso', s => mio(s) && (['por_verificar','desembolso_pendiente'].includes(s.estado) || (s.estado==='desembolsada' && dias(s.desembolsado_en, 7)))],
     analisis:['analisis','Análisis', s => s.estado === 'en_analisis'],
-    verificar:['verificar','Por verificar', s => s.estado === 'por_verificar' && (!s.verificador_id || s.verificador_id === S.me.id || rol()==='admin')],
+    verificar:['verificar','Por verificar', s => s.estado === 'por_verificar' && (!s.verificador_id || s.verificador_id === S.me.id || ['admin','asesor','analista'].includes(rol()))],
     verificadas:['verificadas','Mis verificaciones', s => s.verificado_en && s.verificador_id === S.me.id],
     desembolsos:['desembolsos','Desembolsos', s => s.estado === 'desembolso_pendiente' || (s.estado === 'desembolsada' && dias(s.desembolsado_en, 7))],
     todas:['todas','Todas', s => true],
@@ -896,7 +899,7 @@ function tabsRol(){
     tablero:['tablero','Tablero', s => false],
     stats:['stats','Estadísticas'], usuarios:['usuarios','Usuarios'], params:['params','Parámetros']
   };
-  const m = { asesor:['tablero','solicitudes','revisadas','proceso','todas','historial','stats'],
+  const m = { asesor:['tablero','solicitudes','revisadas','proceso','verificar','todas','historial','stats'],
     analista:['tablero','analisis','desembolsos','todas','historial','stats'],
     verificador:['verificar','tablero','verificadas','historial','stats'],
     admin:['tablero','solicitudes','revisadas','analisis','verificar','desembolsos','todas','historial','stats','usuarios','params'] };
@@ -960,7 +963,7 @@ function pintar(){
   $('#main').querySelectorAll('.sol').forEach(c => c.onclick = () => abrirDetalle(+c.dataset.id));
 }
 function asignarHTML(s){
-  if (es('analista')){
+  if (es('analista','asesor')){
     const vs = Object.values(S.perfiles).filter(p => p.rol === 'verificador' && p.activo);
     return `<div class="asig" data-stop>Verificador: <select data-asig="${s.id}"><option value="">— Sin asignar —</option>${vs.map(p => `<option value="${p.id}" ${p.id === s.verificador_id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></div>`;
   }
@@ -1224,7 +1227,7 @@ function renderDetalle(){
         ${s.saldo_capital != null ? `<dt>Saldo capital</dt><dd>${L(s.saldo_capital)}</dd>` : ''}
         ${s.saldo_intereses != null ? `<dt>Saldo intereses</dt><dd>${L(s.saldo_intereses)}</dd>` : ''}
         ${libre != null && s.tipo !== 'nuevo' ? `<dt>Monto libre</dt><dd>${L(libre)}</dd>` : ''}
-        ${s.politica_b ? `<dt>Política</dt><dd><b>Tipo B</b> · ${+((S.params.tipob_tasa ?? 0.2) * 100).toFixed(2)}% nivelado · ${s.plazo_meses || 4} meses</dd>` : s.tasa_preferencial ? `<dt>Tasa</dt><dd>Preferencial</dd>` : ''}
+        ${s.politica_b ? `<dt>Política</dt><dd><b>Tipo B</b> · ${+((S.params.tipob_tasa ?? 0.2) * 100).toFixed(2)}% nivelado · ${(S.params.tipob_plazo ?? 3)} meses</dd>` : s.tasa_preferencial ? `<dt>Tasa</dt><dd>Preferencial</dd>` : ''}
         ${s.dictamen_nota ? `<dt>Nota</dt><dd>${esc(s.dictamen_nota)}</dd>` : ''}
       </dl></div>`;
   }
@@ -1270,14 +1273,15 @@ function renderDetalle(){
         ${s.dictamen_en && s.monto_aprobado ? `<div class="box"><div class="l">Límite aprobado</div><div class="v">${L(s.monto_aprobado)}</div>
           <div class="small" style="font-weight:600;color:var(--brand)">${autorizadoPor(s, 'ajuste_monto')}</div>${c.limite !== +s.monto_aprobado ? `<div class="small muted">Calculado: ${c.limite == null ? 'Insuficiente' : L(c.limite)}</div>` : ''}</div>`
         : `<div class="box" style="${c.insuficiente?'background:var(--red-bg)':''}"><div class="l">Límite aprobado</div><div class="v">${c.limite == null ? 'Insuficiente' : L(c.limite)}</div></div>`}
-        <div class="box"><div class="l">Tasa preferencial</div><div class="v">${(s.dictamen_en && s.tasa_preferencial != null ? s.tasa_preferencial : c.tasaPref) ? 'SÍ' : 'NO'}</div>
+        ${c.tipoB || s.politica_b ? `<div class="box" style="background:var(--r-verificacion-bg,#f3e8ff)"><div class="l">Tasa</div><div class="v">🅱️ Tipo B · ${+((S.params.tipob_tasa ?? 0.2) * 100).toFixed(2)}%</div><div class="small muted">nivelado · ${S.params.tipob_plazo ?? 3} meses</div></div>` : ''}
+        <div class="box" ${c.tipoB || s.politica_b ? 'style="display:none"' : ''}><div class="l">Tasa preferencial</div><div class="v">${(s.dictamen_en && s.tasa_preferencial != null ? s.tasa_preferencial : c.tasaPref) ? 'SÍ' : 'NO'}</div>
           ${s.dictamen_en && s.tasa_preferencial != null && !!s.tasa_preferencial !== c.tasaPref ? `<div class="small muted">Calculada: ${c.tasaPref ? 'SÍ' : 'NO'}</div>` : ''}</div>
         <div class="box"><div class="l">Próximo aumento</div><div class="v" style="font-size:15px">${c.aumento || 'N/A'}</div></div>
         <div class="box full"><div class="l">Techo aplicado</div><div style="font-weight:600">${c.motivo}</div>
           <div class="small muted">Promedio por pago ${L(c.promPago.toFixed(2))} × ${c.factor} ${c.nCom ? '+ promedio comisiones' : ''} → redondeado a ${S.params.redondeo}</div></div>
       </div>
       ${s.dictamen_en && s.monto_solicitado && +s.monto_solicitado !== +s.monto_aprobado ? `<div class="alert info small" style="margin-top:10px">El cliente toma <b>${L(s.monto_solicitado)}</b> de ${L(s.monto_aprobado)} aprobados.</div>` : ''}
-      ${cuotasPlazoHTML(s.dictamen_en && s.monto_aprobado ? +(s.monto_solicitado || s.monto_aprobado) : (c.limite || 0), s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : c.tasaPref, s.tipo_pago, c.promedio)}
+      ${cuotasPlazoHTML(s.dictamen_en && s.monto_aprobado ? +(s.monto_solicitado || s.monto_aprobado) : (c.limite || 0), s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : c.tasaPref, s.tipo_pago, c.promedio, null, c.tipoB || s.politica_b ? { tasa: S.params.tipob_tasa ?? 0.2, plazo: S.params.tipob_plazo ?? 3 } : null)}
       </div>`}`;
   }
   // Análisis de refinanciamiento / reingreso (antigüedad, comportamiento de pago, cuotas)
@@ -1480,7 +1484,8 @@ function accionesHTML(s, c){
   if (s.estado === 'en_analisis' && es('analista')){
     const refi = s.tipo !== 'nuevo';
     h += `<div class="card"><h4 class="sec" style="margin-top:0">Dictamen</h4>
-      ${c.insuficiente ? `<div class="alert err small">Ingresos por debajo del mínimo (${L(S.params.ingreso_minimo)}).</div>` : ''}
+      ${c.insuficiente ? `<div class="alert err small">Ingresos por debajo del mínimo (${L(S.params.tipob_ingreso_min ?? 10000)}).</div>` : ''}
+      ${s.tipo === 'nuevo' && c.tipoB ? `<div class="alert small" style="background:var(--r-verificacion-bg,#f3e8ff)">🅱️ Cliente tipo B por ingreso: máximo ${L(S.params.tipob_limite ?? 5000)}, tasa ${+((S.params.tipob_tasa ?? 0.2) * 100).toFixed(2)}% nivelado, plazo ${S.params.tipob_plazo ?? 3} meses.</div>` : ''}
       ${refi ? `<div id="dSug">${dictamenRefiHTML(calcRefi(s, c))}</div>` : ''}
       <label class="f">Monto aprobado</label><input id="dMonto" inputmode="decimal" value="${s.tipo==='nuevo' ? (c.limite || '') : (calcRefi(s, c).limAprob || '')}" placeholder="L">
       ${refi ? `<div class="alert info small" id="dLibre">Monto libre: —</div>` : ''}
@@ -1515,7 +1520,7 @@ function completarHTML(s){
   const nuevo = s.tipo === 'nuevo';
   const verifs = Object.values(S.perfiles).filter(p => p.rol === 'verificador' && p.activo);
   return `<div class="card" id="cForm"><h4 class="sec" style="margin-top:0">Completar con el cliente</h4>
-    <div class="alert ok small">Aprobada por ${L(s.monto_aprobado)}${s.tipo !== 'nuevo' && montoLibre(s) != null ? ` · Monto libre ${L(montoLibre(s))}` : ''}${s.politica_b ? `<br><b>🅱️ Política tipo B:</b> tasa ${+((S.params.tipob_tasa ?? 0.2) * 100).toFixed(2)}% mensual nivelado · plazo ${s.plazo_meses || 4} meses` : ''}</div>
+    <div class="alert ok small">Aprobada por ${L(s.monto_aprobado)}${s.tipo !== 'nuevo' && montoLibre(s) != null ? ` · Monto libre ${L(montoLibre(s))}` : ''}${s.politica_b ? `<br><b>🅱️ Política tipo B:</b> tasa ${+((S.params.tipob_tasa ?? 0.2) * 100).toFixed(2)}% mensual nivelado · plazo ${(S.params.tipob_plazo ?? 3)} meses` : ''}</div>
     <h4 class="sec">Verificación en campo</h4>
     ${nuevo ? `
       <div class="seg" id="cVerTipo"><button type="button" data-v="1" class="${s.actualizar_trabajo === false && s.forma_desembolso ? '' : 'on'}">🏠 Domicilio y 🏢 trabajo</button><button type="button" data-v="0" class="${s.actualizar_trabajo === false && s.forma_desembolso ? 'on' : ''}">🏠 Solo domicilio</button></div>
@@ -1657,6 +1662,8 @@ function enlazarDetalle(s, c){
       const cs = S.detData.s, rf = cs.tipo !== 'nuevo' ? calcRefi(cs, calcular(S.detData.ing, cs.tipo_pago, cs.rubro_especial)) : null;
       if (tipo === 'aprobada' && s.tipo === 'nuevo' && c.insuficiente && !confirm('Los ingresos están por debajo del mínimo. ¿Aprobar de todos modos?')) return;
       if (tipo === 'aprobada' && rf && rf.politicaB && num($('#dMonto').value) > rf.B.limite) throw new Error(`Política tipo B: el monto máximo es ${L(rf.B.limite)}`);
+      if (tipo === 'aprobada' && !rf && c.tipoB && num($('#dMonto').value) > (S.params.tipob_limite ?? 5000)) throw new Error(`Cliente tipo B: el monto máximo es ${L(S.params.tipob_limite ?? 5000)}`);
+      if (tipo === 'aprobada' && !cs.politica_b && ((rf && rf.ingresoB) || (!rf && c.tipoB))) await rpc('actualizar_datos_refi', { p_id: s.id, p_datos: { politica_b: true, plazo_meses: S.params.tipob_plazo ?? 3 } });
       if (tipo === 'aprobada' && rf && rf.dictamen === 'RECHAZADO' && !confirm(`El análisis sugiere RECHAZADO (${rf.motivos.join('; ')}). ¿Aprobar de todos modos?`)) return;
       if (tipo === 'aprobada' && rf && rf.limAprob && num($('#dMonto').value) > rf.limAprob && !confirm(`El monto supera el límite aprobado calculado (${L(rf.limAprob)}). ¿Aprobar de todos modos?`)) return;
       const snap = rf ? { tipo:'refinanciamiento', ...rf, cuotas: rf.cuotas, promedio: rf.prom } : { tipo:'nuevo', ...c };
@@ -2000,9 +2007,11 @@ function calcRefi(s, c){
   const bloqDias = P.bloqueo_dias_atraso ?? 45, limMin = P.limite_minimo_bloqueo ?? 5000;
   const limPen = mround(basePen * pctAprob, 1000);
   const bloq45 = maxDif >= bloqDias, bloqMin = !manual && tard3 >= 3 && limPen < limMin, bloqueado = bloq45 || bloqMin;
-  // Política tipo B: varios pagos tardíos pero sin mucha mora → 20% nivelado, máx. L 5,000, 3 o 4 meses (lo decide el analista)
-  const B = { tasa: P.tipob_tasa ?? 0.20, limite: P.tipob_limite ?? 5000, minT: P.tipob_min_tardios ?? 3, maxD: P.tipob_max_dias ?? 15 };
-  const politicaB = !!s.politica_b;
+  // Política tipo B: 20% nivelado, máx. L 5,000, plazo 3 meses. Entra automático si el ingreso está entre L 10,000 y el mínimo normal (13,000);
+  // por pagos tardíos sin mucha mora lo decide el analista
+  const B = { tasa: P.tipob_tasa ?? 0.20, limite: P.tipob_limite ?? 5000, minT: P.tipob_min_tardios ?? 3, maxD: P.tipob_max_dias ?? 15, plazo: P.tipob_plazo ?? 3, ingMin: P.tipob_ingreso_min ?? 10000 };
+  const ingresoB = prom >= B.ingMin && prom < (P.ingreso_minimo ?? 13000), ingresoBajo = prom > 0 && prom < B.ingMin;
+  const politicaB = !!s.politica_b || ingresoB;
   const sugB = s.tipo !== 'nuevo' && tard3 >= B.minT && maxDif <= B.maxD && !bloq45;
   const limB = Math.min(B.limite, mround(sugerido, 1000) || B.limite);
   const limCalc = politicaB ? limB : bloqueado ? 0 : limPen;
@@ -2023,10 +2032,11 @@ function calcRefi(s, c){
   const pref = politicaB ? false : s.dictamen_en && s.tasa_preferencial != null ? !!s.tasa_preferencial : prefCalc;
   const tasaNiv = politicaB ? B.tasa : pref ? 0.105 : 0.14, tasaSI = pref ? 0.16 : 0.20;
   const tasaNueva = politicaB ? B.tasa : s.plan_pago === 'solo_interes' ? tasaSI : tasaNiv;
-  const plazos = politicaB ? [3, 4] : [3, 6, 8, 10, 12];
+  const plazos = politicaB ? [B.plazo] : [3, 6, 8, 10, 12];
   const cuotas = plazos.map(n => { const q = limAprob / n + limAprob * tasaNiv; return { plazo: `${n} meses`, cuota: q, pct: prom ? q / prom : null }; });
   const qsi = limAprob * tasaSI; if (!politicaB) cuotas.push({ plazo: 'Solo interés', cuota: qsi, pct: prom ? qsi / prom : null });
   const motivos = [];
+  if (ingresoBajo) motivos.push(`ingreso menor a ${L(B.ingMin)}`);
   if (bloq45) motivos.push(`pago con ${maxDif} días de atraso (bloqueo desde ${bloqDias})`);
   else if (bloqMin && !politicaB) motivos.push(`límite reducido a ${L(limPen)}, menor a ${L(limMin)}`);
   if (politicaB && autorizado && +s.monto_aprobado > B.limite) motivos.push(`monto mayor al máximo tipo B (${L(B.limite)})`);
@@ -2038,8 +2048,7 @@ function calcRefi(s, c){
   let dictamen;
   if (motivos.length) dictamen = 'RECHAZADO';
   else if (politicaB) dictamen = 'APROBADO · POLÍTICA TIPO B';
-  else if (tard3 >= 2 || prom < P.ingreso_minimo){ dictamen = 'REQUIERE APROBACIÓN ESPECIAL';
-    if (tard3 >= 2) motivos.push(`${tard3} pagos tardíos`); if (prom < P.ingreso_minimo) motivos.push('ingreso bajo el mínimo'); }
+  else if (tard3 >= 2){ dictamen = 'REQUIERE APROBACIÓN ESPECIAL'; motivos.push(`${tard3} pagos tardíos`); }
   else dictamen = 'APROBADO AUTOMÁTICO';
   const en3 = () => { const d = new Date(hoy + 'T12:00'); d.setMonth(d.getMonth() + 3); return fDate(d); };
   const proxAum = politicaB ? 'Según comportamiento en tipo B' : bloqueado ? 'Bloqueado por mora' : (pctAprob < 1 || tard3 >= 2) ? en3() : (prom && limAct / prom >= 0.68 ? 'Máximo alcanzado' : en3());
@@ -2047,7 +2056,7 @@ function calcRefi(s, c){
   const proxLim = bloqueado && !politicaB ? null : Math.min(P.techo_refi || 30000, mround(prom * (r2 < 0.4 ? 0.5 : r2 < 0.7 ? 0.8 : 1), 1000));
   const peldano = (antig == null || antig < 90) ? '50% (menos de 90 días)' : diasAum < 90 ? 'Se mantiene (último aumento hace menos de 90 días)' : `${Math.round(factor * 100)}%`;
   return { elegido, limCalc, autorizado, prefCalc, yaPref, prefMotivo, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob, penTxt, basePen,
-    limAprob, disponible, pref, tasaNueva, cuotas, plazoMin, dictamen, politicaB, sugB, maxDif, B, limB, motivos, proxAum, proxLim, techo, sinFecha: !s.fecha_ingreso };
+    limAprob, disponible, pref, tasaNueva, cuotas, plazoMin, dictamen, politicaB, ingresoB, sugB, maxDif, B, limB, motivos, proxAum, proxLim, techo, sinFecha: !s.fecha_ingreso };
 }
 function dictamenRefiHTML(r){
   const col = r.dictamen === 'RECHAZADO' ? 'cerrada' : r.dictamen.startsWith('APROBADO') ? 'finalizada' : 'desembolso';
@@ -2067,7 +2076,7 @@ function resumenWhatsApp(s, r){
     `Antigüedad: ${r.antig == null ? '—' : r.antig + ' días'}`, `Límite sugerido: ${L(r.sugerido)}`,
     `*Límite aprobado: ${L(r.limAprob)}*${r.autorizado && r.limCalc !== r.limAprob ? ` (calculado ${L(r.limCalc)})` : ''}`,
     `Disponible: ${L(r.disponible)}`, `Pagos tardíos >3/≥7: ${r.tard3}/${r.tard7} de ${r.total}`,
-    `Tasa: ${pct(r.tasaNueva)} ${r.politicaB ? 'política tipo B (nivelado, ' + (s.plazo_meses || 4) + ' meses)' : r.pref ? 'preferencial' : 'normal'}`, `Dictamen: ${s.dictamen_en ? (s.estado === 'denegada' ? 'DENEGADA' : 'APROBADA') + ' por ' + nombre(s.analista_id) : r.dictamen}`].join('\n');
+    `Tasa: ${pct(r.tasaNueva)} ${r.politicaB ? 'política tipo B (nivelado, ' + r.B.plazo + ' meses)' : r.pref ? 'preferencial' : 'normal'}`, `Dictamen: ${s.dictamen_en ? (s.estado === 'denegada' ? 'DENEGADA' : 'APROBADA') + ' por ' + nombre(s.analista_id) : r.dictamen}`].join('\n');
 }
 const FREC = { Semanal: 4.33, Quincenal: 2, Mensual: 1 };
 function ingresosResumenHTML(ing){
@@ -2082,7 +2091,7 @@ function ingresosResumenHTML(ing){
 function cuotasPlazoHTML(monto, pref, tipoPago, prom, plan, B){
   if (!(monto > 0)) return '';
   const tN = B ? B.tasa : pref ? 0.105 : 0.14, tSI = pref ? 0.16 : 0.20, f = FREC[tipoPago] || 1;
-  const filas = (B ? [3,4] : [3,6,8,10,12]).map(n => ({ plazo:`${n} meses${B && B.plazo === n ? ' ✓' : ''}`, mes: monto / n + monto * tN, pagos: Math.round(n * f) }));
+  const filas = (B ? [B.plazo] : [3,6,8,10,12]).map(n => ({ plazo:`${n} meses`, mes: monto / n + monto * tN, pagos: Math.round(n * f) }));
   if (!B) filas.push({ plazo:'Solo interés', mes: monto * tSI, pagos: null });
   const lblF = { Semanal:'semanal', Quincenal:'quincenal', Mensual:'mensual' }[tipoPago] || 'mensual';
   return `<label class="f" style="margin-top:14px">Cuotas para ${L(monto)} · ${B ? `política tipo B (${+(tN*100).toFixed(2)}% mensual, solo nivelado)` : `tasa ${pref ? 'preferencial' : 'normal'} (${+(tN*100).toFixed(2)}% nivelado / ${+(tSI*100).toFixed(2)}% solo interés)`}${B ? '' : plan ? ' · plan ' + (plan === 'solo_interes' ? 'solo interés' : 'nivelado') : ''}</label>
@@ -2128,15 +2137,14 @@ function refiResHTML(s, r){
     </div>
     ${politicaBHTML(s, r)}
     ${dictamenRefiHTML(r)}
-    ${cuotasPlazoHTML(r.elegido ?? r.limAprob, r.pref, s.tipo_pago, r.prom, s.plan_pago, r.politicaB ? { tasa: r.B.tasa, plazo: s.plazo_meses || 4 } : null)}`;
+    ${cuotasPlazoHTML(r.elegido ?? r.limAprob, r.pref, s.tipo_pago, r.prom, s.plan_pago, r.politicaB ? { tasa: r.B.tasa, plazo: r.B.plazo } : null)}`;
 }
 function politicaBHTML(s, r){
   const puede = es('analista') && ['borrador','en_analisis'].includes(s.estado) && !s.dictamen_en;
-  const cond = `${+(r.B.tasa * 100).toFixed(2)}% mensual solo nivelado · límite máximo ${L(r.B.limite)} · plazo 3 o 4 meses`;
+  const cond = `${+(r.B.tasa * 100).toFixed(2)}% mensual solo nivelado · límite máximo ${L(r.B.limite)} · plazo ${r.B.plazo} meses`;
   if (r.politicaB) return `<div class="alert small" style="background:var(--r-verificacion-bg,#f3e8ff);border:1.5px solid var(--r-verificacion,#7c3aed);margin-top:10px">
-      <b>🅱️ Política tipo B aplicada</b> · ${cond}<br>Límite tipo B: <b>${L(r.limB)}</b> · plazo <b>${s.plazo_meses || 4} meses</b>
-      ${puede ? `<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap"><div class="seg" id="bPlazo">${[3,4].map(n => `<button type="button" data-n="${n}" class="${(s.plazo_meses || 4) === n ? 'on' : ''}">${n} meses</button>`).join('')}</div>
-        <button class="btn sm ghost" id="bQuitar">Quitar política tipo B</button></div>` : ''}</div>`;
+      <b>🅱️ ${r.ingresoB ? `Cliente tipo B por ingreso (${L(r.B.ingMin)} a ${L((S.params.ingreso_minimo ?? 13000) - 0.01)})` : 'Política tipo B aplicada'}</b> · ${cond}<br>Límite tipo B: <b>${L(r.limB)}</b>
+      ${puede && !r.ingresoB ? `<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button class="btn sm ghost" id="bQuitar">Quitar política tipo B</button></div>` : ''}</div>`;
   if (!r.sugB) return puede && s.tipo !== 'nuevo' ? `<div class="alert small" style="margin-top:10px;background:var(--gray-bg);border:1px dashed var(--line)"><b>🅱️ Política tipo B</b> (decisión del analista) — ${cond}. Quedaría en <b>${L(r.limB)}</b>${r.limCalc ? ` en lugar de ${L(r.limCalc)}` : ' en lugar de bloqueado'}.${r.maxDif >= (S.params.bloqueo_dias_atraso ?? 45) ? `<br><span style="color:var(--red)">Tiene un pago con ${r.maxDif} días de atraso: sigue bloqueado aunque se aplique.</span>` : ''}
       <div class="btns" style="margin-top:8px"><button class="btn sm ghost" id="bAplicar">Aplicar política tipo B</button></div></div>` : '';
   return `<div class="alert info small" style="margin-top:10px"><b>💡 Sugerencia: cliente tipo B</b> — ${r.tard3} pagos tardíos y ningún atraso mayor a ${r.B.maxD} días (máximo ${r.maxDif} días).<br>
@@ -2194,9 +2202,8 @@ function enlazarRefi(s){
     guardar({ [el.dataset.rf]: val === '' ? null : val });
   });
   const enlazarB = () => {
-    const ap = $('#bAplicar'); if (ap) ap.onclick = () => { if (!confirm('¿Aplicar la política tipo B? Tasa 20% nivelado, límite máximo L 5,000 y plazo 3 o 4 meses.')) return; S.montoTocado = false; guardar({ politica_b: true, plazo_meses: 4 }).then(() => toast('Política tipo B aplicada')); };
+    const ap = $('#bAplicar'); if (ap) ap.onclick = () => { if (!confirm('¿Aplicar la política tipo B? Tasa 20% nivelado, límite máximo L 5,000 y plazo 3 meses.')) return; S.montoTocado = false; guardar({ politica_b: true, plazo_meses: 3 }).then(() => toast('Política tipo B aplicada')); };
     const q = $('#bQuitar'); if (q) q.onclick = () => { S.montoTocado = false; guardar({ politica_b: false }).then(() => toast('Política tipo B quitada')); };
-    card.querySelectorAll('#bPlazo [data-n]').forEach(b => b.onclick = () => guardar({ plazo_meses: +b.dataset.n }));
     const sel = card.querySelector('[data-rf="plan_pago"]'); if (sel){ if (sel.dataset.orig == null) sel.dataset.orig = (sel.disabled && !cur().politica_b) ? '1' : ''; sel.disabled = !!cur().politica_b || sel.dataset.orig === '1'; if (cur().politica_b) sel.value = 'nivelado'; }
   };
   S.enlazarB = enlazarB; enlazarB();

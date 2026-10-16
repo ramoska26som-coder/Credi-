@@ -1911,18 +1911,22 @@ function calcRefi(s, c){
   const manual = s.pct_manual != null && s.pct_manual !== '';
   // Penalización por pagos tardíos (>3 días):
   //  0–1 → sin efecto · 2 → se mantiene el límite actual aunque aplique para más
-  //  3–4 → −10% por cada tardío sobre el límite SUGERIDO · 5 → −50% sobre el límite ACTUAL · más de 5 → bloqueado
+  //  3+ → −10% del límite ACTUAL por cada tardío desde el tercero (3 = −10%, 4 = −20%, 5 = −30%…)
+  //  Bloqueo: algún pago con 45+ días de atraso, o el límite reducido queda por debajo de L 5,000
   const baseMantiene = limAct > 0 ? Math.min(sugerido, limAct) : sugerido;
-  const pctAprob = manual ? +s.pct_manual : (tard3 > 5 ? 0 : tard3 >= 3 ? Math.max(0, 1 - tard3 * 0.1) : 1);
-  const basePen = manual ? sugerido : (tard3 === 2 || tard3 >= 5) ? baseMantiene : sugerido;
+  const pctAprob = manual ? +s.pct_manual : (tard3 >= 3 ? Math.max(0, 1 - (tard3 - 2) * 0.1) : 1);
+  const basePen = manual ? sugerido : tard3 >= 2 ? baseMantiene : sugerido;
   const maxDif = pagos.reduce((m, p) => Math.max(m, p.dif || 0), 0);
+  const bloqDias = P.bloqueo_dias_atraso ?? 45, limMin = P.limite_minimo_bloqueo ?? 5000;
+  const limPen = mround(basePen * pctAprob, 1000);
+  const bloq45 = maxDif >= bloqDias, bloqMin = !manual && tard3 >= 3 && limPen < limMin, bloqueado = bloq45 || bloqMin;
   // Política tipo B: varios pagos tardíos pero sin mucha mora → 20% nivelado, máx. L 5,000, 3 o 4 meses (lo decide el analista)
   const B = { tasa: P.tipob_tasa ?? 0.20, limite: P.tipob_limite ?? 5000, minT: P.tipob_min_tardios ?? 3, maxD: P.tipob_max_dias ?? 15 };
   const politicaB = !!s.politica_b;
-  const sugB = s.tipo !== 'nuevo' && tard3 >= B.minT && maxDif <= B.maxD;
+  const sugB = s.tipo !== 'nuevo' && tard3 >= B.minT && maxDif <= B.maxD && !bloq45;
   const limB = Math.min(B.limite, mround(sugerido, 1000) || B.limite);
-  const limCalc = politicaB ? limB : mround(basePen * pctAprob, 1000);
-  const penTxt = politicaB ? `política tipo B: máximo ${L(B.limite)}` : manual ? 'manual' : tard3 > 5 ? 'más de 5 tardíos: bloqueado' : tard3 >= 5 ? `−${tard3 * 10}% sobre límite actual ${L(baseMantiene)}` : tard3 >= 3 ? `−${tard3 * 10}% sobre límite sugerido ${L(sugerido)}` : tard3 === 2 ? `2 tardíos: mantiene límite actual ${L(baseMantiene)}` : tard3 === 1 ? '1 tardío: se deja pasar, sin efecto' : 'sin pagos tardíos';
+  const limCalc = politicaB ? limB : bloqueado ? 0 : limPen;
+  const penTxt = politicaB ? `política tipo B: máximo ${L(B.limite)}` : manual ? 'manual' : bloq45 ? `bloqueado: pago con ${maxDif} días de atraso (desde ${bloqDias})` : bloqMin ? `bloqueado: −${(tard3 - 2) * 10}% deja ${L(limPen)}, menor a ${L(limMin)}` : tard3 >= 3 ? `−${(tard3 - 2) * 10}% sobre límite actual ${L(baseMantiene)}` : tard3 === 2 ? `2 tardíos: mantiene límite actual ${L(baseMantiene)}` : tard3 === 1 ? '1 tardío: se deja pasar, sin efecto' : 'sin pagos tardíos';
   // Después del dictamen manda el monto autorizado (puede haberse ajustado manualmente)
   const autorizado = !!(s.dictamen_en && s.monto_aprobado);
   const limAprob = autorizado ? +s.monto_aprobado : limCalc;
@@ -1943,13 +1947,14 @@ function calcRefi(s, c){
   const cuotas = plazos.map(n => { const q = limAprob / n + limAprob * tasaNiv; return { plazo: `${n} meses`, cuota: q, pct: prom ? q / prom : null }; });
   const qsi = limAprob * tasaSI; if (!politicaB) cuotas.push({ plazo: 'Solo interés', cuota: qsi, pct: prom ? qsi / prom : null });
   const motivos = [];
-  if (tard3 > 5 && !politicaB) motivos.push('más de 5 pagos tardíos');
+  if (bloq45) motivos.push(`pago con ${maxDif} días de atraso (bloqueo desde ${bloqDias})`);
+  else if (bloqMin && !politicaB) motivos.push(`límite reducido a ${L(limPen)}, menor a ${L(limMin)}`);
   if (politicaB && autorizado && +s.monto_aprobado > B.limite) motivos.push(`monto mayor al máximo tipo B (${L(B.limite)})`);
   // Se rechaza solo si NINGÚN plazo nivelado (3 a 12 meses; en tipo B 3 o 4) queda dentro del 25% del ingreso
   const viables = cuotas.slice(0, plazos.length).filter(q => q.pct != null && q.pct <= 0.25);
   const plazoMin = prom ? (viables[0]?.plazo || null) : null;
   if (prom && !viables.length) motivos.push('ningún plazo deja la cuota dentro del 25% del ingreso');
-  if (disponible < (P.disponible_minimo ?? 2000)) motivos.push(`disponible menor a ${L(P.disponible_minimo ?? 2000)}`);
+  if (!(bloqueado && !politicaB) && disponible < (P.disponible_minimo ?? 2000)) motivos.push(`disponible menor a ${L(P.disponible_minimo ?? 2000)}`);
   let dictamen;
   if (motivos.length) dictamen = 'RECHAZADO';
   else if (politicaB) dictamen = 'APROBADO · POLÍTICA TIPO B';
@@ -1957,9 +1962,9 @@ function calcRefi(s, c){
     if (tard3 >= 2) motivos.push(`${tard3} pagos tardíos`); if (prom < P.ingreso_minimo) motivos.push('ingreso bajo el mínimo'); }
   else dictamen = 'APROBADO AUTOMÁTICO';
   const en3 = () => { const d = new Date(hoy + 'T12:00'); d.setMonth(d.getMonth() + 3); return fDate(d); };
-  const proxAum = politicaB ? 'Según comportamiento en tipo B' : tard3 > 5 ? 'Bloqueado por mora' : (pctAprob < 1 || tard3 >= 2) ? en3() : (prom && limAct / prom >= 0.68 ? 'Máximo alcanzado' : en3());
+  const proxAum = politicaB ? 'Según comportamiento en tipo B' : bloqueado ? 'Bloqueado por mora' : (pctAprob < 1 || tard3 >= 2) ? en3() : (prom && limAct / prom >= 0.68 ? 'Máximo alcanzado' : en3());
   const r2 = prom ? limAprob / prom : 0;
-  const proxLim = tard3 > 5 && !politicaB ? null : Math.min(P.techo_refi || 30000, mround(prom * (r2 < 0.4 ? 0.5 : r2 < 0.7 ? 0.8 : 1), 1000));
+  const proxLim = bloqueado && !politicaB ? null : Math.min(P.techo_refi || 30000, mround(prom * (r2 < 0.4 ? 0.5 : r2 < 0.7 ? 0.8 : 1), 1000));
   const peldano = (antig == null || antig < 90) ? '50% (menos de 90 días)' : diasAum < 90 ? 'Se mantiene (último aumento hace menos de 90 días)' : `${Math.round(factor * 100)}%`;
   return { elegido, limCalc, autorizado, prefCalc, yaPref, prefMotivo, prom, antig, diasAum: diasAum === 99999 ? null : diasAum, limAct, factor, peldano, sugerido, pagos, tard3, tard7, total, manual, pctAprob, penTxt, basePen,
     limAprob, disponible, pref, tasaNueva, cuotas, plazoMin, dictamen, politicaB, sugB, maxDif, B, limB, motivos, proxAum, proxLim, techo, sinFecha: !s.fecha_ingreso };
